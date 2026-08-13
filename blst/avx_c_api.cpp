@@ -19,6 +19,7 @@
 #include "blst/avx/curve/point.h"
 #endif
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -589,6 +590,53 @@ inline bool checked_add_size(size_t a, size_t b, size_t& out)
     return true;
 }
 
+struct ByteRange
+{
+    std::uintptr_t begin;
+    std::uintptr_t end;
+};
+
+inline bool make_byte_range(const void* ptr, size_t bytes, ByteRange& out)
+{
+    if (bytes == 0) {
+        out = {};
+        return true;
+    }
+    if (ptr == nullptr) {
+        return false;
+    }
+    const auto begin = reinterpret_cast<std::uintptr_t>(ptr);
+    if (bytes > std::numeric_limits<std::uintptr_t>::max() - begin) {
+        return false;
+    }
+    out = {begin, begin + bytes};
+    return true;
+}
+
+template<size_t N>
+inline bool byte_ranges_are_disjoint(
+    const std::array<const void*, N>& pointers,
+    const std::array<size_t, N>& sizes)
+{
+    std::array<ByteRange, N> ranges = {};
+    for (size_t i = 0; i < N; ++i) {
+        if (!make_byte_range(pointers[i], sizes[i], ranges[i])) {
+            return false;
+        }
+    }
+    for (size_t i = 0; i < N; ++i) {
+        if (sizes[i] == 0) {
+            continue;
+        }
+        for (size_t j = i + 1; j < N; ++j) {
+            if (sizes[j] != 0 && ranges[i].begin < ranges[j].end && ranges[j].begin < ranges[i].end) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 inline bool align_up_size(size_t value, size_t alignment, size_t& out)
 {
     const size_t mask = alignment - 1;
@@ -662,6 +710,12 @@ inline bool g2_subgroup_msm_scratch_layout(
     size_t& total_bytes)
 {
     bucket_bytes = blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
+    if (npoints > blst::avx::avx_msm_detail::kG2GlsDispatchMaxNpoints) {
+        split_points_offset = 0;
+        split_scalars_offset = 0;
+        total_bytes = bucket_bytes;
+        return bucket_bytes != 0;
+    }
     const size_t split_point_bytes =
         blst::avx::avx_g2_mult_pippenger_gls_points_scratch_sizeof(npoints);
     const size_t split_scalar_bytes =
@@ -963,10 +1017,18 @@ bool blst_avx_p1_mult_pippenger(
     const size_t required_bucket_used = nbits == 256
         ? blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints)
         : blst::avx::avx_g1_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_bytes = 0;
+    const size_t scalar_stride = (nbits + 7) / 8;
     if (required_scratch == 0 || required_bucket_used == 0 ||
         points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
-        !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket))) {
+        !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket)) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG1Affine), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, scalar_stride, scalar_bytes) ||
+        !byte_ranges_are_disjoint<5>(
+            {out, points, scalars, scratch, bucket_used},
+            {sizeof(AvxG1), point_bytes, scalar_bytes, required_scratch, required_bucket_used})) {
         return false;
     }
 #ifndef NDEBUG
@@ -1062,6 +1124,8 @@ bool blst_avx_p1_mult_pippenger_glv_with_scratch(
         blst::avx::avx_g1_mult_pippenger_glv_points_scratch_sizeof(npoints);
     const size_t required_split_scalars =
         blst::avx::avx_g1_mult_pippenger_glv_scalars_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_bytes = 0;
     if (required_scratch == 0 || required_bucket_used == 0 ||
         required_split_points == 0 || required_split_scalars == 0 ||
         points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
@@ -1069,7 +1133,13 @@ bool blst_avx_p1_mult_pippenger_glv_with_scratch(
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
         split_points_bytes < required_split_points || split_scalars_bytes < required_split_scalars ||
         !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket)) ||
-        !is_aligned(split_points, alignof(blst::avx::G1AffinePoint))) {
+        !is_aligned(split_points, alignof(blst::avx::G1AffinePoint)) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG1Affine), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, 32, scalar_bytes) ||
+        !byte_ranges_are_disjoint<7>(
+            {out, points, scalars, scratch, bucket_used, split_points, split_scalars},
+            {sizeof(AvxG1), point_bytes, scalar_bytes, required_scratch,
+                required_bucket_used, required_split_points, required_split_scalars})) {
         return false;
     }
     blst::avx::avx_g1_mult_pippenger_glv_prepare(
@@ -1170,6 +1240,8 @@ bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
         blst::avx::avx_g1_mult_pippenger_glv_points_scratch_sizeof(npoints);
     const size_t required_split_scalars =
         blst::avx::avx_g1_mult_pippenger_glv_scalars_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_bytes = 0;
     if (required_scratch == 0 || required_bucket_used == 0 ||
         required_split_points == 0 || required_split_scalars == 0 ||
         points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
@@ -1177,7 +1249,13 @@ bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
         split_points_bytes < required_split_points || split_scalars_bytes < required_split_scalars ||
         !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket)) ||
-        !is_aligned(split_points, alignof(blst::avx::G1AffinePoint))) {
+        !is_aligned(split_points, alignof(blst::avx::G1AffinePoint)) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG1Affine), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, 32, scalar_bytes) ||
+        !byte_ranges_are_disjoint<7>(
+            {out, points, scalars, scratch, bucket_used, split_points, split_scalars},
+            {sizeof(AvxG1), point_bytes, scalar_bytes, required_scratch,
+                required_bucket_used, required_split_points, required_split_scalars})) {
         return false;
     }
     blst::avx::avx_g1_mult_pippenger_glv_prepare(
@@ -1368,6 +1446,20 @@ bool blst_avx_p1s_mult_pippenger(
     if (npoints == 0 || nbits == 0) {
         *as_avx(out) = AvxG1::identity();
         return true;
+    }
+    if (npoints > 1) {
+        size_t point_bytes = 0;
+        size_t scalar_bytes = 0;
+        const size_t scratch_bytes = blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints);
+        const size_t scalar_stride = (nbits + 7) / 8;
+        if (scratch == nullptr || scratch_bytes == 0 ||
+            !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG1), point_bytes) ||
+            !blst::avx::avx_msm_detail::checked_mul_size(npoints, scalar_stride, scalar_bytes) ||
+            !byte_ranges_are_disjoint<4>(
+                {out, points, scalars, scratch},
+                {sizeof(AvxG1), point_bytes, scalar_bytes, scratch_bytes})) {
+            return false;
+        }
     }
 #ifndef NDEBUG
     for (size_t i = 0; i < npoints; ++i) {
@@ -1606,10 +1698,18 @@ bool blst_avx_p2_mult_pippenger(
     const size_t required_bucket_used = use_gls
         ? blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints)
         : blst::avx::avx_g2_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_bytes = 0;
+    const size_t scalar_stride = (nbits + 7) / 8;
     if (required_scratch == 0 || required_bucket_used == 0 ||
         points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
-        !is_aligned(scratch, alignof(blst::avx::AvxG2PippengerBucket))) {
+        !is_aligned(scratch, alignof(blst::avx::AvxG2PippengerBucket)) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG2Affine), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, scalar_stride, scalar_bytes) ||
+        !byte_ranges_are_disjoint<5>(
+            {out, points, scalars, scratch, bucket_used},
+            {sizeof(AvxG2), point_bytes, scalar_bytes, required_scratch, required_bucket_used})) {
         return false;
     }
 #ifndef NDEBUG
@@ -1832,6 +1932,20 @@ bool blst_avx_p2s_mult_pippenger(
         *as_avx(out) = AvxG2::identity();
         return true;
     }
+    if (npoints > 1) {
+        size_t point_bytes = 0;
+        size_t scalar_bytes = 0;
+        const size_t scratch_bytes = blst_avx_p2s_mult_pippenger_scratch_sizeof(npoints);
+        const size_t scalar_stride = (nbits + 7) / 8;
+        if (scratch == nullptr || scratch_bytes == 0 ||
+            !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxG2), point_bytes) ||
+            !blst::avx::avx_msm_detail::checked_mul_size(npoints, scalar_stride, scalar_bytes) ||
+            !byte_ranges_are_disjoint<4>(
+                {out, points, scalars, scratch},
+                {sizeof(AvxG2), point_bytes, scalar_bytes, scratch_bytes})) {
+            return false;
+        }
+    }
 #ifndef NDEBUG
     for (size_t i = 0; i < npoints; ++i) {
         BLST_ASSERT(AvxG2::on_curve(as_avx(points)[i]));
@@ -1973,11 +2087,18 @@ bool blst_avx_gt_mult_pippenger(
     size_t required_scratch = 0;
     const size_t required_bucket_used =
         blst::avx::avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_bytes = 0;
     if (!gt_msm_scratch_layout(npoints, bucket_bytes, split_points_offset, split_scalars_offset, required_scratch) ||
         required_bucket_used == 0 ||
         points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
-        !is_aligned(scratch, alignof(AvxGt))) {
+        !is_aligned(scratch, alignof(AvxGt)) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, sizeof(AvxGt), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(npoints, 32, scalar_bytes) ||
+        !byte_ranges_are_disjoint<5>(
+            {out, points, scalars, scratch, bucket_used},
+            {sizeof(AvxGt), point_bytes, scalar_bytes, required_scratch, required_bucket_used})) {
         return false;
     }
 #ifndef NDEBUG

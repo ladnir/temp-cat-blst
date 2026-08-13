@@ -9,6 +9,7 @@
 #pragma once
 #include "ec.h"
 #include "../common/constexpr_utils.h"
+#include "../fields/fp2.h"
 #include "blst/backend/backend.h"
 #include "blst/common/bytes.h"
 #include "blst/common/vect.h"
@@ -304,7 +305,7 @@ inline div_by_z_result div_by_z(const std::array<uint8_t, 16>& a) {
     return out;
 }
 
-template<class Ring, class Curve = G1<Ring>>
+template<class Ring, class Curve>
 class GLVMult {
     public:
     using G1Curve = Curve;
@@ -419,7 +420,7 @@ class GLVMult {
 
 };
 
-template<class Ring, class Curve = G2<Ring>>
+template<class Ring, class Curve>
 class GLSMult {
     public:
     using G2Curve = Curve;

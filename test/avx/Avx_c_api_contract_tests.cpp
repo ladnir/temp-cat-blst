@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <vector>
@@ -250,6 +251,12 @@ TEST(AvxCApiContract, G1SubgroupMsmHasOneContractAcrossPointCounts)
     ASSERT_TRUE(blst_p1_from_avx(&result, &avx_result));
     EXPECT_TRUE(G1::equal(result, expected));
 
+    blst_avx_p1 aliased_one = *blst_avx_p1_generator();
+    ASSERT_TRUE(blst_avx_p1s_mult_pippenger(
+        &aliased_one, &aliased_one, 1, scalar.data(), 256, nullptr));
+    ASSERT_TRUE(blst_p1_from_avx(&result, &aliased_one));
+    EXPECT_TRUE(G1::equal(result, expected));
+
     ASSERT_TRUE(blst_avx_p1s_mult_pippenger(
         &avx_result, blst_avx_p1_generator(), 1,
         scalar.data(), 256, nullptr));
@@ -305,6 +312,11 @@ TEST(AvxCApiContract, G2SubgroupMsmHasOneContractAcrossPointCounts)
     G2 result = {};
     ASSERT_TRUE(blst_p2_from_avx(&result, &avx_result));
     EXPECT_TRUE(G2::equal(result, expected));
+    blst_avx_p2 aliased_one = *blst_avx_p2_generator();
+    ASSERT_TRUE(blst_avx_p2s_mult_pippenger(
+        &aliased_one, &aliased_one, 1, scalar.data(), 256, nullptr));
+    ASSERT_TRUE(blst_p2_from_avx(&result, &aliased_one));
+    EXPECT_TRUE(G2::equal(result, expected));
     ASSERT_TRUE(blst_avx_p2s_mult_pippenger(
         &avx_result, blst_avx_p2_generator(), 1,
         scalar.data(), 256, nullptr));
@@ -340,6 +352,137 @@ TEST(AvxCApiContract, RejectsOversizedScalarsBeforeArithmetic)
         &p1, &p1, 1, scalar.data(), 257, nullptr));
     EXPECT_FALSE(blst_avx_p2s_mult_pippenger(
         &p2, &p2, 1, scalar.data(), 257, nullptr));
+}
+
+TEST(AvxCApiContract, RejectsOverlappingMsmLiveRanges)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    constexpr size_t kCount = 2;
+    std::array<blst_byte, 32 * kCount> scalars = {};
+    scalars[0] = 1;
+    scalars[32] = 2;
+
+    std::array<blst_avx_p1_affine, kCount> g1_points = {};
+    std::array<blst_avx_p2_affine, kCount> g2_points = {};
+    for (size_t i = 0; i < kCount; ++i) {
+        ASSERT_TRUE(blst_avx_p1_to_affine(
+            &g1_points[i], blst_avx_p1_generator()));
+        ASSERT_TRUE(blst_avx_p2_to_affine(
+            &g2_points[i], blst_avx_p2_generator()));
+    }
+
+    const size_t g1_scratch_bytes =
+        blst_avx_p1_mult_pippenger_scratch_sizeof(kCount);
+    const size_t g1_flags_bytes =
+        blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    std::vector<blst_avx_p1> g1_scratch(
+        (g1_scratch_bytes + g1_flags_bytes + sizeof(blst_avx_p1) - 1) /
+        sizeof(blst_avx_p1));
+    std::vector<blst_byte> g1_flags(g1_flags_bytes);
+    blst_avx_p1 g1_out = *blst_avx_p1_generator();
+    const blst_avx_p1 g1_before = g1_out;
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger(
+        &g1_out, g1_points.data(), scalars.data(), kCount, 256,
+        g1_scratch.data(), g1_scratch_bytes,
+        scalars.data(), g1_flags_bytes));
+    EXPECT_EQ(std::memcmp(&g1_out, &g1_before, sizeof(g1_out)), 0);
+
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger(
+        &g1_out, g1_points.data(), scalars.data(), kCount, 256,
+        g1_scratch.data(), g1_scratch_bytes,
+        reinterpret_cast<blst_byte*>(g1_scratch.data()) + 1,
+        g1_flags_bytes));
+    EXPECT_EQ(std::memcmp(&g1_out, &g1_before, sizeof(g1_out)), 0);
+
+    const size_t g2_scratch_bytes =
+        blst_avx_p2_mult_pippenger_scratch_sizeof(kCount);
+    const size_t g2_flags_bytes =
+        blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    std::vector<blst_avx_p2> g2_scratch(
+        (g2_scratch_bytes + sizeof(blst_avx_p2) - 1) / sizeof(blst_avx_p2));
+    std::vector<blst_byte> g2_flags(g2_flags_bytes);
+    blst_avx_p2 g2_out = *blst_avx_p2_generator();
+    const blst_avx_p2 g2_before = g2_out;
+    EXPECT_FALSE(blst_avx_p2_mult_pippenger(
+        &g2_out, g2_points.data(), scalars.data(), kCount, 256,
+        g2_scratch.data(), g2_scratch_bytes,
+        scalars.data(), g2_flags_bytes));
+    EXPECT_EQ(std::memcmp(&g2_out, &g2_before, sizeof(g2_out)), 0);
+
+    std::array<blst_avx_gt, kCount> gt_points = {};
+    for (auto& point : gt_points) {
+        ASSERT_TRUE(blst_avx_fp12_from_scalar(&point, blst_gt_generator()));
+    }
+    const size_t gt_scratch_bytes =
+        blst_avx_gt_mult_pippenger_scratch_sizeof(kCount);
+    const size_t gt_flags_bytes =
+        blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    std::vector<blst_avx_gt> gt_scratch(
+        (gt_scratch_bytes + sizeof(blst_avx_gt) - 1) / sizeof(blst_avx_gt));
+    std::vector<blst_byte> gt_flags(gt_flags_bytes);
+    blst_avx_gt gt_out = {};
+    ASSERT_TRUE(blst_avx_fp12_from_scalar(&gt_out, blst_gt_generator()));
+    const blst_avx_gt gt_before = gt_out;
+    EXPECT_FALSE(blst_avx_gt_mult_pippenger(
+        &gt_out, gt_points.data(), scalars.data(), kCount,
+        gt_scratch.data(), gt_scratch_bytes,
+        scalars.data(), gt_flags_bytes));
+    EXPECT_EQ(std::memcmp(&gt_out, &gt_before, sizeof(gt_out)), 0);
+
+    const size_t split_point_bytes =
+        blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(kCount);
+    const size_t split_scalar_bytes =
+        blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(kCount);
+    std::vector<blst_avx_p1_affine> split_points(
+        split_point_bytes / sizeof(blst_avx_p1_affine));
+    std::vector<blst_byte> split_scalars(split_scalar_bytes);
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger_glv_with_scratch(
+        &g1_out, g1_points.data(), scalars.data(), kCount,
+        g1_scratch.data(), g1_scratch_bytes,
+        g1_flags.data(), g1_flags.size(),
+        split_points.data(), split_point_bytes,
+        scalars.data(), split_scalar_bytes));
+    EXPECT_EQ(std::memcmp(&g1_out, &g1_before, sizeof(g1_out)), 0);
+
+    const size_t window_scratch_bytes =
+        blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(kCount, 4);
+    const size_t window_flags_bytes =
+        blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(kCount, 4);
+    std::vector<blst_avx_p1> window_scratch(
+        (window_scratch_bytes + sizeof(blst_avx_p1) - 1) /
+        sizeof(blst_avx_p1));
+    std::vector<blst_byte> window_flags(window_flags_bytes);
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger_glv_window_with_scratch(
+        &g1_out, g1_points.data(), scalars.data(), kCount, 4,
+        window_scratch.data(), window_scratch_bytes,
+        window_flags.data(), window_flags.size(),
+        split_points.data(), split_point_bytes,
+        scalars.data(), split_scalar_bytes));
+    EXPECT_EQ(std::memcmp(&g1_out, &g1_before, sizeof(g1_out)), 0);
+
+    const size_t projective_scratch_bytes =
+        blst_avx_p1s_mult_pippenger_scratch_sizeof(kCount);
+    std::vector<blst_avx_p1> projective_points(
+        std::max(kCount,
+            (projective_scratch_bytes + sizeof(blst_avx_p1) - 1) /
+                sizeof(blst_avx_p1)),
+        *blst_avx_p1_generator());
+    EXPECT_FALSE(blst_avx_p1s_mult_pippenger(
+        &g1_out, projective_points.data(), kCount, scalars.data(), 256,
+        reinterpret_cast<blst_limb_t*>(projective_points.data())));
+    EXPECT_EQ(std::memcmp(&g1_out, &g1_before, sizeof(g1_out)), 0);
+
+    const size_t g2_projective_scratch_bytes =
+        blst_avx_p2s_mult_pippenger_scratch_sizeof(kCount);
+    std::vector<blst_avx_p2> g2_projective_points(
+        std::max(kCount,
+            (g2_projective_scratch_bytes + sizeof(blst_avx_p2) - 1) /
+                sizeof(blst_avx_p2)),
+        *blst_avx_p2_generator());
+    EXPECT_FALSE(blst_avx_p2s_mult_pippenger(
+        &g2_out, g2_projective_points.data(), kCount, scalars.data(), 256,
+        reinterpret_cast<blst_limb_t*>(g2_projective_points.data())));
+    EXPECT_EQ(std::memcmp(&g2_out, &g2_before, sizeof(g2_out)), 0);
 }
 
 TEST(AvxCApiContract, MembershipAndBatchChecksRejectOffCurveInputs)

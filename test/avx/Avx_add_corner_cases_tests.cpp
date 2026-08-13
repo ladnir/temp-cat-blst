@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "blst/avx/curve/point.h"
+#include "blst/scalar/curve/map_to_G.h"
 
 #include <array>
 #include <cstring>
@@ -193,6 +194,38 @@ void expect_g2_ja_matches_scalar(
     expect_same(expected, actual);
 }
 
+void expect_g1_a4_matches_scalar(
+    const blst::avx::G1Point& a,
+    const blst::avx::G1Point& b)
+{
+    blst::avx::G1Point actual = {};
+    blst::avx::G1Point::dadd(
+        actual, a, b, &blst::avx::get_BLST_Aprime_E1());
+
+    const blst::scalar::G1Point scalar_a = scalar_from_avx(a);
+    const blst::scalar::G1Point scalar_b = scalar_from_avx(b);
+    blst::scalar::G1Point expected = {};
+    blst::scalar::G1Point::dadd(
+        expected, scalar_a, scalar_b, &blst::scalar::get_BLST_Aprime_E1());
+    expect_same(expected, actual);
+}
+
+void expect_g2_a4_matches_scalar(
+    const blst::avx::G2Point& a,
+    const blst::avx::G2Point& b)
+{
+    blst::avx::G2Point actual = {};
+    blst::avx::G2Point::dadd(
+        actual, a, b, &blst::avx::get_BLST_Aprime_E2());
+
+    const blst::scalar::G2Point scalar_a = scalar_from_avx(a);
+    const blst::scalar::G2Point scalar_b = scalar_from_avx(b);
+    blst::scalar::G2Point expected = {};
+    blst::scalar::G2Point::dadd(
+        expected, scalar_a, scalar_b, &blst::scalar::get_BLST_Aprime_E2());
+    expect_same(expected, actual);
+}
+
 }  // namespace
 
 TEST(AvxAddCornerCases, G1JjAddAndDaddMatchScalar)
@@ -343,17 +376,88 @@ TEST(AvxAddCornerCases, CnegMatchesScalarSemantics)
     EXPECT_TRUE(blst::avx::G2AffinePoint::is_inf(g2_zero));
 }
 
-TEST(AvxAddCornerCases, DaddWithA4HandlesIdentity)
+TEST(AvxAddCornerCases, G1DaddWithA4MatchesScalar)
 {
-    const blst::avx::G1Point g1 = avx_from_scalar(scalar_g1(61));
-    const blst::avx::G1Point g1_inf = blst::avx::G1Point::infinity();
-    blst::avx::G1Point g1_actual = {};
-    blst::avx::G1Point::dadd(g1_actual, g1, g1_inf, &blst::avx::get_BLST_Aprime_E1());
-    expect_same(scalar_from_avx(g1), g1_actual);
+    blst::scalar::G1Point scalar_a = {};
+    blst::scalar::G1Point scalar_b = {};
+    blst::scalar::map_to_isogenous<blst::scalar::G1Point>(
+        scalar_a, blst::scalar::G1AffinePoint::generator().x);
+    blst::scalar::map_to_isogenous<blst::scalar::G1Point>(
+        scalar_b, blst::scalar::G1AffinePoint::generator().y);
 
-    const blst::avx::G2Point g2 = avx_from_scalar(scalar_g2(62));
-    const blst::avx::G2Point g2_inf = blst::avx::G2Point::infinity();
-    blst::avx::G2Point g2_actual = {};
-    blst::avx::G2Point::dadd(g2_actual, g2_inf, g2, &blst::avx::get_BLST_Aprime_E2());
-    expect_same(scalar_from_avx(g2), g2_actual);
+    const blst::avx::G1Point a = avx_from_scalar(scalar_a);
+    const blst::avx::G1Point b = avx_from_scalar(scalar_b);
+    const blst::avx::G1Point infinity = blst::avx::G1Point::infinity();
+    blst::avx::G1Point opposite = {};
+    blst::avx::G1Point::neg(opposite, a);
+    const auto& scale = blst::avx::get_BLST_Aprime_E1();
+    const auto& ring = blst::avx::avx_curve_detail::curve_ring();
+    const blst::avx::G1Point scaled{
+        ring.modmul(a.X, scale),
+        ring.modmul(a.Y, scale),
+        ring.modmul(a.Z, scale),
+    };
+
+    expect_g1_a4_matches_scalar(a, a);
+    expect_g1_a4_matches_scalar(a, b);
+    expect_g1_a4_matches_scalar(a, opposite);
+    expect_g1_a4_matches_scalar(scaled, b);
+    expect_g1_a4_matches_scalar(infinity, a);
+    expect_g1_a4_matches_scalar(a, infinity);
+
+    blst::avx::G1Point alias_left = a;
+    blst::avx::G1Point::dadd(
+        alias_left, alias_left, b, &blst::avx::get_BLST_Aprime_E1());
+    blst::scalar::G1Point expected = {};
+    blst::scalar::G1Point::dadd(
+        expected, scalar_a, scalar_b, &blst::scalar::get_BLST_Aprime_E1());
+    expect_same(expected, alias_left);
+
+    blst::avx::G1Point alias_right = b;
+    blst::avx::G1Point::dadd(
+        alias_right, a, alias_right, &blst::avx::get_BLST_Aprime_E1());
+    expect_same(expected, alias_right);
+}
+
+TEST(AvxAddCornerCases, G2DaddWithA4MatchesScalar)
+{
+    blst::scalar::G2Point scalar_a = {};
+    blst::scalar::G2Point scalar_b = {};
+    blst::scalar::map_to_isogenous<blst::scalar::G2Point>(
+        scalar_a, blst::scalar::G2AffinePoint::generator().x);
+    blst::scalar::map_to_isogenous<blst::scalar::G2Point>(
+        scalar_b, blst::scalar::G2AffinePoint::generator().y);
+
+    const blst::avx::G2Point a = avx_from_scalar(scalar_a);
+    const blst::avx::G2Point b = avx_from_scalar(scalar_b);
+    const blst::avx::G2Point infinity = blst::avx::G2Point::infinity();
+    blst::avx::G2Point opposite = {};
+    blst::avx::G2Point::neg(opposite, a);
+    const auto& scale = blst::avx::get_BLST_Aprime_E2();
+    const auto& ring = blst::avx::avx_curve_detail::curve_fp2_ring();
+    const blst::avx::G2Point scaled{
+        ring.mul(a.X, scale),
+        ring.mul(a.Y, scale),
+        ring.mul(a.Z, scale),
+    };
+
+    expect_g2_a4_matches_scalar(a, a);
+    expect_g2_a4_matches_scalar(a, b);
+    expect_g2_a4_matches_scalar(a, opposite);
+    expect_g2_a4_matches_scalar(scaled, b);
+    expect_g2_a4_matches_scalar(infinity, a);
+    expect_g2_a4_matches_scalar(a, infinity);
+
+    blst::avx::G2Point alias_left = a;
+    blst::avx::G2Point::dadd(
+        alias_left, alias_left, b, &blst::avx::get_BLST_Aprime_E2());
+    blst::scalar::G2Point expected = {};
+    blst::scalar::G2Point::dadd(
+        expected, scalar_a, scalar_b, &blst::scalar::get_BLST_Aprime_E2());
+    expect_same(expected, alias_left);
+
+    blst::avx::G2Point alias_right = b;
+    blst::avx::G2Point::dadd(
+        alias_right, a, alias_right, &blst::avx::get_BLST_Aprime_E2());
+    expect_same(expected, alias_right);
 }

@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <vector>
 
 namespace blst::avx {
 
@@ -321,12 +320,12 @@ inline G2AffinePoint maybe_negate(const G2AffinePoint& point, bool negate)
 // coordinate to the scalar backend in this public-scalar preparation path.
 inline bool g1_affine_is_identity_sentinel(const G1AffinePoint& point)
 {
-    return PointIsZero(avx_curve_detail::CurveG1Affine{point.X, point.Y});
+    return AffinePointIsExactIdentity(avx_curve_detail::CurveG1Affine{point.X, point.Y});
 }
 
 inline bool g2_affine_is_identity_sentinel(const G2AffinePoint& point)
 {
-    return PointIsZero(avx_curve_detail::CurveG2Affine{point.X, point.Y});
+    return AffinePointIsExactIdentity(avx_curve_detail::CurveG2Affine{point.X, point.Y});
 }
 
 using G1PippengerBucket = G1Point;
@@ -337,11 +336,6 @@ template<class BucketPoint>
 inline BucketPoint bucket_zero()
 {
     return BucketPoint::zero();
-}
-
-inline G2Point bucket_zero_g2()
-{
-    return G2Point::infinity();
 }
 
 template<>
@@ -678,33 +672,7 @@ void mult_pippenger(
     }
 }
 
-template<class ProjectivePoint, class AffinePoint, class BucketPoint>
-void mult_pippenger_alloc(
-    ProjectivePoint& ret,
-    const AffinePoint* points,
-    const byte* scalars,
-    size_t npoints,
-    size_t nbits,
-    size_t window_size)
-{
-    window_size = window_size != 0 ? window_size : pippenger_window_size(npoints);
-    const size_t bucket_count = bucket_count_or_zero(window_size);
-    if (bucket_count == 0) {
-        ret = msm_identity<ProjectivePoint>();
-        BLST_ASSERT(false && "invalid AVX MSM bucket count");
-        return;
-    }
-    std::vector<BucketPoint> buckets(bucket_count);
-    std::vector<uint8_t> bucket_used(bucket_count);
-    mult_pippenger(ret, points, scalars, npoints, nbits, buckets.data(), bucket_used.data(), window_size);
-}
-
 }  // namespace avx_msm_detail
-
-inline size_t avx_pippenger_window_size(size_t npoints)
-{
-    return avx_msm_detail::pippenger_window_size(npoints);
-}
 
 inline size_t avx_g1_pippenger_window_size(size_t npoints)
 {
@@ -908,18 +876,10 @@ using AvxG1PippengerBucket = avx_msm_detail::G1PippengerBucket;
 using AvxG2PippengerBucket = avx_msm_detail::G2PippengerBucket;
 using AvxGtPippengerBucket = avx_msm_detail::GtPippengerBucket;
 
-inline void avx_g1_mult_pippenger_glv(
-    G1Point& ret,
-    const G1AffinePoint* points,
-    const byte* scalars,
-    size_t npoints,
-    AvxG1PippengerBucket* buckets,
-    size_t window_size,
-    uint8_t* bucket_used);
-
 /**
- * Variable-time G1 subgroup MSM. Every point must be on-curve and in G1;
- * scalars are interpreted modulo r. The selected kernel may use GLV.
+ * Variable-time plain G1 subgroup MSM over caller-owned bucket and tag
+ * scratch. Every point must be on-curve and in G1. The C boundary selects
+ * the allocation-free GLV preparation path for full-width scalars.
  */
 inline void avx_g1_mult_pippenger(
     G1Point& ret,
@@ -927,35 +887,19 @@ inline void avx_g1_mult_pippenger(
     const byte* scalars,
     size_t npoints,
     size_t nbits,
-    AvxG1PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
+    AvxG1PippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used)
 {
-    if (nbits == 256 && window_size == 0) {
-        avx_g1_mult_pippenger_glv(ret, points, scalars, npoints, buckets, 0, bucket_used);
-        return;
-    }
-
     window_size = window_size != 0 ? window_size : avx_g1_pippenger_window_size(npoints);
     const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
-    if (bucket_count == 0) {
+    if (bucket_count == 0 || buckets == nullptr || bucket_used == nullptr) {
         ret = G1Point::infinity();
-        BLST_ASSERT(false && "invalid AVX G1 MSM window size");
+        BLST_ASSERT(false && "AVX G1 MSM requires valid caller-owned scratch");
         return;
     }
-    if (buckets != nullptr) {
-        if (bucket_used != nullptr) {
-            avx_msm_detail::mult_pippenger(
-                ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
-        } else {
-            std::vector<uint8_t> local_bucket_used(bucket_count);
-            avx_msm_detail::mult_pippenger(
-                ret, points, scalars, npoints, nbits, buckets, local_bucket_used.data(), window_size);
-        }
-    } else {
-        avx_msm_detail::mult_pippenger_alloc<G1Point, G1AffinePoint, AvxG1PippengerBucket>(
-            ret, points, scalars, npoints, nbits, window_size);
-    }
+    avx_msm_detail::mult_pippenger(
+        ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
 }
 
 inline void avx_g1_mult_pippenger_glv_prepare(
@@ -1035,9 +979,9 @@ inline void avx_g1_mult_pippenger_glv_prepared(
     const G1AffinePoint* split_points,
     const byte* split_scalars,
     size_t npoints,
-    AvxG1PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
+    AvxG1PippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used)
 {
     window_size = window_size != 0 ? window_size : avx_g1_glv_pippenger_window_size(npoints);
     size_t split_npoints = 0;
@@ -1047,51 +991,13 @@ inline void avx_g1_mult_pippenger_glv_prepared(
         BLST_ASSERT(false && "invalid AVX G1 GLV MSM shape");
         return;
     }
-    if (buckets != nullptr) {
-        if (bucket_used != nullptr) {
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 128, buckets, bucket_used, window_size);
-        } else {
-            std::vector<uint8_t> local_bucket_used(bucket_count);
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 128, buckets, local_bucket_used.data(), window_size);
-        }
-    } else {
-        avx_msm_detail::mult_pippenger_alloc<G1Point, G1AffinePoint, AvxG1PippengerBucket>(
-            ret, split_points, split_scalars, split_npoints, 128, window_size);
-    }
-}
-
-inline void avx_g1_mult_pippenger_glv(
-    G1Point& ret,
-    const G1AffinePoint* points,
-    const byte* scalars,
-    size_t npoints,
-    AvxG1PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
-{
-    ret = G1Point::infinity();
-    if (npoints == 0 || points == nullptr || scalars == nullptr) {
+    if (buckets == nullptr || bucket_used == nullptr) {
+        ret = G1Point::infinity();
+        BLST_ASSERT(false && "AVX G1 GLV MSM requires caller-owned scratch");
         return;
     }
-
-    size_t split_npoints = 0;
-    size_t split_point_bytes = 0;
-    size_t split_scalar_bytes = 0;
-    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) ||
-        !avx_msm_detail::checked_mul_size(split_npoints, sizeof(G1AffinePoint), split_point_bytes) ||
-        !avx_msm_detail::checked_mul_size(split_npoints, 16, split_scalar_bytes)) {
-        BLST_ASSERT(false && "invalid AVX G1 GLV split count");
-        return;
-    }
-
-    std::vector<G1AffinePoint> split_points(split_npoints);
-    std::vector<byte> split_scalars(split_scalar_bytes);
-    avx_g1_mult_pippenger_glv_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
-
-    avx_g1_mult_pippenger_glv_prepared(
-        ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
+    avx_msm_detail::mult_pippenger(
+        ret, split_points, split_scalars, split_npoints, 128, buckets, bucket_used, window_size);
 }
 
 inline G2AffinePoint avx_g2_minus_psi_affine(const G2AffinePoint& point)
@@ -1246,9 +1152,9 @@ inline void avx_g2_mult_pippenger_gls_prepared(
     const G2AffinePoint* split_points,
     const byte* split_scalars,
     size_t npoints,
-    AvxG2PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
+    AvxG2PippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used)
 {
     window_size = window_size != 0 ? window_size : avx_g2_gls_pippenger_window_size(npoints);
     size_t split_npoints = 0;
@@ -1258,55 +1164,19 @@ inline void avx_g2_mult_pippenger_gls_prepared(
         BLST_ASSERT(false && "invalid AVX G2 GLS MSM shape");
         return;
     }
-    if (buckets != nullptr) {
-        if (bucket_used != nullptr) {
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
-        } else {
-            std::vector<uint8_t> local_bucket_used(bucket_count);
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 64, buckets, local_bucket_used.data(), window_size);
-        }
-    } else {
-        avx_msm_detail::mult_pippenger_alloc<G2Point, G2AffinePoint, AvxG2PippengerBucket>(
-            ret, split_points, split_scalars, split_npoints, 64, window_size);
-    }
-}
-
-inline void avx_g2_mult_pippenger_gls(
-    G2Point& ret,
-    const G2AffinePoint* points,
-    const byte* scalars,
-    size_t npoints,
-    AvxG2PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
-{
-    ret = G2Point::infinity();
-    if (npoints == 0 || points == nullptr || scalars == nullptr) {
+    if (buckets == nullptr || bucket_used == nullptr) {
+        ret = G2Point::infinity();
+        BLST_ASSERT(false && "AVX G2 GLS MSM requires caller-owned scratch");
         return;
     }
-
-    size_t split_npoints = 0;
-    size_t split_point_bytes = 0;
-    size_t split_scalar_bytes = 0;
-    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
-        !avx_msm_detail::checked_mul_size(split_npoints, sizeof(G2AffinePoint), split_point_bytes) ||
-        !avx_msm_detail::checked_mul_size(split_npoints, 8, split_scalar_bytes)) {
-        BLST_ASSERT(false && "invalid AVX G2 GLS split count");
-        return;
-    }
-
-    std::vector<G2AffinePoint> split_points(split_npoints);
-    std::vector<byte> split_scalars(split_scalar_bytes);
-    avx_g2_mult_pippenger_gls_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
-    avx_g2_mult_pippenger_gls_prepared(
-        ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
+    avx_msm_detail::mult_pippenger(
+        ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
 }
 
 /**
- * Variable-time G2 subgroup MSM. Every point must be on-curve and in G2;
- * scalars are interpreted modulo r. The selected kernel may use GLS.
+ * Variable-time plain G2 subgroup MSM over caller-owned bucket and tag
+ * scratch. Every point must be on-curve and in G2. The C boundary selects
+ * the allocation-free GLS preparation path for eligible full-width batches.
  */
 inline void avx_g2_mult_pippenger(
     G2Point& ret,
@@ -1314,35 +1184,19 @@ inline void avx_g2_mult_pippenger(
     const byte* scalars,
     size_t npoints,
     size_t nbits,
-    AvxG2PippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
+    AvxG2PippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used)
 {
-    if (nbits == 256 && window_size == 0 && npoints <= avx_msm_detail::kG2GlsDispatchMaxNpoints) {
-        avx_g2_mult_pippenger_gls(ret, points, scalars, npoints, buckets, 0, bucket_used);
-        return;
-    }
-
     window_size = window_size != 0 ? window_size : avx_g2_pippenger_window_size(npoints);
     const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
-    if (bucket_count == 0) {
+    if (bucket_count == 0 || buckets == nullptr || bucket_used == nullptr) {
         ret = G2Point::infinity();
-        BLST_ASSERT(false && "invalid AVX G2 MSM window size");
+        BLST_ASSERT(false && "AVX G2 MSM requires valid caller-owned scratch");
         return;
     }
-    if (buckets != nullptr) {
-        if (bucket_used != nullptr) {
-            avx_msm_detail::mult_pippenger(
-                ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
-        } else {
-            std::vector<uint8_t> local_bucket_used(bucket_count);
-            avx_msm_detail::mult_pippenger(
-                ret, points, scalars, npoints, nbits, buckets, local_bucket_used.data(), window_size);
-        }
-    } else {
-        avx_msm_detail::mult_pippenger_alloc<G2Point, G2AffinePoint, AvxG2PippengerBucket>(
-            ret, points, scalars, npoints, nbits, window_size);
-    }
+    avx_msm_detail::mult_pippenger(
+        ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
 }
 
 inline void avx_gt_mult_pippenger_glv4_prepare(
@@ -1397,9 +1251,9 @@ inline void avx_gt_mult_pippenger_glv4_prepared(
     const GT* split_points,
     const byte* split_scalars,
     size_t npoints,
-    AvxGtPippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
+    AvxGtPippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used)
 {
     window_size = window_size != 0 ? window_size : avx_gt_glv4_pippenger_window_size(npoints);
     size_t split_npoints = 0;
@@ -1409,19 +1263,13 @@ inline void avx_gt_mult_pippenger_glv4_prepared(
         BLST_ASSERT(false && "invalid AVX GT GLV4 MSM shape");
         return;
     }
-    if (buckets != nullptr) {
-        if (bucket_used != nullptr) {
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
-        } else {
-            std::vector<uint8_t> local_bucket_used(bucket_count);
-            avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, split_npoints, 64, buckets, local_bucket_used.data(), window_size);
-        }
-    } else {
-        avx_msm_detail::mult_pippenger_alloc<GT, GT, AvxGtPippengerBucket>(
-            ret, split_points, split_scalars, split_npoints, 64, window_size);
+    if (buckets == nullptr || bucket_used == nullptr) {
+        ret = GT::identity();
+        BLST_ASSERT(false && "AVX GT GLV4 MSM requires caller-owned scratch");
+        return;
     }
+    avx_msm_detail::mult_pippenger(
+        ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
 }
 
 inline void avx_gt_mult_pippenger_glv4(
@@ -1429,11 +1277,11 @@ inline void avx_gt_mult_pippenger_glv4(
     const GT* points,
     const byte* scalars,
     size_t npoints,
-    AvxGtPippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr,
-    GT* split_points_scratch = nullptr,
-    byte* split_scalars_scratch = nullptr)
+    AvxGtPippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used,
+    GT* split_points_scratch,
+    byte* split_scalars_scratch)
 {
     ret = GT::identity();
     if (npoints == 0 || points == nullptr || scalars == nullptr) {
@@ -1450,40 +1298,14 @@ inline void avx_gt_mult_pippenger_glv4(
         return;
     }
 
-    if (split_points_scratch != nullptr && split_scalars_scratch != nullptr) {
-        avx_gt_mult_pippenger_glv4_prepare(split_points_scratch, split_scalars_scratch, points, scalars, npoints);
-        avx_gt_mult_pippenger_glv4_prepared(
-            ret, split_points_scratch, split_scalars_scratch, npoints, buckets, window_size, bucket_used);
+    if (buckets == nullptr || bucket_used == nullptr ||
+        split_points_scratch == nullptr || split_scalars_scratch == nullptr) {
+        BLST_ASSERT(false && "AVX GT GLV4 requires all caller-owned scratch buffers");
         return;
     }
-    if (split_points_scratch != nullptr || split_scalars_scratch != nullptr) {
-        BLST_ASSERT(false && "AVX GT GLV4 split scratch must provide both point and scalar buffers");
-        return;
-    }
-
-    std::vector<GT> split_points(split_npoints);
-    std::vector<byte> split_scalars(split_scalar_bytes);
-    avx_gt_mult_pippenger_glv4_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
+    avx_gt_mult_pippenger_glv4_prepare(split_points_scratch, split_scalars_scratch, points, scalars, npoints);
     avx_gt_mult_pippenger_glv4_prepared(
-        ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
-}
-
-inline void avx_gt_mult_pippenger(
-    GT& ret,
-    const GT* points,
-    const byte* scalars,
-    size_t npoints,
-    size_t nbits,
-    AvxGtPippengerBucket* buckets = nullptr,
-    size_t window_size = 0,
-    uint8_t* bucket_used = nullptr)
-{
-    if (nbits != 256) {
-        ret = GT::identity();
-        BLST_ASSERT(false && "AVX GT MSM uses the GLV4 path and requires 256-bit scalars");
-        return;
-    }
-    avx_gt_mult_pippenger_glv4(ret, points, scalars, npoints, buckets, window_size, bucket_used);
+        ret, split_points_scratch, split_scalars_scratch, npoints, buckets, window_size, bucket_used);
 }
 
 }  // namespace blst::avx

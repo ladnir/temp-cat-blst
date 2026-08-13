@@ -195,6 +195,10 @@ size_t blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(size_t npoints);
  * `scalars` is a contiguous array of `npoints` little-endian scalars, each
  * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
  * storage of at least the sizes returned by the two scratch helpers above.
+ * For nonempty input, the output, point array, scalar array, required scratch
+ * prefix, and required bucket-flag prefix must be pairwise disjoint. Invalid
+ * shape, size, alignment, or overlap returns false without changing `out`.
+ * The function allocates nothing and does not throw across the C boundary.
  */
 bool blst_avx_p1_mult_pippenger(
     blst_avx_p1* out,
@@ -218,6 +222,9 @@ bool blst_avx_p1_mult_pippenger(
  * `scalars` is a contiguous array of `npoints` 32-byte little-endian scalars.
  * `scratch`, `bucket_used`, `split_points`, and `split_scalars` must point to
  * caller-owned storage of at least the sizes returned by the scratch helpers.
+ * The output, both inputs, and all four required scratch prefixes must be
+ * pairwise disjoint. Invalid shape, size, alignment, or overlap returns false
+ * without changing `out`. The function allocates nothing and does not throw.
  */
 bool blst_avx_p1_mult_pippenger_glv_with_scratch(
     blst_avx_p1* out,
@@ -246,6 +253,8 @@ size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t n
  *
  * Current BTX-DKG measurements did not justify using this from production; the
  * auto-window GLV API remains the production path.
+ * The disjoint live-range, failure-atomicity, allocation, and exception
+ * contract is the same as `blst_avx_p1_mult_pippenger_glv_with_scratch`.
  */
 bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
     blst_avx_p1* out,
@@ -344,7 +353,11 @@ size_t blst_avx_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
  * Inputs must already be prime-order G1 subgroup elements. Scalars contain at most 256
  * meaningful little-endian bits and are interpreted modulo r. Release checks
  * pointer/bit-count shape but does not validate point membership. The checked
- * one-point path requires no scratch.
+ * one-point path requires no scratch and permits `out == points`; other input
+ * and output ranges must be valid. For multiple points, output, points,
+ * scalars, and the queried scratch range must be pairwise disjoint. Invalid
+ * shape or overlap returns false without changing `out`. The function is
+ * allocation-free and nonthrowing.
  */
 bool blst_avx_p1s_mult_pippenger(
     blst_avx_p1* out,
@@ -429,6 +442,10 @@ size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
  * `scalars` is a contiguous array of `npoints` little-endian scalars, each
  * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
  * storage of at least the sizes returned by the two scratch helpers above.
+ * For nonempty input, the output, point array, scalar array, required scratch
+ * prefix, and required bucket-flag prefix must be pairwise disjoint. Invalid
+ * shape, size, alignment, or overlap returns false without changing `out`.
+ * The function allocates nothing and does not throw across the C boundary.
  */
 bool blst_avx_p2_mult_pippenger(
     blst_avx_p2* out,
@@ -477,7 +494,11 @@ size_t blst_avx_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
  * Inputs must already be prime-order G2 subgroup elements. Scalars contain at most 256
  * meaningful little-endian bits and are interpreted modulo r. Release checks
  * pointer/bit-count shape but does not validate point membership. The checked
- * one-point path requires no scratch.
+ * one-point path requires no scratch and permits `out == points`; other input
+ * and output ranges must be valid. For multiple points, output, points,
+ * scalars, and the queried scratch range must be pairwise disjoint. Invalid
+ * shape or overlap returns false without changing `out`. The function is
+ * allocation-free and nonthrowing.
  */
 bool blst_avx_p2s_mult_pippenger(
     blst_avx_p2* out,
@@ -522,7 +543,11 @@ size_t blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
  *
  * Each scalar is a 256-bit little-endian integer interpreted modulo r.
  * Release does not validate GT membership. Scratch sizes come from the two
- * matching helpers above.
+ * matching helpers above. For nonempty input, the output, point array, scalar
+ * array, required aggregate-scratch prefix, and required bucket-flag prefix
+ * must be pairwise disjoint. Invalid shape, size, alignment, or overlap returns
+ * false without changing `out`. The function allocates nothing and does not
+ * throw across the C boundary.
  */
 bool blst_avx_gt_mult_pippenger(
     blst_avx_gt* out,

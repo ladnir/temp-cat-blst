@@ -31,7 +31,7 @@ namespace blst::avx::matrixnok
             const FpRingCandidate& ring)
         {
             return add_point(left, ProjPoint(right.x, right.y, ring.one()), ring)
-                .ctime_replace_if(PointIsZero(right), left);
+                .ctime_replace_if(AffinePointIsExactIdentity(right), left);
         }
 
         static BLST_FORCEINLINE ProjPoint double_point(
@@ -48,8 +48,8 @@ namespace blst::avx::matrixnok
             ProjPoint result = a4 == nullptr
                 ? add_point(left, right, ring)
                 : PointDaddA<FpRingCandidate>(left, right, *a4, ring);
-            result = result.ctime_replace_if(PointCoordIsZero(right.z), left);
-            return result.ctime_replace_if(PointCoordIsZero(left.z), right);
+            result = result.ctime_replace_if(PointCoordIsExactZero(right.z), left);
+            return result.ctime_replace_if(PointCoordIsExactZero(left.z), right);
         }
 
         static BLST_FORCEINLINE ProjPoint negate(

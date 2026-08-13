@@ -1,3 +1,12 @@
+/*
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: MIT
+ *
+ * The point carriers and PointDouble descend from the VROOM AVX backend at
+ * commit d6ecd534. Category Labs added PointDaddA and retains only the
+ * schedules selected by the fixed MatrixNoK BLS12-381 construction.
+ */
 #pragma once
 #include "../../common/defines.h"
 #include "blst/common/vect.h"
@@ -5,6 +14,13 @@
 
 namespace blst::avx {
 
+/** Owning homogeneous projective coordinates `(X/Z, Y/Z)`.
+ *
+ * Every semantic `Z = 0` represents infinity. Selected construction uses the
+ * canonical `(0, 1, 0)` representative. The type records no on-curve or
+ * subgroup-validation state. It owns fixed-size storage and performs no
+ * allocation, synchronization, or runtime dispatch.
+ */
 template<class RingElement>
 class ProjectivePoint {
     public:
@@ -16,6 +32,8 @@ class ProjectivePoint {
     ProjectivePoint(const RingElement &x_val, const RingElement &y_val, const RingElement &z_val)
         : x(x_val), y(y_val), z(z_val) {}
 
+    // Return *this when selection is true and other when it is false. Selected
+    // RingElement implementations lower this operation to mask selection.
     BLST_FORCEINLINE ProjectivePoint ctime_select(bool selection, const ProjectivePoint &other) const {
         return ProjectivePoint(x.ctime_select(selection, other.x), y.ctime_select(selection, other.y), z.ctime_select(selection, other.z));
     }
@@ -27,12 +45,14 @@ class ProjectivePoint {
         return ctime_select(!condition, replacement);
     }
 
-    // Clearer API: replace self with replacement if condition is false
-    BLST_FORCEINLINE ProjectivePoint ctime_replace_unless(bool condition, const ProjectivePoint &replacement) const {
-        return ctime_select(condition, replacement);
-    }
 };
 
+/** Owning affine coordinates `(X, Y)`.
+ *
+ * The exact all-zero object is the affine infinity sentinel. This is an exact
+ * representation contract, not a semantic field-zero test over redundant RNS
+ * representatives. The type records no validation state.
+ */
 template<class RingElement>
 class AffinePoint {
     public:
@@ -50,176 +70,24 @@ class AffinePoint {
         return ctime_select(!condition, replacement);
     }
 
-    // Clearer API: replace self with replacement if condition is false
-    BLST_FORCEINLINE AffinePoint ctime_replace_unless(bool condition, const AffinePoint &replacement) const {
-        return ctime_select(condition, replacement);
-    }
 };
 
-template<class Ring>
-class FP2Ring;
-
 template<class Element>
-BLST_FORCEINLINE bool PointCoordIsZero(const Element& value);
+BLST_FORCEINLINE bool PointCoordIsExactZero(const Element& value);
 
 template<class RingElement>
-BLST_FORCEINLINE bool PointIsZero(const AffinePoint<RingElement>& point);
+BLST_FORCEINLINE bool AffinePointIsExactIdentity(const AffinePoint<RingElement>& point);
 
-// https://eprint.iacr.org/2015/1060.pdf Algorithm 7
-template<class Ring>
-ProjectivePoint<typename Ring::StandardElement> PointAdd(const ProjectivePoint<typename Ring::StandardElement> &P, const ProjectivePoint<typename Ring::StandardElement> &Q, const Ring &ring) {
-    auto t3_4 = P.x + P.y;
-    auto t3_14 = P.x + P.z;
-    auto t4_9 = P.y + P.z;
-    auto t4_5 = Q.x + Q.y;
-    auto x3_10 = Q.y + Q.z;
-    auto y3_15 = Q.x + Q.z;
-
-    auto t0_1_wide = ring.prep_left(P.x) * Q.x;
-    auto t1_2_wide = ring.prep_left(P.y) * Q.y;
-    auto t2_3_wide = ring.prep_left(P.z) * Q.z;
-    auto t3_6_wide = ring.prep_left(t3_4) * ring.prep(t4_5);
-    auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
-    auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);
-
-    auto [t0_1, t1_2, t2_3, t3_6, t5_11, x3_16] = ring.batch_reduce(t0_1_wide, t1_2_wide, t2_3_wide, t3_6_wide, t5_11_wide, x3_16_wide);
-    auto t4_7 = t0_1 + t1_2;
-    auto x3_12 = t1_2 + t2_3;
-    auto y3_17 = t0_1 + t2_3;
-    auto y3_18 = x3_16 - y3_17;
-    auto x3_19 = t0_1 + t0_1;
-    auto t2_21 = ring.mul_3b(t2_3);
-
-    auto t3_8_s = ring.prep(t3_6 - t4_7);
-    auto y3_24_s = ring.prep(ring.mul_3b(y3_18));
-    auto z3_22_s = ring.prep(t1_2 + t2_21);
-    auto t1_23_s = ring.prep(t1_2 - t2_21);
-    auto t4_13_s = ring.prep(t5_11 - x3_12);
-    auto t0_20_s = ring.prep(t0_1 + x3_19);
-
-    auto [t3_8, y3_24, z3_22, t1_23, t4_13, t0_20] = ring.batch_expand(t3_8_s, y3_24_s, z3_22_s, t1_23_s, t4_13_s, t0_20_s);
-
-    auto t4_13l = ring.prep_left(t4_13);
-    auto t1_23l = ring.prep_left(t1_23);
-    auto t0_20l = ring.prep_left(t0_20);
-    
-    auto x3_25 = t4_13l * ring.negate(y3_24);
-    auto t2_26 = t1_23l * t3_8;
-    auto y3_28 = t0_20l * y3_24;
-    auto t1_29 = t1_23l * z3_22;
-    auto t0_31 = t0_20l * t3_8;
-    auto z3_32 = t4_13l * z3_22;
-    auto x3_27_wide =  t2_26 + x3_25;
-    auto y3_30_wide =  t1_29 + y3_28;
-    auto z3_33_wide =  z3_32 + t0_31;
-    
-    auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
-    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33);
-}
-
-// Not enough time to figure out Algorithm 8; this saves a mult and you could save more additions (by also using small form)
-template<class Ring>
-ProjectivePoint<typename Ring::StandardElement> PointMixedAdd(const ProjectivePoint<typename Ring::StandardElement> &P, const AffinePoint<typename Ring::StandardElement> &Q, const Ring &ring) {
-    auto t3_4 = P.x + P.y;
-    auto t3_14 = P.x + P.z;
-    auto t4_9 = P.y + P.z;
-    auto t4_5 = Q.x + Q.y;
-    auto one = ring.one();
-    auto x3_10 = Q.y + one;
-    auto y3_15 = Q.x + one;
-
-    auto t0_1_wide = ring.prep_left(P.x) * Q.x;
-    auto t1_2_wide = ring.prep_left(P.y) * Q.y;
-    auto t3_6_wide = ring.prep_left(t3_4) * ring.prep(t4_5);
-    auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
-    auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);
-
-    auto [t0_1, t1_2, t3_6, t5_11, x3_16] = ring.batch_reduce_expand(t0_1_wide, t1_2_wide, t3_6_wide, t5_11_wide, x3_16_wide);
-    auto t2_3 = P.z;
-    auto t4_7 = t0_1 + t1_2;
-    auto x3_12 = t1_2 + t2_3;
-    auto y3_17 = t0_1 + t2_3;
-    auto y3_18 = x3_16 - y3_17;
-    auto x3_19 = t0_1 + t0_1;
-    auto t2_21 = ring.prep(ring.mul_3b(t2_3));
-
-    auto t3_8 = ring.prep(t3_6 - t4_7);
-    auto y3_24 = ring.prep(ring.mul_3b(y3_18));
-    auto z3_22 = ring.prep(t1_2 + t2_21);
-    auto t1_23 = ring.prep_left(t1_2 - t2_21);
-    auto t4_13 = ring.prep_left(t5_11 - x3_12);
-    auto t0_20 = ring.prep_left(t0_1 + x3_19);
-    
-    auto x3_25 = t4_13 * ring.negate(y3_24);
-    auto t2_26 = t1_23 * t3_8;
-    auto y3_28 = t0_20 * y3_24;
-    auto t1_29 = t1_23 * z3_22;
-    auto t0_31 = t0_20 * t3_8;
-    auto z3_32 = t4_13 * z3_22;
-    auto x3_27_wide =  t2_26 + x3_25;
-    auto y3_30_wide =  t1_29 + y3_28;
-    auto z3_33_wide =  z3_32 + t0_31;
-    
-    auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
-    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33)
-        .ctime_replace_if(PointIsZero(Q), P);
-}
-
-template<class Ring>
-ProjectivePoint<typename Ring::StandardElement> PointMixedAddUnexpanded(const ProjectivePoint<typename Ring::StandardElement> &P, const AffinePoint<typename Ring::StandardElement> &Q, const Ring &ring) {
-    auto t3_4 = P.x + P.y;
-    auto t3_14 = P.x + P.z;
-    auto t4_9 = P.y + P.z;
-    auto t4_5 = Q.x + Q.y;
-    auto one = ring.one();
-    auto x3_10 = Q.y + one;
-    auto y3_15 = Q.x + one;
-
-    auto t0_1_wide = ring.prep_left(P.x) * Q.x;
-    auto t1_2_wide = ring.prep_left(P.y) * Q.y;
-    auto t3_6_wide = ring.prep_left(t3_4) * ring.prep(t4_5);
-    auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
-    auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);
-
-    auto [t0_1, t1_2, t3_6, t5_11, x3_16] =
-        ring.batch_reduce(t0_1_wide, t1_2_wide, t3_6_wide, t5_11_wide, x3_16_wide);
-    auto t2_3 = ring.small_m2(P.z);
-    auto t4_7 = t0_1 + t1_2;
-    auto x3_12 = t1_2 + t2_3;
-    auto y3_17 = t0_1 + t2_3;
-    auto y3_18 = x3_16 - y3_17;
-    auto x3_19 = t0_1 + t0_1;
-    auto t2_21 = ring.mul_3b(t2_3);
-
-    auto t3_8_s = ring.prep(t3_6 - t4_7);
-    auto y3_24_s = ring.prep(ring.mul_3b(y3_18));
-    auto z3_22_s = ring.prep(t1_2 + t2_21);
-    auto t1_23_s = ring.prep(t1_2 - t2_21);
-    auto t4_13_s = ring.prep(t5_11 - x3_12);
-    auto t0_20_s = ring.prep(t0_1 + x3_19);
-
-    auto [t3_8, y3_24, z3_22, t1_23, t4_13, t0_20] =
-        ring.batch_expand(t3_8_s, y3_24_s, z3_22_s, t1_23_s, t4_13_s, t0_20_s);
-
-    auto t4_13l = ring.prep_left(t4_13);
-    auto t1_23l = ring.prep_left(t1_23);
-    auto t0_20l = ring.prep_left(t0_20);
-    auto x3_25 = t4_13l * ring.negate(y3_24);
-    auto t2_26 = t1_23l * t3_8;
-    auto y3_28 = t0_20l * y3_24;
-    auto t1_29 = t1_23l * z3_22;
-    auto t0_31 = t0_20l * t3_8;
-    auto z3_32 = t4_13l * z3_22;
-    auto x3_27_wide = t2_26 + x3_25;
-    auto y3_30_wide = t1_29 + y3_28;
-    auto z3_33_wide = z3_32 + t0_31;
-
-    auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
-    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33)
-        .ctime_replace_if(PointIsZero(Q), P);
-}
-
-// https://eprint.iacr.org/2015/1060.pdf Algorithm 9
+/** Fixed-schedule doubling for `Y^2 Z = X^3 + b Z^3`.
+ *
+ * `P` must be on the curve represented by `ring`; subgroup membership is not
+ * required. `ring.mul_3b` must multiply by that curve's `3b`. The selected
+ * fixed MatrixNoK rings make every operation allocation-free and nonthrowing.
+ * The returned point is on the same curve, including when `P` is infinity.
+ *
+ * This is Algorithm 9 of https://eprint.iacr.org/2015/1060.pdf. Preserve its
+ * fixed, batched schedule: it is a selected hot-path and formal-proof owner.
+ */
 template<class Ring>
 ProjectivePoint<typename Ring::StandardElement> PointDouble(const ProjectivePoint<typename Ring::StandardElement> &P,const Ring &ring) {
     auto py = ring.prep_left(P.y);
@@ -254,18 +122,20 @@ ProjectivePoint<typename Ring::StandardElement> PointDouble(const ProjectivePoin
 }
 
 template<class Element>
-BLST_FORCEINLINE bool PointCoordIsZero(const Element& value)
+BLST_FORCEINLINE bool PointCoordIsExactZero(const Element& value)
 {
     return value.is_zero() != 0;
 }
 
 template<class RingElement>
-BLST_FORCEINLINE bool PointIsZero(const AffinePoint<RingElement>& point)
+BLST_FORCEINLINE bool AffinePointIsExactIdentity(const AffinePoint<RingElement>& point)
 {
-    return (static_cast<unsigned>(PointCoordIsZero(point.x)) &
-        static_cast<unsigned>(PointCoordIsZero(point.y))) != 0;
+    return (static_cast<unsigned>(PointCoordIsExactZero(point.x)) &
+        static_cast<unsigned>(PointCoordIsExactZero(point.y))) != 0;
 }
 
+// Normalize an internal expression before a semantic zero observation. This
+// multiplication by one is intentional for MatrixNoK's redundant RNS values.
 template<class Ring, class Element>
 BLST_FORCEINLINE typename Ring::StandardElement NormalizePointCoord(const Element& value, const Ring& ring)
 {
@@ -292,16 +162,16 @@ BLST_FORCEINLINE bool ProjectiveEqual(
         (p_is_infinity ^ q_is_infinity ^ true);
 }
 
-template<class Ring>
-BLST_FORCEINLINE bool ProjectiveEqual(
-    const ProjectivePoint<typename Ring::StandardElement>& P,
-    const ProjectivePoint<typename Ring::StandardElement>& Q,
-    const Ring& ring)
-{
-    return ProjectiveEqual(P, Q, ring,
-        [](const auto& value) { return PointCoordIsZero(value); });
-}
-
+/** Fixed-schedule complete addition on a curve with nonzero `a4` coefficient.
+ *
+ * `P` and `Q` must be on the same curve, and `a4` must be that curve's
+ * coefficient in the formula consumed by this schedule. Subgroup membership
+ * is not required. Infinity selection is owned by the calling curve facade.
+ * Selected rings make the operation allocation-free and nonthrowing.
+ *
+ * Preserve this fixed, batched schedule. Point coordinates may be secret even
+ * though the caller's choice between the a4 and a=0 schedules is public.
+ */
 template<class Ring>
 ProjectivePoint<typename Ring::StandardElement> PointDaddA(
     const ProjectivePoint<typename Ring::StandardElement>& P,
@@ -365,84 +235,5 @@ ProjectivePoint<typename Ring::StandardElement> PointDaddA(
     auto y3 = NormalizePointCoord(y3_term - ll, ring);
     return ProjectivePoint<typename Ring::StandardElement>(x3, y3, z3);
 }
-
-
-template<class Ring>
-class G1 {
-    public:
-    using ProjPoint = ProjectivePoint<typename Ring::StandardElement>;
-    using AffPoint = AffinePoint<typename Ring::StandardElement>;
-
-    ProjPoint add_point(const ProjPoint &P, const ProjPoint &Q, const Ring &ring) const {
-        return PointAdd<Ring>(P, Q, ring);
-    }
-
-    ProjPoint add_mixed_point(const ProjPoint &P, const AffPoint &Q, const Ring &ring) const {
-        return PointMixedAddUnexpanded<Ring>(P, Q, ring);
-    }
-
-    ProjPoint double_point(const ProjPoint &P, const Ring &ring) const {
-        return PointDouble<Ring>(P, ring);
-    }
-
-    ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const Ring& ring, const typename Ring::StandardElement* a4) const {
-        ProjPoint result = {};
-        if (a4 != nullptr) {
-            result = PointDaddA<Ring>(P, Q, *a4, ring);
-        } else {
-            result = PointAdd<Ring>(P, Q, ring);
-        }
-        result = result.ctime_replace_if(PointCoordIsZero(Q.z), P);
-        return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
-    }
-
-    BLST_FORCEINLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
-        return ProjPoint(P.x, ring.standard_negate(P.y), P.z);
-    }
-
-    BLST_FORCEINLINE ProjPoint zero(const Ring &ring) const {
-        return ProjPoint(ring.zero(), ring.one(), ring.zero());
-    }
-
-};
-
-template<class Ring>
-class G2 {
-    public:
-    using FP2RingType = FP2Ring<Ring>;
-    using ProjPoint = ProjectivePoint<typename FP2RingType::StandardElement>;
-    using AffPoint = AffinePoint<typename FP2RingType::StandardElement>;
-
-    ProjPoint add_point(const ProjPoint &P, const ProjPoint &Q, const FP2RingType &ring) const {
-        return PointAdd<FP2RingType>(P, Q, ring);
-    }
-
-    ProjPoint add_mixed_point(const ProjPoint &P, const AffPoint &Q, const FP2RingType &ring) const {
-        return PointMixedAdd<FP2RingType>(P, Q, ring);
-    }
-
-    ProjPoint double_point(const ProjPoint &P, const FP2RingType &ring) const {
-        return PointDouble<FP2RingType>(P, ring);
-    }
-
-    ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const FP2RingType& ring, const typename FP2RingType::StandardElement* a4) const {
-        ProjPoint result = {};
-        if (a4 != nullptr) {
-            result = PointDaddA<FP2RingType>(P, Q, *a4, ring);
-        } else {
-            result = PointAdd<FP2RingType>(P, Q, ring);
-        }
-        result = result.ctime_replace_if(PointCoordIsZero(Q.z), P);
-        return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
-    }
-
-    BLST_FORCEINLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {
-        return ProjPoint(P.x, ring.standard_negate(P.y), P.z);
-    }
-
-    BLST_FORCEINLINE ProjPoint zero(const FP2RingType &ring) const {
-        return ProjPoint(ring.zero(), ring.one(), ring.zero());
-    }
-};
 
 }  // namespace blst::avx

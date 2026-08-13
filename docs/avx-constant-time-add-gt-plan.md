@@ -1,7 +1,9 @@
 # AVX Constant-Time Add And GT Fix Plan
 
-This document captures the agreed implementation plan for the AVX curve-add
-correctness work and the separate `GT::doubling` performance fix.
+This historical document captures the implementation plan for the AVX
+curve-add correctness work and the separate `GT::doubling` performance fix.
+The selected complete-add owner is now `matrixnok::detail::add_point`; the
+unselected import-era curve formulas have been removed.
 
 ## Status
 
@@ -38,9 +40,8 @@ correctness work and the separate `GT::doubling` performance fix.
    Branching on it is allowed. The selected path must still avoid branches on
    secret point data.
 
-2. Mixed add should handle affine identity inside the low-level formula helper.
-   Put the `(Q.x == 0 && Q.y == 0)` select in both `PointMixedAddUnexpanded`
-   and `PointMixedAdd`, so all callers inherit the scalar convention.
+2. Mixed add must handle the exact affine identity sentinel before the selected
+   complete MatrixNoK formula, so all callers inherit the scalar convention.
 
 3. Verify `from_affine(0,0)` behavior.
    The AVX conversion path should agree with scalar BLST that all-zero affine
@@ -73,7 +74,7 @@ correctness work and the separate `GT::doubling` performance fix.
    instead of adding a wrapper unless readability suffers.
 
 2. Make `dadd(J+J)` branchless on point data.
-   For `a4 == nullptr`, compute the complete `PointAdd(P, Q, ring)` result
+   For `a4 == nullptr`, compute the selected complete MatrixNoK addition result
    unconditionally, then select:
    - return `Q` when `P.z == 0`
    - return `P` when `Q.z == 0`
