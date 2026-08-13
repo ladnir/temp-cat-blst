@@ -1046,3 +1046,16 @@ GCC `int`/`std::size_t` fixed-array deduction mismatch stopped its test TU.
 translation-unit checks, the Lean `--check`, and an LF/CRLF render differential
 pass locally. The exact hosted rerun remains required before these jobs count
 as complete release evidence.
+
+The second hosted run confirms the Packet 19C compile and generator repairs,
+with audit integrity and every Rust job green. It exposed `AUD-355` through
+`AUD-358`: Apple timer-trait test portability, a portable-only CTest placeholder,
+invalid final exponentiation of a Miller failure marker, and loss of the exact
+affine identity sentinel during AVX GLV/GLS preprocessing. The last is a real
+MSM correctness defect: redundant RNS zero is a valid field value but not the
+internal mixed-add identity marker. Commit `ac60a7d` preserves exact identity
+through G1/G2 endomorphisms using cheap representation checks and extends the
+regressions to batch and tail positions. Clang/GCC/MSVC focused compiles, the
+portable-only test graph, all AVX structural/proof validators, and CI policy
+pass. Hosted execution of the exact commit remains the next gate; no broad
+local build, benchmark, CUDA, sanitizer, native AVX, or frozen BTx/BTE work ran.

@@ -174,3 +174,31 @@ loop changed; the AVX repair is a compile-time type correction only.
 The exact hosted revision has not yet been rerun, so Apple, Windows, and the
 portable-AVX developer lane remain release-evidence gaps. No benchmark, CUDA,
 BTx/BTE work, full local suite, sanitizer sweep, or broad parallel build ran.
+
+## Packet 19D: Second hosted execution
+
+The second hosted execution confirmed the three Packet 19C repairs: Apple
+compiled the FFT regression, Windows accepted the line-ending-independent Lean
+snapshot, and GCC compiled the portable fixed-batch API. Audit integrity and
+all Rust jobs passed again. Linux scalar, Linux assembly, and Windows completed
+their product suites with only the omitted proof-ledger hash failing.
+
+The deeper portable-AVX Debug execution exposed `AUD-356` through `AUD-358`:
+an incorrectly registered combined-provider executable, a test that passed an
+intentional Miller failure marker to final exponentiation, and a real G1/G2
+MSM identity-representation defect in GLV/GLS preprocessing. Apple separately
+exposed the `AUD-355` timer-test expression defect.
+
+Commit `ac60a7d` repairs these boundaries. Identity preservation uses exact
+RNS sentinel checks in the variable-time public-scalar preparation path; it
+does not export coordinates to scalar arithmetic, allocate, or change the
+non-identity endomorphism formulas. Both an in-batch and tail identity are now
+covered for G1 and G2. The combined compatibility executable is registered
+only when both native and portable providers exist, malformed Miller output is
+checked without violating final-exponentiation preconditions, and the exact
+proof hashes are rebound.
+
+Focused Clang/GCC/MSVC translation-unit compilation, portable-only CTest graph
+inspection, proof correspondence, dispatch validation, and CI structural
+policy pass. No full local build or suite, benchmark, CUDA, sanitizer, native
+AVX execution, or BTx/BTE audit ran. The exact hosted rerun remains required.
