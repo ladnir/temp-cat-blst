@@ -110,7 +110,7 @@ input-controlled allocation occurs.
 ### 12. Portability and build behavior
 
 MSVC compilation and execution pass. GCC and Clang strict translation-unit
-checks pass. Native Apple execution remains pending the next CI run.
+checks pass. Supported run `31665323681` passes native Apple execution.
 Unsupported byte-order toolchains fail at the shared `std::endian` assertion.
 
 ### 13. Performance-sensitive structure
@@ -126,12 +126,13 @@ unchanged output on failure. Variable-length byte conversion matches an oracle.
 
 ### Specialized additions
 
-Rust FFI declarations return `bool`; a focused Rust compile remains part of
-the next retained-Rust packet. No assembly generation is owned here.
+Rust FFI declarations return `bool`; exact binding integrity and supported
+current/MSRV Rust gates pass in runs `31665323679` and `31665323681`. No
+assembly generation is owned here.
 
 ## Findings
 
-`AUD-062` and `AUD-063` - fixed; Apple and Rust evidence gaps are recorded.
+`AUD-062` and `AUD-063` - validated.
 
 ## Validation
 
@@ -146,14 +147,14 @@ the next retained-Rust packet. No assembly generation is owned here.
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
 | CodeQL | Phase 12 scalar/portable databases | No remaining mapped diagnostic | Parsing policy and inactive-union UB required hand review |
-| Clang Static Analyzer / clang-tidy | Retained profiles | No additional mapped diagnostic | Apple macro branch pending CI |
-| Clippy | Declaration updated | `AUD-063` pending focused Rust compile | Generated FFI declaration has no safe Rust wrapper caller |
+| Clang Static Analyzer / clang-tidy | Retained profiles plus hosted Apple build | No additional mapped diagnostic | Runtime text timing remains an explicit variable-time contract |
+| Clippy | Declaration updated; hosted current/MSRV Rust gates | passed | Generated FFI declaration has no safe Rust wrapper caller |
 | ASan/UBSan | Prior scalar baselines | No mapped report | Does not prove unchanged-output API policy |
 | Fuzzing | Planned parser/serialization expansion | N/A in this packet | Future fuzzing should compose public decoders and round trips |
 
 ## Residual risk and decision
 
-The file audit is complete, while findings remain `fixed` until Apple CI and a
-retained Rust compile confirm the two platform/language edges. The hexadecimal
-APIs are intentionally strict and variable-time; callers must not use their
-timing as a secret-dependent protocol signal.
+The file is complete. Supported Apple execution and retained Rust compilation
+close the two platform/language edges in runs `31665323681` and `31665323679`.
+The hexadecimal APIs are intentionally strict and variable-time; callers must
+not use their timing as a secret-dependent protocol signal.

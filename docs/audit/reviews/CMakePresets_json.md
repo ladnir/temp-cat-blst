@@ -93,7 +93,9 @@ Native ADX/AVX presets remain explicit; general presets avoid host tuning.
 
 ### 14. Tests and evidence
 
-Parsing passed locally; hosted Linux/Apple/AVX execution remains pending.
+Parsing passed locally. Hosted run `31665323681` configures, builds, and tests
+the visible Linux scalar, Linux assembly, Windows assembly, and Apple Silicon
+presets. Native AVX remains separate hardware evidence.
 
 ### Specialized additions
 
@@ -114,11 +116,10 @@ fresh build directories.
 
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
-| CMake preset parser | local CMake | passed | Host conditions and remote compilers not executed |
+| CMake preset parser and supported CI | local CMake; hosted run `31665323681` | passed | Native AVX preset remains a separate hardware gate |
 | Static/sanitizer/fuzz tools | N/A | N/A | Declarative non-runtime file |
 
 ## Residual risk and decision
 
-Status remains `in_review` until each supported hosted preset has configured
-and its applicable release target has executed.
-
+Status remains `in_review` only for the native AVX-512/IFMA preset's exact
+hardware release execution. The ordinary supported hosted presets are green.

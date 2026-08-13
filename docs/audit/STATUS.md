@@ -1074,3 +1074,13 @@ Debug run `31664863148` also configures, builds, and passes its complete test
 step, closing the execution evidence for `AUD-352` through `AUD-358`. Native
 performance confirmation for the cheap identity observations in `AUD-358`
 remains a later performance gate rather than a correctness blocker.
+
+Phase 19 hosted-evidence reconciliation promotes the three executed workflow
+owners, `blst/common/cpuid.cpp`, and `blst/common/bytes.h` to complete. It
+validates the older Apple/language `AUD-057`, `AUD-058`, `AUD-062`, `AUD-063`,
+and `AUD-066` gaps together with `AUD-352` through `AUD-357`. Related build,
+assembly, FFT, field, and test rows
+remain in review only for their still-real native AVX, generated-assembly,
+sanitizer/fuzz/oracle, combined-provider, or packaging gates. The authoritative
+manifest now contains 176 complete, 166 in-review, and 322 pending files;
+frozen, experimental, excluded, catalogued, and benchmark scope is unchanged.

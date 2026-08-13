@@ -100,8 +100,8 @@ copy, conversion, or intermediate call.
 aliases. Header order can no longer rename subsequent code. The matrix mirrors
 `build/assembly.S` and the Win64 CMake object selection. Local MSVC combined
 and non-portable configurations compile and retain their exact fallback symbol
-allowlists. Supported Apple/AArch64 CI remains required before final file
-closure.
+allowlists. Supported run `31665323681` builds and tests the direct generic
+provider on Apple Silicon.
 
 ### API, exceptions, concurrency, and resources
 
@@ -114,8 +114,8 @@ thread-local state, and creates no worker or synchronization behavior.
 - `AUD-041` — validated: scalar provider selection/build configurations.
 - `AUD-056` — validated: zero-length selected boundaries no longer enter raw
   positive-count assembly loops.
-- `AUD-057` — fixed: provider aliases removed and direct differential evidence
-  repaired; Apple/AArch64 CI validation remains pending.
+- `AUD-057` — validated: provider aliases are removed, direct differential
+  evidence is repaired, and supported Apple/AArch64 execution passes.
 
 ## Focused validation
 
@@ -146,9 +146,9 @@ thread-local state, and creates no worker or synchronization behavior.
 
 ## Residual risk and decision
 
-The local x86-64 remediation is complete at
-`5a9457a8e01522c48510487de60f7a60a59a93df`. The review remains `in_review`
-until native Apple Silicon CI compiles and runs the generic-provider tests after
-the alias removal. Non-Apple ARM64 and CHERI remain experimental, and CUDA is
-outside this review. Generated assembly algorithms retain separate per-file
-reviews even though their symbol and boundary contracts were checked here.
+The provider declaration and selection review is complete at
+`5a9457a8e01522c48510487de60f7a60a59a93df`, with supported Apple Silicon
+execution supplied by run `31665323681`. Non-Apple ARM64 and CHERI remain
+experimental, and CUDA is outside this review. The manifest row remains
+`in_review` only to bind this declaration owner to the pending per-file
+generated-assembly trust-chain records.

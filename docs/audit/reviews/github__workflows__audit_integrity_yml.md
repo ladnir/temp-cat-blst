@@ -44,11 +44,12 @@ is untrusted, so the workflow must run without credentials or write access.
 | 11 | Frozen scope | BTx/BTE is inventoried but not audited or modified. |
 | 12 | Performance | Small text/transform checks only. |
 | 13 | Validation | actionlint 1.7.12 and every command's local equivalent pass. |
-| 14 | Residual risk | Exact hosted Windows/Linux execution remains. |
+| 14 | Residual risk | Future workflow changes require a delta review and exact hosted execution. |
 
 ## Findings and validation
 
 `AUD-349` and `AUD-350` are validated. Commit `5d43ad1` adds the CI policy
-gate; `0c78650` tightens its runner and Dependabot invariants. Status remains
-`in_review` pending execution of this exact hosted revision.
-
+gate; `0c78650` tightens its runner and Dependabot invariants. The workflow
+blob is unchanged in commit `3b21858`, where hosted run `31665323679` passes
+both jobs: manifests, retained CI policy, raw Rust binding integrity, reviewed
+Rust contracts, and the binding transform. The file is complete.

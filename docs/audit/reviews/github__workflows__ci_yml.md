@@ -48,11 +48,13 @@ result must correspond to the checked-out commit and audited build contracts.
 | 11 | Dependency resolution | Six current-toolchain commands and one Rust 1.78 check use `--locked`. |
 | 12 | Unsafe expression use | Matrix values are static; no PR title/body interpolation into shells. |
 | 13 | Action integrity | Checkout/cache/MSVC commits resolve to stated release tags. |
-| 14 | Residual contract | Exact hosted MSRV and platform execution remain. |
+| 14 | Residual contract | Native AVX remains a separate hardware release gate; workflow changes require a delta review. |
 
 ## Findings and validation
 
 `AUD-347` through `AUD-351` are validated. Local actionlint, preset parsing,
 action provenance, structural policy, and the Rust 1.78 combined-feature check
-pass. Status remains `in_review` until the exact hosted matrix runs; no local
-full suite was started.
+pass. The workflow blob is unchanged in commit `3b21858`, where hosted run
+`31665323681` passes Linux scalar C++, Linux runtime-dispatched assembly,
+Windows assembly, Apple Silicon assembly, current Rust on all three operating
+systems, and the exact Rust 1.78 MSRV feature gate. The file is complete.

@@ -130,12 +130,12 @@ compile-database inspection passed as recorded in Phase 19.
 
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
-| CMake | 4.2.0-compatible parser, project minimum 3.27 | passed; `AUD-340`-`AUD-346` | Linux/Apple/native AVX hosted execution pending |
+| CMake | 4.2.0-compatible parser, project minimum 3.27; hosted run `31665323681` | passed; `AUD-340`-`AUD-346` | Native AVX, negative cross-toolchain, and packaging evidence remain |
 | Static/sanitizer/fuzz tools | N/A | N/A | Build-policy file has no runtime input parser |
 
 ## Residual risk and decision
 
-Status remains `in_review` until Linux, Apple, native AVX, and negative
-cross-toolchain evidence execute. CUDA remains experimental, and final
+Status remains `in_review` until native AVX and negative cross-toolchain
+evidence execute. Linux scalar/assembly, Windows assembly, and Apple Silicon
+are green in run `31665323681`. CUDA remains experimental, and final
 install/shared/export behavior is deferred to `AUD-016` and Phase 20.
-

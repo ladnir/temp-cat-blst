@@ -63,18 +63,19 @@ to close them.
 
 ## Current work volume
 
-The generated manifest currently contains 515 in-scope production, generated,
-and support files. Eighty-two are complete and 433 remain pending or in review. This rollup exposes
-the scale of the main program; `FILE_MANIFEST.csv` remains authoritative.
+The generated manifest currently contains 664 in-scope production, generated,
+and support files. One hundred seventy-six are complete and 488 remain
+pending or in review. This rollup exposes the scale of the main program;
+`FILE_MANIFEST.csv` remains authoritative.
 
 | Main work group | Roadmap phases | Manifest subsystems rolled up | Total | Complete | Not complete |
 | --- | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | `common`, `core`, `scalar_backend`, `fields`, `curve`, `assembly_generator`, `generated_assembly` | 189 | 42 | 147 |
-| AVX-512 | 16 | `avx512`, `avx512_generated` | 42 | 1 | 41 |
-| FFT and middle product | 17 | `fft_middle_product`, `fft_middle_product_avx512` | 10 | 0 | 10 |
-| C/C++/Rust APIs and bindings | 18 | `c_api`, `rust_binding`, `rust_binding_support`, `rust_ffi` | 28 | 6 | 22 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | `tests`, `test_vectors`, `build_configuration`, `ci`, `repository`, `audit_process`, `api_contracts`, `command_demo` | 246 | 33 | 213 |
-| **Total** | **12-19** | | **515** | **82** | **433** |
+| Scalar foundations, fields, curves, and protocols | 13-15 | `common`, `core`, `scalar_backend`, `fields`, `curve`, `assembly_generator`, `generated_assembly` | 187 | 44 | 143 |
+| AVX-512 | 16 | `avx512`, `avx512_generated` | 38 | 16 | 22 |
+| FFT and middle product | 17 | `fft_middle_product`, `fft_middle_product_avx512` | 11 | 9 | 2 |
+| C/C++/Rust APIs and bindings | 18 | `c_api`, `rust_binding`, `rust_binding_support`, `rust_ffi`, `rust_ffi_generation` | 31 | 30 | 1 |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | `tests`, `test_vectors`, `build_configuration`, `ci`, `repository`, `audit_process`, `api_contracts`, `command_demo`, `formal_proof`, `documentation_archive` | 397 | 77 | 320 |
+| **Total** | **12-19** | | **664** | **176** | **488** |
 
 The table is a planning rollup, not a shortcut around one-row-per-file review.
 Before each phase begins, its exact path queue and dependency order must be

@@ -111,8 +111,9 @@ N/A: fixed work, no allocation, and no input-controlled loop.
 
 ### 12. Portability and build behavior
 
-MSVC x64 strict compilation and the assembly-enabled CMake target pass. Native
-Apple execution remains a CI evidence requirement before `AUD-058` validation.
+MSVC x64 strict compilation and the assembly-enabled CMake target pass.
+Supported run `31665323681` builds and tests the Apple Silicon assembly-backed
+library and retained platform initializer.
 
 ### 13. Performance-sensitive structure
 
@@ -132,7 +133,7 @@ FFT, AVX-512 vector-emulation, or Rust-unsafe implementation of its own.
 
 ## Findings
 
-`AUD-058` - fixed; Apple CI evidence pending.
+`AUD-058` - validated.
 
 ## Validation
 
@@ -147,14 +148,15 @@ FFT, AVX-512 vector-emulation, or Rust-unsafe implementation of its own.
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
 | CodeQL | Phase 12 retained scalar database | `AUD-058` found by hand dependency audit | Static analysis does not prove static-library retention or native CPU behavior |
-| Clang Static Analyzer / clang-tidy | Prior retained profiles | No additional mapped diagnostic | Apple platform branch still needs native compilation/execution |
+| Clang Static Analyzer / clang-tidy | Prior retained profiles | No additional mapped diagnostic | Native runtime feature-state exhaustiveness is platform-owned |
 | Clippy | Retained Rust profiles | N/A for C++ initializer | Rust consumes compiled providers |
 | ASan/UBSan | Prior scalar baselines | No mapped report | Does not validate capability-bit selection |
 | Fuzzing | N/A | N/A | Fixed public machine state, no input grammar |
 
 ## Residual risk and decision
 
-The file review is complete at the recorded source commit, but `AUD-058`
-remains `fixed` rather than `validated` until Apple Silicon CI builds and runs
-the assembly-backed library. Future supported OS/compiler additions must add a
-conservative feature probe rather than assuming availability.
+The file review is complete at the recorded source commit. Hosted run
+`31665323681` supplies the remaining Apple Silicon assembly-backed build and
+execution evidence, so `AUD-058` is validated and this file is complete.
+Future supported OS/compiler additions must add a conservative feature probe
+rather than assuming availability.

@@ -182,8 +182,10 @@ and performance evidence before inclusion.
 - MSVC standalone composed-key allocation-failure probe: passed.
 - Structural scan: no `fft_radix4`, `fft_radix8`, `derive_ntt_of_reversed`,
   `fft_stockham`, or `DefaultCoeffCtx` remains outside generated Cargo output.
-- No benchmark, CUDA, full suite, sanitizer, native AVX-512, remote, or Apple
-  run was performed.
+- Hosted supported run `31665323681` passes the scalar/assembly FFT surface on
+  Linux, Windows, and Apple Silicon. Portable AVX Debug run `31664863148`
+  passes the selected-vector FFT tests. No benchmark, CUDA, sanitizer, native
+  AVX-512, or differential fuzz campaign was performed for this closure.
 
 ## Automated evidence
 
@@ -203,4 +205,5 @@ likewise do not validate plan internals or overlap. Public C/Rust adapters
 validate their exposed shapes. The generic names remain in the global namespace
 for compatibility with frozen BTx/BTE callers; namespace cleanup is deferred
 until that integration can move without editing frozen code. Final manifest
-closure awaits later sanitizer/native-AVX milestone evidence.
+closure awaits later sanitizer, native-AVX, and differential-fuzz milestone
+evidence.

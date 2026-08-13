@@ -96,7 +96,8 @@ N/A beyond root target defaults.
 
 ### 12. Portability and build behavior
 
-MSVC scalar/assembly passed. Linux, Apple, and native AVX remain residual.
+MSVC scalar/assembly and hosted Linux/Apple execution pass. Native AVX remains
+residual.
 
 ### 13. Performance-sensitive structure
 
@@ -125,11 +126,12 @@ not inherit `/arch`, warning, optimization, host-native, or `-fwrapv` flags.
 
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
-| CMake/Ninja | MSVC 19.50 scalar and assembly Release | passed | Native AVX, Apple, CUDA not executed |
+| CMake/Ninja | MSVC 19.50 plus hosted run `31665323681` | scalar/assembly Linux, Windows, and Apple pass | Native AVX remains; experimental CUDA is outside the production claim |
 | Static/sanitizer/fuzz tools | deferred | N/A | Product sources retain their subsystem evidence |
 
 ## Residual risk and decision
 
-Status remains `in_review` pending native Linux/AVX and Apple execution. CUDA
-is experimental and its C++23 build remains outside the production claim.
-
+Status remains `in_review` pending exact native AVX-512/IFMA release-target
+execution. Supported Linux scalar/assembly, Windows assembly, and Apple Silicon
+are green in run `31665323681`. CUDA is experimental and its C++23 build
+remains outside the production claim.

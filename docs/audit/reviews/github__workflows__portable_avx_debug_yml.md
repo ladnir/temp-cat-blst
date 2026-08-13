@@ -45,11 +45,13 @@ release evidence.
 | 11 | Test behavior | Builds `blst_tests` and runs registered tests with failures visible. |
 | 12 | Action integrity | Checkout is an immutable verified commit. |
 | 13 | Structural gate | CI policy requires Debug and the exact provider settings. |
-| 14 | Residual risk | Exact hosted compile/test remains pending. |
+| 14 | Residual risk | Developer emulation is not native AVX production or performance evidence. |
 
 ## Findings and validation
 
-`AUD-347`, `AUD-349`, and `AUD-350` are validated at the policy level. Status
-remains `in_review` until this exact path-scoped job executes remotely. No
-portable-AVX Release build was started.
-
+`AUD-347`, `AUD-349`, and `AUD-350` are validated at the policy level. The
+workflow blob is unchanged at hosted run `31664863148`, which configures and
+builds the Debug emulation profile and passes its complete registered test
+step. `AUD-354`, `AUD-356`, and `AUD-357` receive their required portable
+execution evidence there. The file is complete. No portable-AVX Release build
+was started, and this lane makes no native deployment claim.
