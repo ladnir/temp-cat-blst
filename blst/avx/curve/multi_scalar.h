@@ -316,6 +316,19 @@ inline G2AffinePoint maybe_negate(const G2AffinePoint& point, bool negate)
     return out;
 }
 
+// MSM affine identity is the canonical all-zero sentinel. Use its exact RNS
+// representation here: semantic field-zero observation would export every
+// coordinate to the scalar backend in this public-scalar preparation path.
+inline bool g1_affine_is_identity_sentinel(const G1AffinePoint& point)
+{
+    return PointIsZero(avx_curve_detail::CurveG1Affine{point.X, point.Y});
+}
+
+inline bool g2_affine_is_identity_sentinel(const G2AffinePoint& point)
+{
+    return PointIsZero(avx_curve_detail::CurveG2Affine{point.X, point.Y});
+}
+
 using G1PippengerBucket = G1Point;
 using G2PippengerBucket = G2Point;
 using GtPippengerBucket = GT;
@@ -986,6 +999,10 @@ inline void avx_g1_mult_pippenger_glv_prepare(
         }
         const auto phis = ring.template batch_modmul<batch>(xs, betas);
         for (size_t j = 0; j < batch; ++j) {
+            if (avx_msm_detail::g1_affine_is_identity_sentinel(points[i + j])) {
+                split_points[2 * (i + j) + 1] = {};
+                continue;
+            }
             G1AffinePoint phi = points[i + j];
             phi.X = phis[j];
             G1AffinePoint::cneg(phi, true);
@@ -994,6 +1011,11 @@ inline void avx_g1_mult_pippenger_glv_prepare(
     }
     for (; i < npoints; ++i) {
         split_points[2 * i] = points[i];
+        if (avx_msm_detail::g1_affine_is_identity_sentinel(points[i])) {
+            split_points[2 * i + 1] = {};
+            std::fill_n(split_scalars + (2 * i) * 16, 32, byte{0});
+            continue;
+        }
         G1AffinePoint phi = points[i];
         phi.X = ring.modmul(points[i].X, glv.beta);
         G1AffinePoint::cneg(phi, true);
@@ -1074,6 +1096,9 @@ inline void avx_g1_mult_pippenger_glv(
 
 inline G2AffinePoint avx_g2_minus_psi_affine(const G2AffinePoint& point)
 {
+    if (avx_msm_detail::g2_affine_is_identity_sentinel(point)) {
+        return {};
+    }
     const auto& ring = avx_curve_detail::curve_ring();
     const auto& gls = avx_curve_detail::curve_g2_gls();
     auto x_r = point.X.y() * gls.psi_x_i;
@@ -1140,6 +1165,13 @@ inline void avx_g2_minus_psi_affine_batch4(G2AffinePoint* out, const G2AffinePoi
     out[3] = {
         avx_curve_detail::CurveFp2Ring::StandardElement(x3_r_reduced, x3_i_reduced),
         avx_curve_detail::CurveFp2Ring::StandardElement(y3_r_reduced, y3_i_reduced)};
+
+    BLST_UNROLL
+    for (size_t i = 0; i < 4; ++i) {
+        if (avx_msm_detail::g2_affine_is_identity_sentinel(point[i])) {
+            out[i] = {};
+        }
+    }
 }
 
 inline void avx_g2_mult_pippenger_gls_prepare(

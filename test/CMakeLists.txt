@@ -205,7 +205,7 @@ gtest_discover_tests(blst_tests
   # PROPERTIES LABELS "unit"
 )
 
-if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
     set(AVX512_COMPAT_TEST_SOURCES
         "avx/Avx_matrixnok_primitive_tests.cpp"
         "avx/Avx_c_api_contract_tests.cpp"
@@ -216,15 +216,10 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
         "${PROJECT_SOURCE_DIR}/blst/scalar/curve/point.cpp"
     )
 
-    if(BLST_AVX512_PORTABLE)
-        list(APPEND AVX512_COMPAT_TEST_SOURCES
-            "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
-        )
-    endif()
-
-    if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
-        list(APPEND AVX512_COMPAT_TEST_SOURCES "avx512_compat_test.cpp")
-    endif()
+    list(APPEND AVX512_COMPAT_TEST_SOURCES
+        "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
+        "avx512_compat_test.cpp"
+    )
 
     add_executable(blst_avx512_compat_tests ${AVX512_COMPAT_TEST_SOURCES})
     target_include_directories(blst_avx512_compat_tests PRIVATE

@@ -229,9 +229,9 @@ TEST(BackendAlias, ScalarMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsCl
         scalar_qs.data(),
         scalar_ps.data(),
         scalar_ps.size());
-    blst::scalar::GT::final_exp(scalar_final, scalar_multi);
-    EXPECT_TRUE(blst::scalar::GT::equal(scalar_final, {}));
-    EXPECT_FALSE(blst::scalar::GT::is_identity(scalar_final));
+    const blst::scalar::MillerResult scalar_failure = {};
+    EXPECT_TRUE(blst::scalar::Fp12::equal(
+        scalar_multi.data, scalar_failure.data));
 }
 
 #if BLST_DEFAULT_AVX
@@ -252,9 +252,10 @@ TEST(BackendAlias, AvxMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClose
         avx_qs.data(),
         avx_ps.data(),
         avx_ps.size());
-    blst::avx::GT::final_exp(avx_final, avx_multi);
-    EXPECT_TRUE(blst::avx::GT::equal(avx_final, {}));
-    EXPECT_FALSE(blst::avx::GT::is_identity(avx_final));
+    const blst::avx::MillerResult avx_failure = {};
+    for (size_t i = 0; i < avx_multi.data.size(); ++i) {
+        EXPECT_TRUE(avx_multi.data[i].equal(avx_failure.data[i]));
+    }
 }
 #endif
 

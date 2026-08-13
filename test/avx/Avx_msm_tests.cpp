@@ -279,6 +279,7 @@ TEST(AvxMsm, G1PippengerHonorsAffineIdentitySentinel)
     constexpr size_t kCount = 17;
     std::vector<blst::avx::G1AffinePoint> points = g1_points(kCount);
     points[3] = {};
+    points[kCount - 1] = {};
     const std::vector<blst::byte> scalars = scalar_batch(kCount);
 
     blst::avx::G1Point msm = {};
@@ -323,6 +324,7 @@ TEST(AvxMsm, G2PippengerHonorsAffineIdentitySentinel)
     constexpr size_t kCount = 17;
     std::vector<blst::avx::G2AffinePoint> points = g2_points(kCount);
     points[3] = {};
+    points[kCount - 1] = {};
     const std::vector<blst::byte> scalars = scalar_batch(kCount);
 
     blst::avx::G2Point msm = {};

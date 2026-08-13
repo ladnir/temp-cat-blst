@@ -89,7 +89,10 @@ of the selected delayed implementation. No benchmark ran for this audit.
 - `fp2.h` SHA-256:
   `a065c9ccc4e691d6322b1220c9cf56ba07ddbbb126364fd3cb59ad8e18ea47f9`
 - `matrixnok_fp.h` SHA-256:
-  `f0de3ba114deea65ba0affffeb9cfefa479d1c2b72df31aa1704d6ff60698a5a`
+  `ef9524d0895b1e072e15a8a8e9950723ddd4d76372d70e687f62397bbec82060`
+
+The hash update is the `AUD-354` `std::size_t` fixed-batch interface repair;
+the selected Fp2 arithmetic and generated code contract are unchanged.
 
 The canonical exact-hash ledger is `proof/avx/CORRESPONDENCE.csv`. Higher Fp12,
 GT, curve, and pairing claims remain owned by their separate accepted rows.
