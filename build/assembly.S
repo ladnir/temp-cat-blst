@@ -1,3 +1,13 @@
+/*
+ * Copyright Supranational LLC
+ * Copyright 2026 Category Labs
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Aggregate selector for the checked-in assembly providers. Platform and
+ * capability macros are public build inputs; they do not depend on secrets.
+ */
+
 #include "config.h"
 
 #ifdef BLST_PORTABLE
@@ -129,9 +139,8 @@
 #  include "mach-o/div3w-armv8.S"
 #  include "mach-o/ct_is_square_mod_384-armv8.S"
 # endif
-#elif !defined(BLST_ASM) || \
-      (defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__==4)
-/* inaccurate way to detect a 32-bit processor, but it's close enough */
+#elif !defined(BLST_ASM)
+/* The build disabled assembly; this translation unit intentionally is empty. */
 #else
-# error "unsupported platform"
+# error "unsupported assembly platform: Category-blst requires a supported 64-bit target"
 #endif

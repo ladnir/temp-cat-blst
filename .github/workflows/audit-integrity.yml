@@ -65,3 +65,12 @@ jobs:
           bash -n build/generate-rust-bindings.sh
           perl -c build/bindings_trim.pl
           bash scripts/audit/test_bindings_trim.sh
+
+      - name: Validate Windows export list
+        shell: bash
+        run: |
+          generated=$(mktemp)
+          trap 'rm -f -- "$generated"' EXIT
+          bash -n build/generate-win64-exports.sh
+          build/generate-win64-exports.sh "$generated"
+          cmp build/win64/blst.def "$generated"

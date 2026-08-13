@@ -50,7 +50,9 @@ trap cleanup EXIT HUP INT TERM
 
 (
     cd "$BINDINGS"
-    "$CC" -E blst.h
+    # blst_types.h names repository-root implementation headers. Supply the
+    # same root include path used by supported consumers.
+    "$CC" -E -I"$HERE/.." blst.h
 ) >"$PREPROCESSED"
 
 (
