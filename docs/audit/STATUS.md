@@ -1066,3 +1066,11 @@ the remaining `std::string_view` construction inside the timer `noexcept`
 assertions. `AUD-355` is corrected at `b439a49` by using unevaluated arguments
 and therefore testing only the member declarations. Local Clang C++20 and MSVC
 focused compilation pass; Apple rerun evidence remains pending.
+
+Hosted validation is now fully green. Supported run `31665323681` passes Apple
+Silicon, Linux scalar and assembly, Windows, Rust MSRV, and current Rust on all
+three operating systems. Audit-integrity run `31665323679` passes. Portable AVX
+Debug run `31664863148` also configures, builds, and passes its complete test
+step, closing the execution evidence for `AUD-352` through `AUD-358`. Native
+performance confirmation for the cheap identity observations in `AUD-358`
+remains a later performance gate rather than a correctness blocker.

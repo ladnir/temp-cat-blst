@@ -211,3 +211,12 @@ be nonthrowing. Commit `b439a49` uses unevaluated `declval` arguments, so the
 assertions now test only `TimingStats` members. Focused Clang and MSVC
 compilation passes; the exact Apple rerun remains required. Portable AVX was
 still executing when this correction was prepared.
+
+Final hosted evidence is green. Supported run `31665323681` passes Apple
+Silicon C++ and Rust, Linux scalar and assembly, Windows, Rust MSRV, and every
+focused test. Audit-integrity run `31665323679` passes both manifest and binding
+policy gates. Portable AVX Debug run `31664863148` configures, builds, and
+passes its complete developer-emulation test step. This closes the hosted
+execution gaps for `AUD-352` through `AUD-358`; only the separately tracked
+native performance evidence for the `AUD-358` preprocessing observation
+remains.
