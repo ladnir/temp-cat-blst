@@ -99,8 +99,28 @@ void mul_by_8_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 void mul_by_3_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 void mul_by_1_plus_i_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 
+/*
+ * Fixed-schedule almost-inverse contract. Let w be the input width and
+ * R=2^w. mod is an odd positive w-bit integer, 0<=inp<mod, and modx is mod
+ * shifted left until its most-significant bit is bit w-1. All four arrays are
+ * disjoint. ret has width 2w and satisfies:
+ *
+ *   inp == 0: ret == 0;
+ *   gcd(inp,mod) == 1: ret*inp == R^2 (mod mod);
+ *   0 <= ret < modx*R.
+ *
+ * The routines do not publish a conventional-width inverse. Their field
+ * callers normalize this bounded result. Control flow and memory addresses
+ * are independent of inp; provider selection and loop counts are public.
+ */
 void ct_inverse_mod_256(asm_UFr ret, const asm_Fr inp, const asm_Fr mod,
     const asm_Fr modx);
+
+/*
+ * Return one exactly for zero or a quadratic residue inp modulo the odd prime
+ * mod. The input is reduced: 0<=inp<mod. The fixed schedule has no
+ * input-dependent control flow or memory address.
+ */
 blst::bool_t ct_is_square_mod_384(const asm_Fp inp, const asm_Fp mod);
 
 /* Raw SHA assembly requires positive block/byte counts. */
@@ -195,6 +215,7 @@ blst::limb_t sgn0x_pty_mont_384(const asm_Fp a, const asm_Fp p,
     blst::limb_t n0);
 blst::limb_t sgn0x_pty_mont_384x(const asm_Fp2 a, const asm_Fp p,
     blst::limb_t n0);
+/* Same fixed-schedule almost-inverse contract as ct_inverse_mod_256. */
 void ctx_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod,
     const asm_Fp modx);
 void mulx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
@@ -230,6 +251,7 @@ blst::limb_t sgn0_pty_mont_384(const asm_Fp a, const asm_Fp p,
     blst::limb_t n0);
 blst::limb_t sgn0_pty_mont_384x(const asm_Fp2 a, const asm_Fp p,
     blst::limb_t n0);
+/* Same fixed-schedule almost-inverse contract as ct_inverse_mod_256. */
 void ct_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod,
     const asm_Fp modx);
 void mul_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,

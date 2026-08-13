@@ -727,7 +727,7 @@ namespace blst::scalar
 
 		ct_inverse_mod_v256(temp, inp, get_BLST_r(), rx2);
 #ifndef NDEBUG
-		// The almost-inverse is bounded by the left-aligned modulus: temp < 2rR.
+		// The almost-inverse satisfies temp*inp = R^2 and temp < 2rR.
 		// This is wider than the public Fr::redc contract but is safe for the
 		// private REDC-then-to_mont pipeline below.
 		Fr upper;

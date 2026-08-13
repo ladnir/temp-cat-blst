@@ -21,10 +21,13 @@ __SIZEOF_POINTER__ SETA 64/8
 	ldp	x5, x6, [x0,#8*2]
 	ldp	x7, x8, [x0,#8*4]
 
+ if :def:	__CHERI_PURE_CAPABILITY__
+	add	x0,sp,#255
+	alignd	c0,c0,#8
+	scbnds	c0,c0,#256
+ else
 	add	x0, sp, #255
 	and	x0, x0, #-256
- if :def:	__CHERI_PURE_CAPABILITY__
-	scvalue	c0,csp,x0
  endif
 
 	ldp	x9, x10, [x1,#8*0]
@@ -49,7 +52,7 @@ __SIZEOF_POINTER__ SETA 64/8
 
 	eor	x1, x0, #128
  if :def:	__CHERI_PURE_CAPABILITY__
-	scvalue	c1,csp,x1
+	scvalue	c1,c0,x1
  endif
 	bl	__smul_384_n_shift_by_30
 
@@ -61,7 +64,7 @@ __SIZEOF_POINTER__ SETA 64/8
 	ldp	x9, x10, [x1,#-8*6]
 	eor	x0, x0, #128
  if :def:	__CHERI_PURE_CAPABILITY__
-	scvalue	c0,csp,x0
+	scvalue	c0,c1,x0
  endif
 	and	x27, x27, x9
 	add	x2, x2, x27, lsr#1

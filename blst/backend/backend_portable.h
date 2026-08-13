@@ -789,10 +789,15 @@ namespace blst
 		const limb_t v[], limb_t g);
 
 	/**
-	 * @brief Computes the modular inverse of a large integer.
+	 * @brief Compute a fixed-schedule double-width almost-inverse.
 	 *
-	 * Computes `ret = a^(-1) mod p` using the constant-time extended Euclidean algorithm.
-	 * Assumes `n > 0` and `n` is even. modx should be a left aligned copy of mod.
+	 * Let `w = n * BLST_LIMB_SIZE` and `R = 2^w`. The modulus is odd,
+	 * `0 <= inp < mod`, and `modx` is `mod` left-aligned to w bits. The output
+	 * has 2n limbs. Zero maps to zero. For an invertible nonzero input,
+	 * `ret * inp == R^2 (mod mod)` and `0 <= ret < modx * R`.
+	 *
+	 * The four arrays are disjoint. The schedule and addresses are independent
+	 * of `inp`. This helper does not return a conventional-width inverse.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
@@ -806,10 +811,11 @@ namespace blst
 		const limb_t b_[2]);
 
 	/**
-	 * @brief Checks if a large integer is a quadratic residue modulo a given modulus.
+	 * @brief Test quadratic residuosity with a fixed schedule.
 	 *
-	 * Returns 1 if `a` is a quadratic residue modulo `p`, otherwise returns 0.
-	 * Assumes `n > 0` and `n` is even.
+	 * The modulus is an odd prime and `0 <= inp < mod`. Returns one exactly for
+	 * zero or a quadratic residue. The schedule and addresses are independent
+	 * of `inp`.
 	 */
 	template<size_t n>
 	BLST_HD  bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[]);

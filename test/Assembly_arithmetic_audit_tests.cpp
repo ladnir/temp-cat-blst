@@ -284,6 +284,125 @@ Bytes<N> radix_mod(const Bytes<N>& modulus)
 }
 
 template<size_t N>
+Bytes<N> left_align(const Bytes<N>& value)
+{
+	unsigned top_bits = 0;
+	for (uint8_t top = value[N - 1]; top != 0; top >>= 1)
+		++top_bits;
+	EXPECT_NE(top_bits, 0u);
+	const unsigned shift = 8 - top_bits;
+	Bytes<N> out{};
+	unsigned carry = 0;
+	for (size_t i = 0; i < N; ++i) {
+		const unsigned next = (unsigned(value[i]) << shift) | carry;
+		out[i] = uint8_t(next);
+		carry = next >> 8;
+	}
+	EXPECT_EQ(carry, 0u);
+	return out;
+}
+
+template<size_t N>
+Bytes<N> rshift_one(Bytes<N> value)
+{
+	unsigned carry = 0;
+	for (size_t i = N; i-- != 0;) {
+		const unsigned next = value[i];
+		value[i] = uint8_t((next >> 1) | (carry << 7));
+		carry = next & 1;
+	}
+	return value;
+}
+
+template<size_t N>
+Bytes<N> pow_mod(Bytes<N> base, const Bytes<N>& exponent,
+	const Bytes<N>& modulus)
+{
+	Bytes<N> result{};
+	result[0] = 1;
+	for (size_t byte_index = 0; byte_index < N; ++byte_index) {
+		for (unsigned bit = 0; bit < 8; ++bit) {
+			if ((exponent[byte_index] & (1u << bit)) != 0)
+				result = multiply_mod(result, base, modulus);
+			base = multiply_mod(base, base, modulus);
+		}
+	}
+	return result;
+}
+
+template<size_t Limbs, class Inverse>
+void expect_almost_inverse_provider(const char* provider,
+	const limb_t (&modulus_limbs)[Limbs], Inverse&& inverse)
+{
+	SCOPED_TRACE(provider);
+	constexpr size_t N = Limbs * sizeof(limb_t);
+	const Bytes<N> modulus = limbs_to_bytes(modulus_limbs);
+	const Bytes<N> modulus_x = left_align(modulus);
+	const Bytes<N> radix = radix_mod(modulus);
+	const Bytes<N> radix_squared = multiply_mod(radix, radix, modulus);
+	Bytes<N> one{};
+	one[0] = 1;
+	const std::array<Bytes<N>, 4> inputs = {
+		Bytes<N>{}, one, decrement(modulus), canonical_pattern(modulus, 0x3d)
+	};
+
+	Bytes<2 * N> bound{};
+	for (size_t i = 0; i < N; ++i)
+		bound[N + i] = modulus_x[i];
+
+	limb_t modx_limbs[Limbs];
+	bytes_to_limbs(modx_limbs, modulus_x);
+	for (const Bytes<N>& input : inputs) {
+		limb_t input_limbs[Limbs], output_limbs[2 * Limbs];
+		bytes_to_limbs(input_limbs, input);
+		inverse(output_limbs, input_limbs, modulus_limbs, modx_limbs);
+		const Bytes<2 * N> output = limbs_to_bytes(output_limbs);
+		EXPECT_LT(compare(output, bound), 0);
+		if (compare(input, Bytes<N>{}) == 0) {
+			EXPECT_EQ(output, Bytes<2 * N>{});
+			continue;
+		}
+		const Bytes<N> reduced = reduce_mod(output, modulus);
+		EXPECT_EQ(multiply_mod(reduced, input, modulus), radix_squared);
+	}
+}
+
+bool expected_is_square(const Bytes<48>& input, const Bytes<48>& modulus)
+{
+	const Bytes<48> zero{};
+	if (input == zero)
+		return true;
+	Bytes<48> one{};
+	one[0] = 1;
+	if (input == one)
+		return true;
+	const Bytes<48> exponent = rshift_one(decrement(modulus));
+	const Bytes<48> symbol = pow_mod(input, exponent, modulus);
+	const Bytes<48> minus_one = decrement(modulus);
+	EXPECT_TRUE(symbol == one || symbol == minus_one);
+	return symbol == one;
+}
+
+template<class IsSquare>
+void expect_is_square_provider(const char* provider, IsSquare&& is_square)
+{
+	SCOPED_TRACE(provider);
+	const Bytes<48> modulus = limbs_to_bytes(get_BLST_P().l);
+	Bytes<48> one{};
+	one[0] = 1;
+	const Bytes<48> pattern = canonical_pattern(modulus, 0x71);
+	const Bytes<48> square = multiply_mod(pattern, pattern, modulus);
+	const std::array<Bytes<48>, 5> inputs = {
+		Bytes<48>{}, one, decrement(modulus), pattern, square
+	};
+	for (const Bytes<48>& input : inputs) {
+		Fp input_limbs{};
+		bytes_to_limbs(input_limbs.l, input);
+		EXPECT_EQ(is_square(input_limbs), expected_is_square(input, modulus));
+	}
+}
+
+template<size_t N>
 void expect_montgomery_product(const Bytes<N>& out, const Bytes<N>& a,
 	const Bytes<N>& b, const Bytes<N>& modulus)
 {
@@ -653,6 +772,72 @@ TEST(AssemblyArithmeticAudit, SelectedMontgomeryProvidersMatchByteOracle)
 		},
 		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
 			from_mont_v384(ret, a, p, n0);
+		});
+}
+
+TEST(AssemblyArithmeticAudit, SelectedAlmostInverseMatchesByteOracle)
+{
+	expect_almost_inverse_provider("selected 256 almost-inverse",
+		get_BLST_r().l,
+		[](limb_t* ret, const limb_t* inp, const limb_t* mod,
+			const limb_t* modx) {
+			ct_inverse_mod_v256(ret, inp, mod, modx);
+		});
+	expect_almost_inverse_provider("selected 384 almost-inverse",
+		get_BLST_P().l,
+		[](limb_t* ret, const limb_t* inp, const limb_t* mod,
+			const limb_t* modx) {
+			ct_inverse_mod_v384(ret, inp, mod, modx);
+		});
+}
+
+TEST(AssemblyArithmeticAudit, PortableAlmostInverseMatchesByteOracle)
+{
+	expect_almost_inverse_provider("portable 256 almost-inverse",
+		get_BLST_r().l,
+		[](limb_t* ret, const limb_t* inp, const limb_t* mod,
+			const limb_t* modx) {
+			cc_ct_inverse_mod_n<NLIMBS(256)>(ret, inp, mod, modx);
+		});
+	expect_almost_inverse_provider("portable 384 almost-inverse",
+		get_BLST_P().l,
+		[](limb_t* ret, const limb_t* inp, const limb_t* mod,
+			const limb_t* modx) {
+			cc_ct_inverse_mod_n<NLIMBS(384)>(ret, inp, mod, modx);
+		});
+}
+
+#if CATBLST_AUDIT_X86_64 && \
+	(defined(_MSC_VER) || defined(BLST_ADX) || defined(BLST_PORTABLE))
+TEST(AssemblyArithmeticAudit, AdxAlmostInverseMatchesByteOracle)
+{
+	expect_almost_inverse_provider("ADX 384 almost-inverse", get_BLST_P().l,
+		ctx_inverse_mod_384);
+}
+#endif
+
+#if (!CATBLST_AUDIT_X86_64) || defined(_MSC_VER) || \
+	!defined(BLST_ADX) || defined(BLST_PORTABLE)
+TEST(AssemblyArithmeticAudit, GenericAlmostInverseMatchesByteOracle)
+{
+#if CATBLST_AUDIT_X86_64
+	PlatformCapabilityGuard force_generic(1);
+#endif
+	expect_almost_inverse_provider("generic 384 almost-inverse", get_BLST_P().l,
+		ct_inverse_mod_384);
+}
+#endif
+
+TEST(AssemblyArithmeticAudit, IsSquareMatchesEulerCriterion)
+{
+	expect_is_square_provider("assembly quadratic-residue test",
+		[](const Fp& input) {
+			return ct_is_square_mod_384(input.l, get_BLST_P().l) != 0;
+		});
+	expect_is_square_provider("portable quadratic-residue test",
+		[](const Fp& input) {
+			return cc_ct_is_sqr_mod_n<NLIMBS(384)>(input.l,
+				get_BLST_P().l) != 0;
 		});
 }
 

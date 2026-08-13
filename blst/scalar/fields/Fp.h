@@ -616,11 +616,15 @@ namespace blst::scalar
 		};
 		UFp temp;
 
-		// Returns temp * inp = 1 (mod mod), not a Montgomery value.
-		// that's why we then do redc + multiply by RR to move into Mont.
+		/*
+		 * The wide result T satisfies T*inp = R^2 (mod p). Since inp is a
+		 * Montgomery value, T is congruent to its Montgomery inverse. REDC
+		 * followed by multiplication by R^2 preserves that residue while
+		 * publishing a canonical single-width Montgomery value.
+		 */
 		ct_inverse_mod_v384(temp, inp, get_BLST_P(), Px8);
 
-		// map back to montgomery
+		// Normalize the bounded double-width almost-inverse.
 		redc_mont_v384(temp.data, temp.data, get_BLST_P().l, BLST_p0);
 #if defined(__CUDA_ARCH__)
 		ptx_mul_mont_u64<Fp>(temp.data, temp.data, get_BLST_RR().l);

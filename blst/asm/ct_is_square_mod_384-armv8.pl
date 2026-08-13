@@ -111,10 +111,13 @@ ct_is_square_mod_384:
 	ldp	@acc[2], @acc[3], [x0,#8*2]
 	ldp	@acc[4], @acc[5], [x0,#8*4]
 
+#ifdef	__CHERI_PURE_CAPABILITY__
+	cadd	$in_ptr, csp, #255
+	alignd	$in_ptr, $in_ptr, #8
+	scbnds	$in_ptr, $in_ptr, #256
+#else
 	add	$in_ptr, sp, #255	// find closest 256-byte-aligned spot
 	and	$in_ptr, $in_ptr, #-256	// in the frame...
-#ifdef	__CHERI_PURE_CAPABILITY__
-	scvalue $in_ptr, csp, $in_ptr
 #endif
 
 	ldp	@acc[6], @acc[7], [x1,#8*0]		// load modulus
@@ -139,7 +142,7 @@ ct_is_square_mod_384:
 
 	eor	$out_ptr, $in_ptr, #128		// pointer to dst |b|
 #ifdef	__CHERI_PURE_CAPABILITY__
-	scvalue $out_ptr, csp, $out_ptr
+	scvalue $out_ptr, $in_ptr, $out_ptr
 #endif
 	bl	__smul_384_n_shift_by_30
 
@@ -151,7 +154,7 @@ ct_is_square_mod_384:
 	ldp	@acc[6], @acc[7], [$out_ptr,#-8*6]
 	eor	$in_ptr, $in_ptr, #128		// flip-flop src |a|b|
 #ifdef	__CHERI_PURE_CAPABILITY__
-	scvalue $in_ptr, csp, $in_ptr
+	scvalue $in_ptr, $out_ptr, $in_ptr
 #endif
 	and	@t[6], @t[6], @acc[6]		// if |a| was negative,
 	add	$L, $L, @t[6], lsr#1		// adjust |L|

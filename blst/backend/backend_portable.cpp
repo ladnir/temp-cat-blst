@@ -1071,11 +1071,9 @@ namespace blst
 		const limb_t v[], limb_t g);
 
 
-	/**
-	 * @brief Computes the modular inverse of a large integer.
-	 *
-	 * Computes `ret = a^(-1) mod p` using the constant-time extended Euclidean algorithm.
-	 * Assumes `n > 0` and `n` is even. modx should be a left aligned copy of mod.
+	/*
+	 * Fixed-schedule double-width almost-inverse. The complete contract is at
+	 * the declaration in backend_portable.h.
 	 */
 	template<size_t n>
 	BLST_HD BLST_CPP_INLINE void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
@@ -1210,12 +1208,7 @@ namespace blst
 	BLST_HD BLST_CPP_INLINE limb_t cc_legendre_loop_n<NLIMBS(384)>(limb_t L, factors* fg, const limb_t a_[2],
 		const limb_t b_[2]);
 
-	/**
-	 * @brief Checks if a large integer is a quadratic residue modulo a given modulus.
-	 *
-	 * Returns 1 if `a` is a quadratic residue modulo `p`, otherwise returns 0.
-	 * Assumes `n > 0` and `n` is even.
-	 */
+	/* Fixed-schedule residue test; see backend_portable.h for the contract. */
 	template<size_t n>
 	BLST_HD BLST_CPP_INLINE bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[])
 	{
