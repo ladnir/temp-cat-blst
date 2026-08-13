@@ -2398,4 +2398,4 @@ sqr_n_mul_mont_383:
 ___
 
 print $code;
-close STDOUT;
+close STDOUT or die "assembly output failed: $! (child status $?)";

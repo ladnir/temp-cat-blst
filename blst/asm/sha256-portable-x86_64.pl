@@ -339,4 +339,4 @@ foreach (split("\n",$code)) {
 	s/\`([^\`]*)\`/eval $1/geo;
 	print $_,"\n";
 }
-close STDOUT;
+close STDOUT or die "assembly output failed: $! (child status $?)";

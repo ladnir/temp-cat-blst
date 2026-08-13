@@ -1563,4 +1563,4 @@ vec_is_equal_16x:
 ___
 }
 print $code;
-close STDOUT;
+close STDOUT or die "assembly output failed: $! (child status $?)";

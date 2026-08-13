@@ -78,9 +78,9 @@ if ($flavour && $flavour ne "void") {
     ( $xlate="${dir}../../perlasm/arm-xlate.pl" and -f $xlate) or
     die "can't locate arm-xlate.pl";
 
-    open STDOUT,"| \"$^X\" $xlate $flavour $output";
+    open STDOUT,"| \"$^X\" $xlate $flavour $output" or die "can't call $xlate: $!";
 } else {
-    open STDOUT,">$output";
+    open STDOUT,">$output" or die "can't open $output: $!";
 }
 
 my ($out_ptr, $in_ptr, $n_ptr, $nx_ptr) = map("x$_", (0..3));
@@ -697,4 +697,4 @@ __inner_loop_62:
 ___
 
 print $code;
-close STDOUT;
+close STDOUT or die "assembly output failed: $! (child status $?)";

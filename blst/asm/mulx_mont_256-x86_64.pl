@@ -493,4 +493,4 @@ ___
 } } }
 
 print $code;
-close STDOUT;
+close STDOUT or die "assembly output failed: $! (child status $?)";

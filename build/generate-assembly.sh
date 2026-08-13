@@ -53,7 +53,11 @@ generate()
     destination=$3
     raw="$OUTPUT/.raw-assembly-output"
 
-    "$PERL" "$generator" "$flavour" >"$raw"
+    CC=false "$PERL" "$generator" "$flavour" >"$raw"
+    if [ ! -s "$raw" ]; then
+        echo "generator produced no output: $generator ($flavour)" >&2
+        exit 1
+    fi
     "$PERL" -0777 -pe 's/\r\n/\n/g' "$raw" >"$destination"
     rm -f "$raw"
 }
