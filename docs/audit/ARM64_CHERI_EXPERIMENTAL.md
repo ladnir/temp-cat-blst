@@ -35,6 +35,17 @@ The target sources must remain reproducible and receive relevant source-level
 security fixes while retained. Experimental status is not permission to let
 generated files drift.
 
+The audit manifest therefore keeps the 9 Apple ARM64 Mach-O artifacts in the
+production set and classifies the 36 retained ELF, COFF, Win64, and CHERI ARM
+artifacts as experimental. They continue to regenerate from the same owners;
+this classification does not delete them or imply a separate implementation.
+
+Commit `61d3b66` also corrected the opted-in MSVC ARM64 source selection to use
+the validated target architecture rather than pointer width. The correction is
+structurally reviewed, but native Windows ARM64 configuration and execution
+remain promotion evidence because the local MSVC installation has no ARM64
+toolset.
+
 ## Promotion gate
 
 Non-Apple ARM64 remains experimental until a dedicated phase records, at

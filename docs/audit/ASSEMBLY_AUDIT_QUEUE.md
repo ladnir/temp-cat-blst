@@ -46,26 +46,25 @@ after Batch A fixes and evidence are integrated.
 - Shell syntax checks pass for both wrappers. One focused ARM generator emits
   translated Linux assembly successfully through the stdout convention.
 
-## Questions requiring disposition
+## Batch A dispositions
 
-1. The manifest currently classifies all 100 outputs as production. Thirty-six
-   are non-Apple ARM64 or CHERI artifacts, although those platforms are
-   experimental. The likely repair is a manifest-only scope correction:
-   retain the generators and artifacts but make only 9 Apple ARM64 and 55
-   x86-64 outputs part of the production claim.
-2. The 23 arithmetic generators generally open translator pipes and close
-   `STDOUT` without uniformly checking failure. `verify-assembly.sh` catches a
-   mismatched checked-in tree, but `generate-assembly.sh` can provide a weaker
-   success boundary. The likely repair is mechanical error propagation with
-   zero generated-byte changes.
-3. The upstream x86 translator probes `CC` through a shell command for the
-   MinGW symbol prefix. Category-blst's checked x86-64 profiles all use the
-   empty prefix, but generation can still depend on the caller environment.
-   Decide whether the wrapper should force the known deterministic prefix or
-   preserve the generic upstream probe and document it.
+1. `AUD-359` retains all outputs but classifies the 36 non-Apple ARM64 and
+   CHERI artifacts as experimental. The 9 Apple ARM64 and 55 x86-64 outputs
+   remain in the production claim.
+2. `AUD-361` makes all 23 arithmetic owners propagate translator completion
+   failure and makes the wrapper reject empty raw output. Focused failure
+   injection covers one x86 and one ARM owner; a structural check covers the
+   complete owner set.
+3. `AUD-362` preserves the pinned generic x86 translator but invokes it from
+   checked generation with `CC=false`. This deterministically selects the
+   empty object-format prefix used by the checked-in x86-64 artifacts.
+4. `AUD-360` changes the experimental MSVC ARM64 source selection from pointer
+   width to the root configuration's validated target architecture. The local
+   MSVC installation lacks the ARM64 toolset, so this finding remains fixed
+   rather than validated by a native target configuration.
 
-These are audit candidates, not approved product changes. Batch A will assign
-finding IDs only after their impact and smallest fixes are agreed.
+The generation-boundary changes are committed at `61d3b66`. They alter no
+generated output bytes and do not promote any experimental target.
 
 ## Batch A validation plan
 
@@ -80,3 +79,15 @@ finding IDs only after their impact and smallest fixes are agreed.
   available; and
 - run no benchmark or broad product test.
 
+## Batch A evidence and remaining work
+
+At `61d3b66`, Perl syntax checks, the CHERI operand probe, translator-failure
+injection, and exact two-generation verification all pass. Verification
+reproduces every one of the 100 checked outputs byte-for-byte. A supported
+MSVC x86-64 Release configuration still selects the x86 family.
+
+The two translators remain in review for the complete directive/flavour corpus
+and representative object symbol/unwind inspection. Those tasks, plus native
+target qualification, are intentionally distinct from the now-validated
+generation failure boundary. Arithmetic correctness, ABI, constant-time, and
+target execution remain assigned to Batches B through E.

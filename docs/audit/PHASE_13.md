@@ -260,3 +260,16 @@ review. The pinned x86 translator is byte-identical; the ARM translator has
 only the recorded CHERI operand changes. Shell syntax and the focused CHERI
 and Linux translation probes pass. No full regeneration, build, benchmark,
 CUDA, sanitizer, or BTx/BTE work ran.
+
+The approved Batch A boundary repairs are committed at `61d3b66`. `AUD-359`
+now classifies exactly 36 retained non-Apple ARM64 and CHERI artifacts as
+experimental while leaving 9 Apple ARM64 and 55 x86-64 outputs in production
+scope. `AUD-361` propagates translator failures through all 23 arithmetic
+owners and rejects empty wrapper output. `AUD-362` fixes the checked x86
+generation environment without modifying the pinned translator. Focused
+failure injection and deterministic verification pass, and all 100 generated
+files remain byte-identical. `AUD-360` corrects the experimental MSVC ARM64
+family selection, but remains fixed pending a machine with the MSVC ARM64
+toolset. The translators' full directive/object review and arithmetic Batches
+B through E remain open. No product build, benchmark, sanitizer, CUDA, or
+BTx/BTE work was run for this packet.

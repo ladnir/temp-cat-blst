@@ -1085,11 +1085,19 @@ sanitizer/fuzz/oracle, combined-provider, or packaging gates. The authoritative
 manifest now contains 176 complete, 172 in-review, and 317 pending files;
 frozen, experimental, excluded, catalogued, and benchmark scope is unchanged.
 
-The next active packet is the scalar assembly trust chain, frozen at
-`aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. Batch A reviews the ARM/x86
-translators, deterministic generation wrapper, verifier, and 100-path output
-allowlist before arithmetic generator families proceed. Three questions are
-held for review before code changes: experimental ARM/CHERI output scope,
-unchecked translator-pipe failures, and the x86 MinGW compiler-environment
-probe. The queue and bounded validation plan are recorded in
-`ASSEMBLY_AUDIT_QUEUE.md`.
+The active packet is the scalar assembly trust chain, frozen at
+`aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. The approved Batch A boundary
+repairs landed at `61d3b66`: 36 retained non-Apple ARM64/CHERI artifacts are
+now experimental in the manifest, all 23 arithmetic owners propagate
+translator failure, checked generation rejects empty output and fixes the x86
+compiler probe, and opted-in MSVC ARM64 selects assembly by architecture rather
+than pointer width. Failure injection and exact verification of all 100
+outputs pass with no generated-byte change. Native Windows ARM64 remains an
+evidence gap because the local MSVC ARM64 toolset is unavailable. Translator
+directive/object inspection remains in Batch A; arithmetic correctness, ABI,
+constant-time behavior, and execution proceed in Batches B through E.
+
+The authoritative manifest now contains 178 complete, 195 in-review, and 257
+pending files. It separately records 94 experimental, 32 frozen, 29 excluded,
+and 35 catalogued files. Experimental growth is the scope correction for the
+36 retained ARM/CHERI artifacts, not new product code.
