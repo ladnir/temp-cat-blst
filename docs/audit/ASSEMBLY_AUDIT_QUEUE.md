@@ -163,3 +163,32 @@ selector probe compiles under `/O2 /Ob3 /DNDEBUG /W4 /WX`; its object hash is
 `AUD-366` and `AUD-368` are validated. `AUD-365` and `AUD-367` are fixed but
 retain Apple ARM64 execution as supported-platform evidence. No benchmark,
 sanitizer, CUDA, portable-AVX Release, full test sweep, or BTx/BTE work ran.
+
+## Batch C inventory and findings
+
+Batch C covers six Montgomery multiplication owners and 26 generated outputs.
+The generators remain arithmetic-equivalent to pinned upstream. Local deltas
+are limited to the approved translator boundary, capability-symbol spelling,
+and full-width public repeated-square counters. No wrong-result defect was
+confirmed during source inspection.
+
+The raw 256-bit sparse multiplier has an asymmetric domain. Its first operand
+is reduced modulo r, while its second operand may occupy all 256 bits. Sparse
+squaring requires a reduced operand. REDC accepts T only when `T < rR` or
+`T < pR`. The 383-bit repeated-square routine requires a positive public count,
+permits output reuse of its first operand, and forbids output reuse of its
+final multiplier. Fp2 assembly assumes contiguous real and imaginary Fp
+components. The 382x routines return two contiguous double-width components.
+
+The review opened three findings:
+
+1. `AUD-369` records correlated tests and two invalid test-input domains.
+2. `AUD-370` records missing raw Montgomery contracts.
+3. `AUD-371` records unpinned C++ layouts at the assembly boundary.
+
+The approved repair uses a branchy byte-level model. For Montgomery output y,
+the model checks the unique reduced solution through
+`yR mod m = ab mod m`. REDC and from-Montgomery use the corresponding
+congruence. Fp2 and 382x checks derive both component equations independently.
+No production arithmetic, generator instruction, runtime check, or benchmark
+change is part of this packet.
