@@ -7,7 +7,7 @@
 
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 
 namespace bte::building_blocks
 {

@@ -9,7 +9,7 @@
 #include "BTE/building_blocks/lagrange.h"
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 #if BLST_DEFAULT_AVX
 #include "blst/avx/curve/map_to_G.h"
 #endif
