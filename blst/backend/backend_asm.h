@@ -143,6 +143,34 @@ void add_mod_384x384(asm_UFp ret, const asm_UFp a, const asm_UFp b,
 void sub_mod_384x384(asm_UFp ret, const asm_UFp a, const asm_UFp b,
     const asm_Fp p);
 
+/*
+ * Montgomery arithmetic uses R = 2^256 or R = 2^384 and
+ * n0 = -p^-1 mod 2^64. The modulus is odd and occupies the declared width.
+ * Results from mul, sqr, redc, and from-Montgomery operations are in [0,p).
+ * Exact output aliasing is supported where stated; partial overlap is not.
+ * Control flow is independent of field values. Provider dispatch and repeated
+ * square counts are public control inputs.
+ *
+ * Sparse 256-bit multiplication additionally requires
+ * p <= 2^256 - 2^192 - 1. Its first operand is in [0,p), while its second
+ * operand may occupy all of [0,R). Sparse squaring therefore requires its
+ * single operand in [0,p). Multiplication supports ret == a or ret == b;
+ * squaring supports ret == a.
+ * The 256-bit REDC input T satisfies T < pR; ret may equal T's low-width
+ * prefix. From-Montgomery accepts a in [0,R) and supports ret == a.
+ *
+ * The exposed 384-bit mul and sqr boundaries accept reduced operands in
+ * [0,p). They support exact output aliasing with either input. The REDC input
+ * T satisfies T < pR and permits reuse of its low-width prefix. From-
+ * Montgomery accepts a in [0,R) and supports ret == a. The specialized
+ * sqr_n_mul_mont_383 boundary requires reduced a and b plus public count > 0;
+ * ret may equal a but must not equal b.
+ *
+ * Fp2 inputs are two contiguous reduced Fp components in real-imaginary
+ * order. Fp2 Montgomery mul and sqr support exact output aliasing. The 382x
+ * operations return two contiguous double-width components, each below pR;
+ * their output must not overlap either input.
+ */
 #ifdef BLST_ASM_HAS_X_PROVIDER
 void mulx_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr b,
     const asm_Fr p, blst::limb_t n0);

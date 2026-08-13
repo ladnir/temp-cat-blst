@@ -10,6 +10,8 @@
 #include "blst/config.h"
 #include "blst/common/defines.h" 
 #include "blst/scalar/fields/Fp.h"
+#include <cstddef>
+#include <type_traits>
 
 
 namespace blst::scalar
@@ -140,6 +142,11 @@ namespace blst::scalar
         /// @brief Multiplicative identity `(1, 0)` in Montgomery form.
         BLST_HD static const Fp2& one();
     };
+
+    static_assert(sizeof(Fp2) == 96);
+    static_assert(std::is_standard_layout_v<Fp2>);
+    static_assert(std::is_trivially_copyable_v<Fp2>);
+    static_assert(offsetof(Fp2, fp) == 0);
 
 #define BLST_SQRT_SQRT_MINUS_1_LIMBS                                \
 Fp{ TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),     \

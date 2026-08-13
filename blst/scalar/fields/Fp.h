@@ -11,6 +11,7 @@
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/scalar/fields/recip-addchain.h"
+#include <cstddef>
 #include <type_traits>
 
 #include "blst/scalar/fields/sqrt-addchain.h"
@@ -155,7 +156,11 @@ namespace blst::scalar
 		BLST_HD static constexpr size_t num_limb() { return NLIMBS(384); }
 	};
 
+	static_assert(sizeof(Fp) == 48);
 	static_assert(std::is_default_constructible_v<Fp>);
+	static_assert(std::is_standard_layout_v<Fp>);
+	static_assert(std::is_trivially_copyable_v<Fp>);
+	static_assert(offsetof(Fp, l) == 0);
 
 
 	// -1/P, this is the modular inverse of P modulo 2^64

@@ -11,8 +11,10 @@
 
 #include "blst/backend/backend.h"
 #include <bit>
+#include <cstddef>
 #include <cstring>
 #include <string.h>
+#include <type_traits>
 
 namespace blst::scalar
 {
@@ -113,6 +115,11 @@ namespace blst::scalar
 		BLST_HD bool operator==(const Fr& other) const { return equal(*this, other) != 0; }
 		BLST_HD bool operator!=(const Fr& other) const { return !(*this == other); }
 	};
+
+	static_assert(sizeof(Fr) == 32);
+	static_assert(std::is_standard_layout_v<Fr>);
+	static_assert(std::is_trivially_copyable_v<Fr>);
+	static_assert(offsetof(Fr, l) == 0);
 
 	// -r^{-1} mod 2^64, used in Montgomery reduction.
 #define BLST_r0 (limb_t)0xfffffffeffffffff  /* -1/r */

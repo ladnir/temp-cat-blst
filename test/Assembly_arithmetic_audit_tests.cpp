@@ -14,12 +14,43 @@
 
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp.h"
+#include "blst/fields/Fp2.h"
 #include "blst/fields/Fr.h"
 
 using namespace blst;
 
+#if defined(__x86_64__) || defined(__x86_64) || \
+	(defined(_M_X64) && !defined(_M_ARM64EC))
+# define CATBLST_AUDIT_X86_64 1
+#else
+# define CATBLST_AUDIT_X86_64 0
+#endif
+
+#if defined(BLST_ASM) && CATBLST_AUDIT_X86_64
+extern "C" int blst_platform_cap;
+#endif
+
 namespace
 {
+#if defined(BLST_ASM) && CATBLST_AUDIT_X86_64
+class PlatformCapabilityGuard
+{
+	int saved_;
+
+public:
+	explicit PlatformCapabilityGuard(int disabled_bits)
+		: saved_(blst_platform_cap)
+	{
+		blst_platform_cap &= ~disabled_bits;
+	}
+
+	~PlatformCapabilityGuard()
+	{
+		blst_platform_cap = saved_;
+	}
+};
+#endif
+
 template<size_t N>
 using Bytes = std::array<uint8_t, N>;
 
@@ -205,6 +236,289 @@ uint64_t low_u64(const Bytes<N>& value)
 	return out;
 }
 
+template<size_t A, size_t B>
+Bytes<A + B> multiply_wide(const Bytes<A>& a, const Bytes<B>& b)
+{
+	Bytes<A + B> product{};
+	for (size_t i = 0; i < A; ++i) {
+		unsigned carry = 0;
+		for (size_t j = 0; j < B; ++j) {
+			const unsigned term = unsigned(product[i + j]) +
+				unsigned(a[i]) * unsigned(b[j]) + carry;
+			product[i + j] = uint8_t(term);
+			carry = term >> 8;
+		}
+		for (size_t k = i + B; carry != 0; ++k) {
+			if (k >= product.size()) {
+				ADD_FAILURE() << "byte multiplication overflowed its exact width";
+				return product;
+			}
+			const unsigned term = unsigned(product[k]) + carry;
+			product[k] = uint8_t(term);
+			carry = term >> 8;
+		}
+	}
+	return product;
+}
+
+template<size_t DividendBytes, size_t ModulusBytes>
+Bytes<ModulusBytes> reduce_mod(const Bytes<DividendBytes>& value,
+	const Bytes<ModulusBytes>& modulus)
+{
+	return divide_bits(value, modulus).remainder;
+}
+
+template<size_t N>
+Bytes<N> multiply_mod(const Bytes<N>& a, const Bytes<N>& b,
+	const Bytes<N>& modulus)
+{
+	return reduce_mod(multiply_wide(a, b), modulus);
+}
+
+template<size_t N>
+Bytes<N> radix_mod(const Bytes<N>& modulus)
+{
+	Bytes<N + 1> radix{};
+	radix[N] = 1;
+	return reduce_mod(radix, modulus);
+}
+
+template<size_t N>
+void expect_montgomery_product(const Bytes<N>& out, const Bytes<N>& a,
+	const Bytes<N>& b, const Bytes<N>& modulus)
+{
+	EXPECT_LT(compare(out, modulus), 0);
+	EXPECT_EQ(multiply_mod(out, radix_mod(modulus), modulus),
+		multiply_mod(a, b, modulus));
+}
+
+template<size_t N, size_t WideN>
+void expect_montgomery_reduction(const Bytes<N>& out,
+	const Bytes<WideN>& input, const Bytes<N>& modulus)
+{
+	EXPECT_LT(compare(out, modulus), 0);
+	EXPECT_EQ(multiply_mod(out, radix_mod(modulus), modulus),
+		reduce_mod(input, modulus));
+}
+
+template<size_t N>
+void expect_montgomery_value(const Bytes<N>& out, const Bytes<N>& value,
+	const Bytes<N>& modulus)
+{
+	EXPECT_LT(compare(out, modulus), 0);
+	EXPECT_EQ(multiply_mod(out, radix_mod(modulus), modulus), value);
+}
+
+template<size_t N>
+std::array<Bytes<N>, 4> montgomery_values(const Bytes<N>& modulus)
+{
+	Bytes<N> one{};
+	one[0] = 1;
+	return {
+		Bytes<N>{}, one, decrement(modulus),
+		canonical_pattern(modulus, 0x6d)
+	};
+}
+
+template<size_t Limbs, class Mul, class Sqr, class Redc, class From>
+void expect_montgomery_provider(const char* provider,
+	const limb_t (&modulus_limbs)[Limbs], limb_t n0,
+	bool sparse_second_operand, Mul&& mul, Sqr&& sqr, Redc&& redc, From&& from)
+{
+	SCOPED_TRACE(provider);
+	constexpr size_t N = Limbs * sizeof(limb_t);
+	const Bytes<N> modulus = limbs_to_bytes(modulus_limbs);
+	const auto values = montgomery_values(modulus);
+	Bytes<N> full_width{};
+	full_width.fill(0xff);
+
+	for (size_t i = 0; i < values.size(); ++i) {
+		const Bytes<N>& a_bytes = values[i];
+		const Bytes<N>& b_bytes = sparse_second_operand && i + 1 == values.size()
+			? full_width : values[(i + 1) % values.size()];
+		limb_t a[Limbs], b[Limbs], out[Limbs], alias[Limbs];
+		bytes_to_limbs(a, a_bytes);
+		bytes_to_limbs(b, b_bytes);
+
+		mul(out, a, b, modulus_limbs, n0);
+		expect_montgomery_product(limbs_to_bytes(out), a_bytes, b_bytes,
+			modulus);
+		std::memcpy(alias, a, sizeof(alias));
+		mul(alias, alias, b, modulus_limbs, n0);
+		expect_montgomery_product(limbs_to_bytes(alias), a_bytes, b_bytes,
+			modulus);
+		std::memcpy(alias, b, sizeof(alias));
+		mul(alias, a, alias, modulus_limbs, n0);
+		expect_montgomery_product(limbs_to_bytes(alias), a_bytes, b_bytes,
+			modulus);
+
+		sqr(out, a, modulus_limbs, n0);
+		expect_montgomery_product(limbs_to_bytes(out), a_bytes, a_bytes,
+			modulus);
+		std::memcpy(alias, a, sizeof(alias));
+		sqr(alias, alias, modulus_limbs, n0);
+		expect_montgomery_product(limbs_to_bytes(alias), a_bytes, a_bytes,
+			modulus);
+
+		from(out, a, modulus_limbs, n0);
+		expect_montgomery_reduction(limbs_to_bytes(out), a_bytes, modulus);
+		std::memcpy(alias, a, sizeof(alias));
+		from(alias, alias, modulus_limbs, n0);
+		expect_montgomery_reduction(limbs_to_bytes(alias), a_bytes, modulus);
+	}
+	{
+		limb_t a[Limbs], out[Limbs], alias[Limbs];
+		bytes_to_limbs(a, full_width);
+		from(out, a, modulus_limbs, n0);
+		expect_montgomery_reduction(limbs_to_bytes(out), full_width, modulus);
+		std::memcpy(alias, a, sizeof(alias));
+		from(alias, alias, modulus_limbs, n0);
+		expect_montgomery_reduction(limbs_to_bytes(alias), full_width, modulus);
+	}
+
+	for (size_t i = 0; i < values.size(); ++i) {
+		Bytes<2 * N> input{};
+		const Bytes<N>& upper = values[i];
+		for (size_t j = 0; j < N; ++j) {
+			input[j] = uint8_t(0xa7 + 31 * j + i);
+			input[N + j] = upper[j];
+		}
+		limb_t wide[2 * Limbs], out[Limbs];
+		bytes_to_limbs(wide, input);
+		redc(out, wide, modulus_limbs, n0);
+		expect_montgomery_reduction(limbs_to_bytes(out), input, modulus);
+
+		limb_t alias[2 * Limbs];
+		std::memcpy(alias, wide, sizeof(alias));
+		redc(alias, alias, modulus_limbs, n0);
+		limb_t alias_out[Limbs];
+		std::memcpy(alias_out, alias, sizeof(alias_out));
+		expect_montgomery_reduction(limbs_to_bytes(alias_out), input, modulus);
+	}
+}
+
+template<class Mul, class Sqr>
+void expect_fp2_montgomery_provider(const char* provider, Mul&& mul, Sqr&& sqr)
+{
+	SCOPED_TRACE(provider);
+	const Bytes<48> modulus = limbs_to_bytes(get_BLST_P().l);
+	const auto values = montgomery_values(modulus);
+	for (size_t i = 0; i < 3; ++i) {
+		const Bytes<48>& a0 = values[i + 1];
+		const Bytes<48>& a1 = values[(i + 2) % values.size()];
+		const Bytes<48>& b0 = values[(i + 3) % values.size()];
+		const Bytes<48>& b1 = values[i];
+		Fp2 a{}, b{}, out{}, alias{};
+		bytes_to_limbs(a[0].l, a0);
+		bytes_to_limbs(a[1].l, a1);
+		bytes_to_limbs(b[0].l, b0);
+		bytes_to_limbs(b[1].l, b1);
+
+		const Bytes<48> real = sub_mod(multiply_mod(a0, b0, modulus),
+			multiply_mod(a1, b1, modulus), modulus);
+		const Bytes<48> imaginary = add_mod(multiply_mod(a0, b1, modulus),
+			multiply_mod(a1, b0, modulus), modulus);
+		mul(out, a, b);
+		expect_montgomery_value(limbs_to_bytes(out[0].l), real, modulus);
+		expect_montgomery_value(limbs_to_bytes(out[1].l), imaginary, modulus);
+		alias = a;
+		mul(alias, alias, b);
+		expect_montgomery_value(limbs_to_bytes(alias[0].l), real, modulus);
+		expect_montgomery_value(limbs_to_bytes(alias[1].l), imaginary, modulus);
+		alias = b;
+		mul(alias, a, alias);
+		expect_montgomery_value(limbs_to_bytes(alias[0].l), real, modulus);
+		expect_montgomery_value(limbs_to_bytes(alias[1].l), imaginary, modulus);
+
+		const Bytes<48> square_real = sub_mod(multiply_mod(a0, a0, modulus),
+			multiply_mod(a1, a1, modulus), modulus);
+		const Bytes<48> square_imaginary = add_mod(
+			multiply_mod(a0, a1, modulus), multiply_mod(a0, a1, modulus),
+			modulus);
+		sqr(out, a);
+		expect_montgomery_value(limbs_to_bytes(out[0].l), square_real, modulus);
+		expect_montgomery_value(limbs_to_bytes(out[1].l), square_imaginary,
+			modulus);
+		alias = a;
+		sqr(alias, alias);
+		expect_montgomery_value(limbs_to_bytes(alias[0].l), square_real,
+			modulus);
+		expect_montgomery_value(limbs_to_bytes(alias[1].l), square_imaginary,
+			modulus);
+	}
+}
+
+template<class Mul, class Sqr>
+void expect_fp2_wide_provider(const char* provider, Mul&& mul, Sqr&& sqr)
+{
+	SCOPED_TRACE(provider);
+	const Bytes<48> modulus = limbs_to_bytes(get_BLST_P().l);
+	const auto values = montgomery_values(modulus);
+	for (size_t i = 0; i < 3; ++i) {
+		const Bytes<48>& a0 = values[i + 1];
+		const Bytes<48>& a1 = values[(i + 2) % values.size()];
+		const Bytes<48>& b0 = values[(i + 3) % values.size()];
+		const Bytes<48>& b1 = values[i];
+		Fp2 a{}, b{};
+		UFp2 out{};
+		bytes_to_limbs(a[0].l, a0);
+		bytes_to_limbs(a[1].l, a1);
+		bytes_to_limbs(b[0].l, b0);
+		bytes_to_limbs(b[1].l, b1);
+
+		const Bytes<48> real = sub_mod(multiply_mod(a0, b0, modulus),
+			multiply_mod(a1, b1, modulus), modulus);
+		const Bytes<48> imaginary = add_mod(multiply_mod(a0, b1, modulus),
+			multiply_mod(a1, b0, modulus), modulus);
+		mul(out, a, b);
+		EXPECT_EQ(reduce_mod(limbs_to_bytes(out[0].data), modulus), real);
+		EXPECT_EQ(reduce_mod(limbs_to_bytes(out[1].data), modulus), imaginary);
+
+		const Bytes<48> square_real = sub_mod(multiply_mod(a0, a0, modulus),
+			multiply_mod(a1, a1, modulus), modulus);
+		const Bytes<48> square_imaginary = add_mod(
+			multiply_mod(a0, a1, modulus), multiply_mod(a0, a1, modulus),
+			modulus);
+		sqr(out, a);
+		EXPECT_EQ(reduce_mod(limbs_to_bytes(out[0].data), modulus), square_real);
+		EXPECT_EQ(reduce_mod(limbs_to_bytes(out[1].data), modulus),
+			square_imaginary);
+	}
+}
+
+template<class SqrNMul>
+void expect_repeated_square_provider(const char* provider, SqrNMul&& operation)
+{
+	SCOPED_TRACE(provider);
+	const Bytes<48> modulus = limbs_to_bytes(get_BLST_P().l);
+	const auto values = montgomery_values(modulus);
+	const Bytes<48> a_bytes = values[3];
+	const Bytes<48> b_bytes = values[2];
+	for (size_t count : { size_t(1), size_t(2), size_t(5) }) {
+		Fp a{}, b{}, out{}, alias{};
+		bytes_to_limbs(a.l, a_bytes);
+		bytes_to_limbs(b.l, b_bytes);
+		operation(out, a, count, b);
+
+		Bytes<48> power = a_bytes;
+		Bytes<48> radix_power = radix_mod(modulus);
+		for (size_t i = 0; i < count; ++i) {
+			power = multiply_mod(power, power, modulus);
+			radix_power = multiply_mod(radix_power, radix_power, modulus);
+		}
+		const Bytes<48> expected = multiply_mod(power, b_bytes, modulus);
+		const Bytes<48> out_bytes = limbs_to_bytes(out.l);
+		EXPECT_LT(compare(out_bytes, modulus), 0);
+		EXPECT_EQ(multiply_mod(out_bytes, radix_power, modulus), expected);
+
+		alias = a;
+		operation(alias, alias, count, b);
+		const Bytes<48> alias_bytes = limbs_to_bytes(alias.l);
+		EXPECT_LT(compare(alias_bytes, modulus), 0);
+		EXPECT_EQ(multiply_mod(alias_bytes, radix_power, modulus), expected);
+	}
+}
+
 template<size_t Limbs>
 void expect_single_width_modular_arithmetic(const limb_t (&modulus_limbs)[Limbs])
 {
@@ -306,6 +620,184 @@ TEST(AssemblyArithmeticAudit, SingleWidthOperationsMatchByteOracle)
 	expect_single_width_modular_arithmetic(get_BLST_r().l);
 	expect_single_width_modular_arithmetic(get_BLST_P().l);
 }
+
+TEST(AssemblyArithmeticAudit, SelectedMontgomeryProvidersMatchByteOracle)
+{
+	expect_montgomery_provider("selected sparse 256", get_BLST_r().l,
+		BLST_r0, true,
+		[](limb_t* ret, const limb_t* a, const limb_t* b,
+			const limb_t* p, limb_t n0) {
+			mul_mont_sparse_v256(ret, a, b, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			sqr_mont_sparse_v256(ret, a, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			redc_mont_v256(ret, a, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			from_mont_v256(ret, a, p, n0);
+		});
+
+	expect_montgomery_provider("selected 384", get_BLST_P().l,
+		BLST_p0, false,
+		[](limb_t* ret, const limb_t* a, const limb_t* b,
+			const limb_t* p, limb_t n0) {
+			mul_mont_v384(ret, a, b, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			sqr_mont_v384(ret, a, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			redc_mont_v384(ret, a, p, n0);
+		},
+		[](limb_t* ret, const limb_t* a, const limb_t* p, limb_t n0) {
+			from_mont_v384(ret, a, p, n0);
+		});
+}
+
+#if CATBLST_AUDIT_X86_64 && \
+	(defined(_MSC_VER) || defined(BLST_ADX) || defined(BLST_PORTABLE))
+TEST(AssemblyArithmeticAudit, AdxMontgomeryProvidersMatchByteOracle)
+{
+	expect_montgomery_provider("ADX sparse 256", get_BLST_r().l,
+		BLST_r0, true, mulx_mont_sparse_256, sqrx_mont_sparse_256,
+		redcx_mont_256, fromx_mont_256);
+	expect_montgomery_provider("ADX 384", get_BLST_P().l,
+		BLST_p0, false, mulx_mont_384, sqrx_mont_384,
+		redcx_mont_384, fromx_mont_384);
+}
+#endif
+
+#if (!CATBLST_AUDIT_X86_64) || defined(_MSC_VER) || \
+	!defined(BLST_ADX) || defined(BLST_PORTABLE)
+TEST(AssemblyArithmeticAudit, GenericMontgomeryProvidersMatchByteOracle)
+{
+#if CATBLST_AUDIT_X86_64
+	PlatformCapabilityGuard force_generic(1);
+#endif
+	expect_montgomery_provider("generic sparse 256", get_BLST_r().l,
+		BLST_r0, true, mul_mont_sparse_256, sqr_mont_sparse_256,
+		redc_mont_256, from_mont_256);
+	expect_montgomery_provider("generic 384", get_BLST_P().l,
+		BLST_p0, false, mul_mont_384, sqr_mont_384,
+		redc_mont_384, from_mont_384);
+}
+#endif
+
+TEST(AssemblyArithmeticAudit, SelectedFp2MontgomeryProvidersMatchByteOracle)
+{
+	expect_fp2_montgomery_provider("selected Fp2",
+		[](Fp2& ret, const Fp2& a, const Fp2& b) {
+			Fp2::mul(ret, a, b);
+		},
+		[](Fp2& ret, const Fp2& a) {
+			Fp2::sqr(ret, a);
+		});
+	expect_fp2_wide_provider("selected wide Fp2",
+		[](UFp2& ret, const Fp2& a, const Fp2& b) {
+			mul_v382x(ret, a, b, get_BLST_P());
+		},
+		[](UFp2& ret, const Fp2& a) {
+			sqr_v382x(ret, a, get_BLST_P());
+		});
+}
+
+#if CATBLST_AUDIT_X86_64 && \
+	(defined(_MSC_VER) || defined(BLST_ADX) || defined(BLST_PORTABLE))
+TEST(AssemblyArithmeticAudit, AdxFp2MontgomeryProvidersMatchByteOracle)
+{
+	expect_fp2_montgomery_provider("ADX Fp2",
+		[](Fp2& ret, const Fp2& a, const Fp2& b) {
+			mulx_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
+		},
+		[](Fp2& ret, const Fp2& a) {
+			sqrx_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
+		});
+	expect_fp2_wide_provider("ADX wide Fp2",
+		[](UFp2& ret, const Fp2& a, const Fp2& b) {
+			mulx_382x(&ret, &a, &b, &get_BLST_P());
+		},
+		[](UFp2& ret, const Fp2& a) {
+			sqrx_382x(&ret, &a, &get_BLST_P());
+		});
+}
+#endif
+
+#if (!CATBLST_AUDIT_X86_64) || defined(_MSC_VER) || \
+	!defined(BLST_ADX) || defined(BLST_PORTABLE)
+TEST(AssemblyArithmeticAudit, GenericFp2MontgomeryProvidersMatchByteOracle)
+{
+#if CATBLST_AUDIT_X86_64
+	PlatformCapabilityGuard force_generic(1);
+#endif
+	expect_fp2_montgomery_provider("generic Fp2",
+		[](Fp2& ret, const Fp2& a, const Fp2& b) {
+			mul_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
+		},
+		[](Fp2& ret, const Fp2& a) {
+			sqr_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
+		});
+	expect_fp2_wide_provider("generic wide Fp2",
+		[](UFp2& ret, const Fp2& a, const Fp2& b) {
+			mul_382x(&ret, &a, &b, &get_BLST_P());
+		},
+		[](UFp2& ret, const Fp2& a) {
+			sqr_382x(&ret, &a, &get_BLST_P());
+		});
+}
+#endif
+
+TEST(AssemblyArithmeticAudit, SelectedRepeatedSquareMatchesByteOracle)
+{
+	expect_repeated_square_provider("selected repeated square",
+		[](Fp& ret, const Fp& a, size_t count, const Fp& b) {
+			Fp::sqr_n_mul(ret, a, count, b);
+		});
+
+	const Bytes<48> modulus = limbs_to_bytes(get_BLST_P().l);
+	const auto values = montgomery_values(modulus);
+	Fp a{}, b{}, out{};
+	bytes_to_limbs(a.l, values[3]);
+	bytes_to_limbs(b.l, values[2]);
+	Fp::sqr_n_mul(out, a, 0, b);
+	expect_montgomery_product(limbs_to_bytes(out.l), values[3], values[2],
+		modulus);
+	out = b;
+	Fp::sqr_n_mul(out, a, 2, out);
+	Bytes<48> power = multiply_mod(values[3], values[3], modulus);
+	power = multiply_mod(power, power, modulus);
+	Bytes<48> radix_power = multiply_mod(radix_mod(modulus),
+		radix_mod(modulus), modulus);
+	radix_power = multiply_mod(radix_power, radix_power, modulus);
+	EXPECT_EQ(multiply_mod(limbs_to_bytes(out.l), radix_power, modulus),
+		multiply_mod(power, values[2], modulus));
+}
+
+#if CATBLST_AUDIT_X86_64 && \
+	(defined(_MSC_VER) || defined(BLST_ADX) || defined(BLST_PORTABLE))
+TEST(AssemblyArithmeticAudit, AdxRepeatedSquareMatchesByteOracle)
+{
+	expect_repeated_square_provider("ADX repeated square",
+		[](Fp& ret, const Fp& a, size_t count, const Fp& b) {
+			sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+		});
+}
+#endif
+
+#if (!CATBLST_AUDIT_X86_64) || defined(_MSC_VER) || \
+	!defined(BLST_ADX) || defined(BLST_PORTABLE)
+TEST(AssemblyArithmeticAudit, GenericRepeatedSquareMatchesByteOracle)
+{
+#if CATBLST_AUDIT_X86_64
+	PlatformCapabilityGuard force_generic(1);
+#endif
+	expect_repeated_square_provider("generic repeated square",
+		[](Fp& ret, const Fp& a, size_t count, const Fp& b) {
+			sqr_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+		});
+}
+#endif
 
 TEST(AssemblyArithmeticAudit, ScalarChecksCoverCanonicalBoundariesAndAliases)
 {
@@ -460,3 +952,5 @@ TEST(AssemblyArithmeticAudit, SelectedZeroShiftsAreExactCopies)
 	rshift_mod_v384(field_out, field, 0, get_BLST_P().l);
 	EXPECT_EQ(std::memcmp(field_out, field, sizeof(field)), 0);
 }
+
+#undef CATBLST_AUDIT_X86_64

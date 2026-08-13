@@ -23,6 +23,8 @@
 // uint8_t, etc
 #include <stdint.h>
 #include <bit>
+#include <cstddef>
+#include <type_traits>
 
 // For custom assert implementation
 #ifndef NDEBUG
@@ -267,6 +269,19 @@ namespace blst
         BLST_HD const UFp& operator[](size_t idx) const { return data[idx]; }
 
     };
+
+    static_assert(sizeof(UFr) == 64);
+    static_assert(sizeof(UFp) == 96);
+    static_assert(sizeof(UFp2) == 192);
+    static_assert(std::is_standard_layout_v<UFr>);
+    static_assert(std::is_standard_layout_v<UFp>);
+    static_assert(std::is_standard_layout_v<UFp2>);
+    static_assert(std::is_trivially_copyable_v<UFr>);
+    static_assert(std::is_trivially_copyable_v<UFp>);
+    static_assert(std::is_trivially_copyable_v<UFp2>);
+    static_assert(offsetof(UFr, data) == 0);
+    static_assert(offsetof(UFp, data) == 0);
+    static_assert(offsetof(UFp2, data) == 0);
 
 #define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
                             (byte)(limb64>>16),(byte)(limb64>>24),\

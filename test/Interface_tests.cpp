@@ -378,8 +378,8 @@ TEST(InterfaceTests, SqrMontSparseV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		generate_random_Fr(a);
 		memcpy(p.l, get_BLST_r().l, sizeof(Fr));
+		generate_random_Fr(a, p);
 
 		// Compute using both implementations
 		platform_sqr_mont_sparse_256(ret_asm.l, a.l, p.l, n0);
@@ -401,7 +401,7 @@ TEST(InterfaceTests, RedcMontV256) {
 		Fr r;
 		generate_random_Fr(r); // Fill lower 256 bits
         memcpy(a.data, r.l, sizeof(Fr));
-		generate_random_Fr(r); // Fill upper 256 bits
+		generate_random_Fr(r, get_BLST_r()); // Require the upper half below r.
         memcpy(a.data + NLIMBS(256), r.l, sizeof(Fr));
 
 		memcpy(p.l, get_BLST_r().l, sizeof(Fr));
@@ -775,7 +775,7 @@ TEST(InterfaceTests, FromMontV384) {
 
 // Test for sqr_n_mul_mont_v383
 TEST(InterfaceTests, SqrNMulMontV383) {
-	Fp a, b, aM, bM, p, ret_asm, ret_portable, out_asm, out_c;
+	Fp a, b, p, ret_asm, ret_portable, out_asm, out_c;
 	memcpy(p.l, get_BLST_P().l, sizeof(Fp));
 
 	limb_t n0 = BLST_p0;
@@ -792,14 +792,6 @@ TEST(InterfaceTests, SqrNMulMontV383) {
 		generate_random_Fp(b, rng);
 
 		EXPECT_TRUE(cc_check_mod_n<NLIMBS(384)>((byte*)b.l, p.l) == 1);
-		//to_fp(a, a);
-		//to_fp(b, b);
-		// ---- to Montgomery correctly: aM = a * R  and  bM = b * R
-		// via MontMul with RR
-		cc_mul_mont_n<NLIMBS(384)>(aM.l, a.l, get_BLST_RR().l, p.l, n0);
-		cc_mul_mont_n<NLIMBS(384)>(bM.l, b.l, get_BLST_RR().l, p.l, n0);
-
-
 		// Compute using both implementations
 		platform_sqr_n_mul_mont_383(ret_asm.l, a.l, count, p.l, n0,
 			b.l);
