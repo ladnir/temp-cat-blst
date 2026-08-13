@@ -1272,6 +1272,12 @@ inline void avx_gt_mult_pippenger_glv4_prepared(
         ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
 }
 
+/**
+ * Variable-time GT MSM over public 256-bit scalars and caller-owned scratch.
+ * Every input must already be a valid GT element. The bucket, tag, split-point,
+ * and split-scalar buffers must be valid and mutually disjoint for the call.
+ * This internal executor allocates nothing and performs no membership check.
+ */
 inline void avx_gt_mult_pippenger_glv4(
     GT& ret,
     const GT* points,
