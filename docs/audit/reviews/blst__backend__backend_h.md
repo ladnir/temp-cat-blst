@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/backend/backend.h` |
 | Roadmap phase / queue | Phase 13, scalar selector after portable backend |
-| Reviewed commit | `e1fb36f21ddcafd96a415099df09a820cce69804` |
+| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-02 |
+| Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
 | Subsystem | Compile-time scalar backend selection, SHA-256 selection, fixed scalar division helpers |
 | Profiles | Scalar C++, C/Rust consumers, host assembly and pure portable scalar |
@@ -36,6 +36,8 @@ operation, compile-time-only dispatch, and no exception or allocation boundary.
   in-place aliasing (`ret == a`) and disjoint output are supported; arbitrary
   partial overlap is not a contract.
 - Nonzero shifts retain the underlying backend precondition and fixed modulus.
+- A zero-length prefetch is a no-op. A positive length reaches the selected
+  backend and must describe a non-wrapping address range.
 - SHA compression updates caller-owned state and receives complete 64-byte
   blocks. A zero block count and zero-byte copy are defined no-ops before
   backend selection.
@@ -215,8 +217,20 @@ code generation cover the dispatch regression separately.
 ## Residual risk and decision
 
 Complete for supported host scalar contracts at reviewed commit
-`e1fb36f21ddcafd96a415099df09a820cce69804`. Assembly implementations and
+`2333650dcd3017f34e169c79bc8dc86e27d7305e`. Assembly implementations and
 CPU capability initialization retain their own pending/generated-file reviews.
 Apple/AArch64 must continue to pass CI before release. Experimental CUDA is
 outside this decision and was not used as evidence. Broader field, protocol,
 and public API properties remain assigned to later file reviews.
+
+## Batch B delta
+
+`AUD-365` adds the zero-length prefetch boundary. The raw assembly routine now
+has a distinct positive-length symbol. MSVC emits a direct tail call for a
+fixed 48-byte request and one public-length branch for a variable request.
+
+`AUD-368` records the normalized-divisor and quotient-estimate contracts.
+Debug builds assert the normalized high bit and `dividend_top <= divisor`.
+Release builds erase both assertions. The independent bitwise division oracle
+covers strict prefixes, exact and one-high estimates, saturation, and corrected
+remainders.

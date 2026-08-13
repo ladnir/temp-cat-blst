@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.cpp` |
 | Roadmap phase / queue | Phase 14 scalar extension fields and GT boundary |
-| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
+| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-03 |
+| Date | 2026-08-13 |
 | Disposition | in-scope production |
 | Subsystem | scalar Fp6/Fp12 arithmetic, final exponentiation, GT GLV exponentiation |
 | Profiles | scalar, C, C++, Rust; experimental CUDA consumers excluded from release evidence |
@@ -38,6 +38,14 @@ exception source, callback, or mutable global state.
 - GLV schedules must be compiler-produced and within their fixed capacities.
 - Raw 576-byte input currently reduces coefficients rather than validating a
   canonical encoding.
+
+## Batch B widened-arithmetic delta
+
+The widened Fp2 helpers require each component below `p * 2^384`. Debug builds
+now assert this input bound. The `u+1` helper also asserts its existing
+non-alias contract. Release builds erase these checks. A focused MSVC Debug
+compile accepts the resulting Fp12 path, while the byte-level Release oracle
+checks the underlying wide add/subtract operations and both exact aliases.
 
 ## Dependency and call-path map
 

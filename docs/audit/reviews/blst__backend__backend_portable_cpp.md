@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/backend/backend_portable.cpp` |
 | Roadmap phase / queue | Phase 13, portable-backend trust chain |
-| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
+| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-02 |
+| Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
 | Subsystem | Fixed-width portable field arithmetic and inversion/division support |
 | Profiles | scalar C++, retained C/Rust consumers through compile-time scalar selection |
@@ -40,6 +40,13 @@ value-dependent memory behavior.
   Release check.
 - The quotient helper consumes an `n+1`-limb dividend/remainder buffer and may
   correct an overestimated quotient by one.
+
+## Batch B contract delta
+
+`AUD-368` aligns definition comments with the established implementation.
+The comments now distinguish reduced arithmetic, odd-modulus right shift,
+canonical little-endian checked operations, and exact or one-high quotient
+correction. No arithmetic statement or generated instruction changed.
 
 ## Review evidence by checklist area
 

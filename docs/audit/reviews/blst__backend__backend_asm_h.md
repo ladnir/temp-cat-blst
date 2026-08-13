@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/backend/backend_asm.h` |
 | Roadmap phase / queue | Phase 13, scalar assembly interface |
-| Reviewed commit | `5a9457a8e01522c48510487de60f7a60a59a93df` |
+| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-02 |
+| Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
 | Subsystem | Raw scalar assembly declarations and provider availability |
 | Profiles | x86-64 ADX, x86-64 q, combined portable x86-64, Apple/AArch64 scalar |
@@ -38,6 +38,12 @@ matches what the build actually links.
 - Raw vector predicates require a positive byte count divisible by 16.
 - Raw SHA compression and byte-copy functions require positive counts.
   Forced-inline C++ boundaries define zero-count behavior before assembly.
+- Single-width modular operations require reduced operands. Exact output
+  aliasing with either input is supported; partial overlap is not.
+- Double-width add/subtract operates modulo `p * 2^384` and requires each
+  operand below that boundary.
+- Division routines require their documented normalized divisor and exact or
+  one-high quotient estimate.
 - x86-64 portable assembly builds provide both x and q public providers.
 - Non-portable GNU/Clang x86-64 builds provide the configured x or q provider.
 - Win64 x86-64 builds compile both public MASM providers.
@@ -147,8 +153,13 @@ thread-local state, and creates no worker or synchronization behavior.
 ## Residual risk and decision
 
 The provider declaration and selection review is complete at
-`5a9457a8e01522c48510487de60f7a60a59a93df`, with supported Apple Silicon
-execution supplied by run `31665323681`. Non-Apple ARM64 and CHERI remain
-experimental, and CUDA is outside this review. The manifest row remains
-`in_review` only to bind this declaration owner to the pending per-file
-generated-assembly trust-chain records.
+`2333650dcd3017f34e169c79bc8dc86e27d7305e`. The declaration layer now states
+the operand ranges, modulus, alias rules, shift-count domain, and division
+estimate domain. The raw positive-length prefetch symbol is
+`vec_prefetch_asm`; the selected wrapper handles zero before assembly.
+
+The exact MSVC object exports the new symbol and omits the obsolete raw name.
+Independent x86-64 arithmetic tests pass 6/6. Apple ARM64 execution remains
+required for the changed shared ARM prefetch owner. Non-Apple ARM64 and CHERI
+remain experimental, and CUDA is outside this review. The manifest row remains
+`in_review` until the generated assembly packet receives that evidence.

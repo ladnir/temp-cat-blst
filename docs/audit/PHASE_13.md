@@ -285,3 +285,13 @@ records. All 100 generated outputs remain byte-identical. Native ARMASM,
 CHERI, and non-Apple ARM execution remain experimental promotion gates, not
 production evidence. No product build, benchmark, sanitizer, CUDA, or BTx/BTE
 work ran.
+
+Batch B remediation is implemented at `2333650`. Zero-length selected
+prefetch is a no-op, while fixed positive sizes remain direct assembly tail
+calls. The four x86 modular-shift loops now consume the full `size_t` count.
+An independent byte-level oracle covers reduced and dense boundaries, exact
+aliases, double-width arithmetic modulo `p * 2^384`, and division correction.
+Focused MSVC x86-64 Release tests pass 6/6. The affected Debug widened-Fp12
+path also compiles with its new zero-cost Release invariants. `AUD-366` and
+`AUD-368` are validated. `AUD-365` and `AUD-367` remain fixed pending native
+Apple ARM64 execution. No benchmark or broad test sweep ran.

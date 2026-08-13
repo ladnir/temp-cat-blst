@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/backend/backend_portable.h` |
 | Roadmap phase / queue | Phase 13, portable-backend trust chain |
-| Reviewed commit | `5606e84262401225c4e02b3ec786b849c85adfcc` |
+| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-02 |
+| Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
 | Subsystem | 64-bit portable and ADX limb primitives, arithmetic declarations, constant-time helpers, SHA-256 fallback |
 | Profiles | scalar C++, retained C/Rust consumers; experimental CUDA declarations are not release-gated |
@@ -41,6 +41,15 @@ inlineable into arithmetic kernels.
   preconditions from their definitions and callers.
 - No supported host operation allocates, throws, performs runtime dispatch, or
   owns caller storage.
+
+## Batch B contract delta
+
+`AUD-368` makes the existing narrow contracts explicit. Modular add,
+subtract, shift, small multiplication, and conditional negation require
+reduced operands. Right shift also requires an odd modulus. Checked scalar
+addition and subtraction consume canonical little-endian byte strings.
+Division correction consumes an exact or one-high estimate. These changes are
+documentation only and add no generated code.
 
 ## Review evidence by checklist area
 

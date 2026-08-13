@@ -131,3 +131,35 @@ Twenty focused x86-64 assembly tests passed before remediation. A separate
 integer model checked 200,000 normalized strict-bound division estimates.
 No build, benchmark, sanitizer sweep, CUDA test, or BTx/BTE work ran during
 the read-only inventory.
+
+## Batch B remediation evidence
+
+Commit `2333650` implements the approved boundary repairs. The selected
+prefetch function returns for a zero length. Positive fixed sizes still compile
+to a direct tail call to `vec_prefetch_asm`. Variable sizes add one branch on
+the public length. The raw assembly contract remains positive-length only.
+
+All four raw x86 shift loops now decrement the complete 64-bit `size_t` count.
+The loop bodies and fixed-count selected code remain unchanged. Deterministic
+generation reproduces all 100 checked outputs after the intentional 13-file
+delta. Structural inspection finds no 32-bit decrement in the affected owners
+or outputs.
+
+The new byte-level oracle does not call portable limb arithmetic. It covers:
+
+- 256-bit and 384-bit modular addition, subtraction, and shifts;
+- zero, one, `p-1`, and deterministic dense reduced operands;
+- exact output aliasing with either binary input;
+- addition and subtraction modulo `p * 2^384`;
+- canonical scalar checks and checked add/subtract boundaries; and
+- quotient estimation, one-high correction, saturation, and exact 64-bit
+  division.
+
+Focused MSVC 19.50 x86-64 Release execution passes 6/6. A Debug compile of the
+widened Fp12 path accepts the new operand and alias assertions. The optimized
+selector probe compiles under `/O2 /Ob3 /DNDEBUG /W4 /WX`; its object hash is
+`C99F5717D45703F738134FA65C73FEB61A3BF57B0FCEA63A7C3529E2D3819C58`.
+
+`AUD-366` and `AUD-368` are validated. `AUD-365` and `AUD-367` are fixed but
+retain Apple ARM64 execution as supported-platform evidence. No benchmark,
+sanitizer, CUDA, portable-AVX Release, full test sweep, or BTx/BTE work ran.
