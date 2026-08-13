@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $manifestPath = Join-Path $repoRoot 'docs\audit\FILE_MANIFEST.csv'
 $preservedColumns = @(
+    'disposition',
     'subsystem',
     'audit_status',
     'profiles',
@@ -289,11 +290,6 @@ $rows = foreach ($path in @($paths) | Sort-Object)
         $old = $oldRows[$path]
         foreach ($column in $preservedColumns)
         {
-            if ($column -in @('subsystem', 'audit_status', 'profiles', 'notes') -and
-                [string]$old.disposition -ne [string]$classification.disposition)
-            {
-                continue
-            }
             if ($old.PSObject.Properties.Name -contains $column)
             {
                 $oldValue = [string]$old.$column
