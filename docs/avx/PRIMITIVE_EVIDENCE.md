@@ -73,3 +73,18 @@ variable-indexed access.
   quotients, not yet machine-checked mathematics.
 - MatrixNoK constants, permutation arithmetic, RNS correspondence, field
   operations, and performance remain future packets.
+
+## Exact-width reacceptance
+
+Commit `6cc9e753` makes the selected carrier's actual construction explicit:
+`AVXVector` has exactly eight 64-bit lanes. The former positive-width template
+contract could make a partial final register overrun exact caller storage, but
+no retained production or test instantiation used such a width. Dead generic
+helpers were removed, and `get_scalar_mask` now asserts its public shift range
+in Debug.
+
+A focused portable object compile and linked primitive probe passed. Optimized
+MSVC 19.50 emits `vpblendmq` for selection, vector compares and mask tests for
+equality, and direct `vpmadd52luq` for IFMA, with no conditional branch or
+wrapper call. `AVX-P0-001` is rebound to the exact source hash. No benchmark,
+remote job, broad build, or portable AVX Release build ran.

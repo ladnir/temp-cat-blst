@@ -152,13 +152,19 @@ model is accepted on that evidence.
   (removed at `b1036f7`; the selected fixed owner was unchanged and its test
   oracle is now an independent scalar IFMA-accumulator model)
 - `avx512ifma.hpp` SHA-256:
-  `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
+  `d7dda9a8054fec44d3c16980bee316f57084729c14ec1927fadb50671ae53b28`
 - `generated_matrixnok_constants.hpp` SHA-256:
   `1643256db5038b0a643ded8053dc833ab2613d20dbc6de8122296f0a4699361a`
 
 The fixed-constant hash and regeneration record remain in
 `CONSTANT_EVIDENCE.md`. Any change to these sources or constants reopens the
 code-generation and proof correspondence.
+
+The selected-vector owner was reaccepted at `6cc9e753`. Its template now
+requires the exact eight lanes modeled by `CatBLST.AVX.Vec8`; no retained
+production or test instantiation used another width. Focused portable checks
+and optimized native selection, equality, and IFMA inspection passed. The
+arithmetic bodies mapped by `AVX-P0-001` retain their established semantics.
 
 The proof-preparation pass at `adf2ed5` names these bounds and dimensions,
 documents accumulator and scratch mutation semantics at their owners, and

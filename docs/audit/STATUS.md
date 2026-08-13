@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -1143,3 +1143,15 @@ assembly-family audit is complete.
 The authoritative manifest now contains 196 complete, 189 in-review, and 252
 pending files across 827 tracked paths. It separately records 94 experimental,
 32 frozen, 29 excluded, and 35 catalogued files.
+
+The selected-vector follow-up validates `AUD-379` at `6cc9e753`. The
+MatrixNoK carrier now states its actual eight-lane compile-time contract; dead
+generic operations are removed, and the P0 proof row is rebound to the exact
+source hash. Focused portable checks and optimized native inspection pass with
+no production wrapper or memory-round-trip regression. The misspelled
+`primitveRoot.h` compatibility path is also removed at `b624b3d8` after its
+three retained BTE includes were corrected and the BTE target rebuilt.
+
+The authoritative manifest now contains 199 complete, 189 in-review, and 249
+pending files across 827 tracked paths. Experimental, frozen, excluded, and
+catalogued scope is unchanged. No MSM or CUDA option or source was disabled.

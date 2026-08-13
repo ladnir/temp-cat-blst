@@ -1090,3 +1090,20 @@ leaves production dispatch unchanged. CPU scaling remained enabled, but both
 same-process comparisons were stable below 0.12% coefficient of variation and
 the losing margins are far outside the selection gate. No broad suite, CUDA,
 portable-AVX Release, sanitizer, Apple CI, or BTx/BTE work ran.
+
+## Selected-vector exact-width follow-up
+
+`AUD-379` is validated at `6cc9e753`. `AVXVector` previously accepted every
+positive template width although its memory operations transferred complete
+eight-lane registers. All retained BLS12-381 MatrixNoK instantiations use eight
+lanes. The owner now asserts that exact compile-time requirement, simplifies
+its fixed-width operations, checks the public mask-shift range in Debug, and
+removes dead generic helpers. The selected include facade also records local
+ownership and provenance.
+
+The exact eight-lane design matches `CatBLST.AVX.Vec8`, so `AVX-P0-001` is
+reaccepted at the new source hash. A focused portable-Debug object compile and
+linked runtime probe pass. Optimized MSVC selection, equality, and IFMA probes
+contain no conditional branch or wrapper call. No benchmark, broad build,
+remote job, CUDA, BTx/BTE audit, sanitizer, Apple CI, or portable-AVX Release
+build ran.

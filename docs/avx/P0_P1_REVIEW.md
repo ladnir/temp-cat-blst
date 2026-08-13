@@ -110,3 +110,8 @@ Any change to a mapped C++ file or constant snapshot invalidates its recorded
 hash and reopens the affected row. Constant-time machine behavior remains a
 separate code-generation and leakage-testing claim; it is not established by
 this closure.
+
+The `AVX-P0-001` row was reaccepted at `6cc9e753` after the selected carrier
+was narrowed to its exact eight-lane construction. The Lean lane type already
+modeled that width. Focused portable execution and optimized native inspection
+confirmed the retained selection, comparison, extraction, and IFMA behavior.

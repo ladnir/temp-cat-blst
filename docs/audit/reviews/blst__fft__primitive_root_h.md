@@ -4,9 +4,9 @@
 
 | Field | Value |
 | --- | --- |
-| Path | `blst/fft/primitive_root.h`; compatibility shim `blst/fft/primitveRoot.h` |
+| Path | `blst/fft/primitive_root.h` |
 | Roadmap phase / queue | Phase 17 FFT support-header packet |
-| Reviewed commit | `4a6e95126f6977e99b2330a6753fa66fab1034b2` |
+| Reviewed commit | `b624b3d851cb775da6267221bac59b64c68e1597` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-11 |
 | Disposition | `in_scope_production` |
@@ -24,9 +24,9 @@ explicit caller-supplied field generator, and prepares ordered power tables.
 Transform sizes and roots are public domain parameters. The helper handles no
 secret entropy and performs no allocation.
 
-The historical misspelling is retained only as a one-include compatibility
-shim for frozen BTx/BTE and excluded experimental CUDA source. Supported
-CatBLST sources include the correctly spelled header.
+The historical misspelling has been removed. Its three retained BTE callers
+now include the authoritative spelling. No compatibility header or duplicate
+declaration surface remains.
 
 ## Contracts and invariants
 
@@ -47,8 +47,9 @@ CatBLST sources include the correctly spelled header.
 public sizes. Ordinary FFT tests and AVX correspondence tests inspect the same
 table. The generic preparation helper is retained for boundary tests and
 caller-supplied finite-field generators. The C FFT boundary catches native
-exceptions and reports failure. Frozen BTx/BTE compiled through the unchanged
-misspelled include and was not audited or modified.
+exceptions and reports failure. Three frozen BTE translation units received
+only the mechanical include-spelling correction; their behavior was not
+audited or otherwise modified.
 
 ## Checklist evidence
 
@@ -57,7 +58,7 @@ misspelled include and was not audited or modified.
 The full history and every tracked caller were inventoried. The new header has
 standalone dependencies, Apache-2.0/Category Labs provenance, deterministic
 APIs, `[[nodiscard]]` query/build results, and explicit invalid-input behavior.
-The old path exports no independent declarations or state.
+The deleted old path exported no independent declarations or state.
 
 ### Correctness
 
@@ -84,8 +85,8 @@ immutable storage and can be shared without synchronization.
 
 The implementation uses C++20 bit operations already required by the project,
 fixed-width limbs, and no host-endian exponent byte reinterpretation. The
-correct header compiles standalone under MSVC 19.50 at `/W4`. The compatibility
-shim successfully rebuilt its frozen consumers.
+correct header compiles standalone under MSVC 19.50 at `/W4`. The BTE target
+successfully rebuilt after its three include paths were corrected.
 
 ### Performance-sensitive structure
 
@@ -108,8 +109,8 @@ first-call work and its object code is directly verified.
 - Scalar Debug and Release focused root/API tests: 5/5 passed in each profile.
 - Optimized Release symbol/disassembly inspection: immutable table present;
   legacy `$TSS`/root lambda/guard absent; valid lookup has no calls.
-- Frozen BTx/BTE compiled unchanged as a dependency. Its existing unrelated
-  ignored-`nodiscard` warning remains.
+- The BTE target rebuilt after the three mechanical include corrections. Its
+  existing unrelated ignored-`nodiscard` warning remains.
 - No benchmark, CUDA run, full suite, sanitizer, native AVX-512, remote, or
   Apple run was performed.
 
@@ -118,5 +119,5 @@ first-call work and its object code is directly verified.
 The table validator is source-level independent evidence; it does not replace
 compiler, hardware, sanitizer, fuzzing, native AVX-512, or Apple milestone
 gates. The generic helper assumes its field type correctly implements the
-documented finite-field operations. This owner and its compatibility shim are
-complete for line-by-line hand review.
+documented finite-field operations. This owner is complete for line-by-line
+hand review; the historical compatibility path no longer exists.

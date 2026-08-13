@@ -383,10 +383,11 @@ AVX-512, remote, or Apple run was performed.
 
 ## Packet 17H - Primitive-root support header
 
-The complete primitive-root owner is reviewed at implementation commit
+The complete primitive-root owner was first reviewed at implementation commit
 `4a6e95126f6977e99b2330a6753fa66fab1034b2`. The correctly spelled
-`blst/fft/primitive_root.h` is authoritative; the historical misspelling is a
-one-include compatibility shim so frozen BTx/BTE remains unchanged.
+`blst/fft/primitive_root.h` is authoritative. Follow-up commit `b624b3d8`
+corrects the three retained BTE include paths and deletes the historical
+misspelling. The edits do not change BTE behavior.
 
 `AUD-306` makes exact power-of-two order validation a Release property before
 root-table publication. Zero and non-power-of-two orders fail, a proper-subgroup
@@ -403,8 +404,8 @@ MSVC 19.50 scalar Debug and Release each pass five focused exact-root,
 invalid-order, explicit-generator, and reject-before-write tests. The header
 compiles standalone at `/W4`. Optimized Release code for a valid Fr lookup is
 public shape/range checks, `tzcnt`, and one indexed 32-byte load/copy; no guard,
-lambda, squaring loop, or valid-path call remains. Frozen BTx/BTE compiled
-through the shim without modification. No benchmark, CUDA run, full suite,
+lambda, squaring loop, or valid-path call remains. The BTE target rebuilt after
+the three mechanical include corrections. No benchmark, CUDA run, full suite,
 sanitizer, native AVX-512, remote, or Apple run was performed.
 
 ## Packet 17I - FFT C boundary and public contracts
