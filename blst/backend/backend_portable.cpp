@@ -1396,3 +1396,12 @@ namespace blst
 			limb_t quotient);
 
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((visibility("hidden")))
+#endif
+extern "C" void blst_sha256_block_data_order_c(unsigned int* state,
+	const void* input, size_t blocks)
+{
+	blst::cc_blst_sha256_block_data_order(state, input, blocks);
+}

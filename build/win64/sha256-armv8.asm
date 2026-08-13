@@ -216,6 +216,9 @@ __SIZEOF_POINTER__ SETA 64/8
 	rev32	v2.16b,v2.16b
 	rev32	v3.16b,v3.16b
 	mov	x17,sp
+ if :def:	__CHERI_PURE_CAPABILITY__
+	scbnds	c17,c17,#64
+ endif
 	add	v4.4s,v4.4s,v0.4s
 	add	v5.4s,v5.4s,v1.4s
 	add	v6.4s,v6.4s,v2.4s
@@ -683,6 +686,9 @@ __SIZEOF_POINTER__ SETA 64/8
 	cseleq	x17,x17,xzr
 	add	x1,x1,x17
 	mov	x17,sp
+ if :def:	__CHERI_PURE_CAPABILITY__
+	scbnds	c17,c17,#64
+ endif
 	add	w10,w10,w12
 	add	w3,w3,w15
 	and	w12,w8,w7
@@ -1029,6 +1035,9 @@ __SIZEOF_POINTER__ SETA 64/8
 	stp	w9,w10,[x0,#24]
 	mov	w15,wzr
 	mov	x17,sp
+ if :def:	__CHERI_PURE_CAPABILITY__
+	scbnds	c17,c17,#64
+ endif
 	bne	|$L_00_48|
 
 	ldr	x29,[x29]

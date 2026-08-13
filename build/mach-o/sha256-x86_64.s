@@ -1,5 +1,7 @@
 .comm	_blst_platform_cap,4
 
+.private_extern	_blst_sha256_block_data_order_c
+
 .section	__TEXT,__const
 .p2align	6
 
@@ -26,6 +28,23 @@ K256:
 .long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 .byte	83,72,65,50,53,54,32,98,108,111,99,107,32,116,114,97,110,115,102,111,114,109,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,64,100,111,116,45,97,115,109,0
 .text	
+.globl	_blst_sha256_block_data_order
+.private_extern	_blst_sha256_block_data_order
+
+.p2align	4
+_blst_sha256_block_data_order:
+.cfi_startproc
+	.byte	0xf3,0x0f,0x1e,0xfa
+
+#ifndef	__SGX_LVI_HARDENING__
+	testl	$2,_blst_platform_cap(%rip)
+	jnz	blst_sha256_block_data_order_shaext
+#endif
+	testl	$4,_blst_platform_cap(%rip)
+	jnz	blst_sha256_block_data_order_ssse3
+	jmp	_blst_sha256_block_data_order_c
+.cfi_endproc
+
 .globl	_blst_sha256_block_data_order_shaext
 .private_extern	_blst_sha256_block_data_order_shaext
 
@@ -40,7 +59,6 @@ _blst_sha256_block_data_order_shaext:
 .cfi_offset	%rbp,-16
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-L$blst_sha256_block_data_order$2:
 
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
@@ -262,11 +280,11 @@ L$oop_shaext:
 #endif
 .cfi_endproc	
 
-.globl	_blst_sha256_block_data_order
-.private_extern	_blst_sha256_block_data_order
+.globl	_blst_sha256_block_data_order_ssse3
+.private_extern	_blst_sha256_block_data_order_ssse3
 
 .p2align	6
-_blst_sha256_block_data_order:
+_blst_sha256_block_data_order_ssse3:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 
@@ -276,10 +294,6 @@ _blst_sha256_block_data_order:
 .cfi_offset	%rbp,-16
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-#ifndef	__SGX_LVI_HARDENING__
-	testl	$2,_blst_platform_cap(%rip)
-	jnz	L$blst_sha256_block_data_order$2
-#endif
 	pushq	%rbx
 .cfi_offset	%rbx,-24
 	pushq	%r12

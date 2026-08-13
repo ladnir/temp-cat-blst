@@ -1,6 +1,8 @@
 OPTION	DOTNAME
 _DATA	SEGMENT
 COMM	blst_platform_cap:DWORD:1
+EXTERN	blst_sha256_block_data_order_c:NEAR
+
 
 _DATA	ENDS
 .rdata	SEGMENT READONLY ALIGN(256)
@@ -33,6 +35,21 @@ DB	52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121
 DB	32,64,100,111,116,45,97,115,109,0
 .rdata	ENDS
 .text$	SEGMENT ALIGN(256) 'CODE'
+PUBLIC	blst_sha256_block_data_order
+
+
+ALIGN	16
+blst_sha256_block_data_order	PROC PUBLIC
+	DB	243,15,30,250
+
+ifndef	__SGX_LVI_HARDENING__
+	test	DWORD PTR[blst_platform_cap],2
+	jnz	blst_sha256_block_data_order_shaext
+endif
+	test	DWORD PTR[blst_platform_cap],4
+	jnz	blst_sha256_block_data_order_ssse3
+	jmp	blst_sha256_block_data_order_c
+blst_sha256_block_data_order	ENDP
 PUBLIC	blst_sha256_block_data_order_shaext
 
 
@@ -52,7 +69,6 @@ $L$SEH_begin_blst_sha256_block_data_order_shaext::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-$L$blst_sha256_block_data_order$2::
 	sub	rsp,050h
 
 	movaps	XMMWORD PTR[(-80)+rbp],xmm6
@@ -292,16 +308,16 @@ endif
 
 $L$SEH_end_blst_sha256_block_data_order_shaext::
 blst_sha256_block_data_order_shaext	ENDP
-PUBLIC	blst_sha256_block_data_order
+PUBLIC	blst_sha256_block_data_order_ssse3
 
 
 ALIGN	64
-blst_sha256_block_data_order	PROC PUBLIC
+blst_sha256_block_data_order_ssse3	PROC PUBLIC
 	DB	243,15,30,250
 	mov	QWORD PTR[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD PTR[16+rsp],rsi
 	mov	r11,rsp
-$L$SEH_begin_blst_sha256_block_data_order::
+$L$SEH_begin_blst_sha256_block_data_order_ssse3::
 
 
 	push	rbp
@@ -311,10 +327,6 @@ $L$SEH_begin_blst_sha256_block_data_order::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-ifndef	__SGX_LVI_HARDENING__
-	test	DWORD PTR[blst_platform_cap],2
-	jnz	$L$blst_sha256_block_data_order$2
-endif
 	push	rbx
 
 	push	r12
@@ -337,7 +349,7 @@ endif
 	movaps	XMMWORD PTR[(-96)+rbp],xmm8
 	movaps	XMMWORD PTR[(-80)+rbp],xmm9
 
-$L$SEH_body_blst_sha256_block_data_order::
+$L$SEH_body_blst_sha256_block_data_order_ssse3::
 
 
 	lea	rsp,QWORD PTR[((-64))+rsp]
@@ -1431,7 +1443,7 @@ endif
 
 	pop	rbp
 
-$L$SEH_epilogue_blst_sha256_block_data_order::
+$L$SEH_epilogue_blst_sha256_block_data_order_ssse3::
 	mov	rdi,QWORD PTR[8+rsp]	;WIN64 epilogue
 	mov	rsi,QWORD PTR[16+rsp]
 
@@ -1445,8 +1457,8 @@ else
 	DB	0F3h,0C3h
 endif
 
-$L$SEH_end_blst_sha256_block_data_order::
-blst_sha256_block_data_order	ENDP
+$L$SEH_end_blst_sha256_block_data_order_ssse3::
+blst_sha256_block_data_order_ssse3	ENDP
 PUBLIC	blst_sha256_emit
 
 
@@ -1559,17 +1571,17 @@ ALIGN	4
 	DD	imagerel $L$SEH_end_blst_sha256_block_data_order_shaext
 	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_shaext_epilogue
 
-	DD	imagerel $L$SEH_begin_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_body_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_prologue
+	DD	imagerel $L$SEH_begin_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_body_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_ssse3_prologue
 
-	DD	imagerel $L$SEH_body_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_epilogue_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_body
+	DD	imagerel $L$SEH_body_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_epilogue_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_ssse3_body
 
-	DD	imagerel $L$SEH_epilogue_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_end_blst_sha256_block_data_order
-	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_epilogue
+	DD	imagerel $L$SEH_epilogue_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_end_blst_sha256_block_data_order_ssse3
+	DD	imagerel $L$SEH_info_blst_sha256_block_data_order_ssse3_epilogue
 
 .pdata	ENDS
 .xdata	SEGMENT READONLY ALIGN(8)
@@ -1601,14 +1613,14 @@ DB	000h,074h,001h,000h
 DB	000h,064h,002h,000h
 DB	000h,000h,000h,000h
 
-$L$SEH_info_blst_sha256_block_data_order_prologue::
+$L$SEH_info_blst_sha256_block_data_order_ssse3_prologue::
 DB	1,4,6,005h
 DB	4,074h,2,0
 DB	4,064h,3,0
 DB	4,053h
 DB	1,050h
 	DD	0,0
-$L$SEH_info_blst_sha256_block_data_order_body::
+$L$SEH_info_blst_sha256_block_data_order_ssse3_body::
 DB	1,0,25,133
 DB	000h,068h,000h,000h
 DB	000h,078h,001h,000h
@@ -1626,7 +1638,7 @@ DB	000h,0f2h
 DB	000h,050h
 DB	000h,000h,000h,000h,000h,000h
 DB	000h,000h,000h,000h
-$L$SEH_info_blst_sha256_block_data_order_epilogue::
+$L$SEH_info_blst_sha256_block_data_order_ssse3_epilogue::
 DB	1,0,4,0
 DB	000h,074h,001h,000h
 DB	000h,064h,002h,000h

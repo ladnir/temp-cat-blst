@@ -376,6 +376,9 @@ ${pre}sha256_block_data_order:
 	rev32	@X[2],@X[2]
 	rev32	@X[3],@X[3]
 	cmov	$Xfer,sp
+#ifdef	__CHERI_PURE_CAPABILITY__
+	scbnds	$Xfer,$Xfer,#64
+#endif
 	add.32	$T0,$T0,@X[0]
 	add.32	$T1,$T1,@X[1]
 	add.32	$T2,$T2,@X[2]
@@ -413,6 +416,9 @@ $code.=<<___;
 	csel	$Xfer, $Xfer, xzr, eq
 	cadd	$inp,$inp,$Xfer			// avoid SEGV
 	cmov	$Xfer,sp
+#ifdef	__CHERI_PURE_CAPABILITY__
+	scbnds	$Xfer,$Xfer,#64
+#endif
 ___
 	&Xpreload(\&body_00_15);
 	&Xpreload(\&body_00_15);
@@ -442,6 +448,9 @@ $code.=<<___;
 	stp	$G,$H,[$ctx,#24]
 	 mov	$t4,wzr
 	 cmov	$Xfer,sp
+#ifdef	__CHERI_PURE_CAPABILITY__
+	 scbnds	$Xfer,$Xfer,#64
+#endif
 	b.ne	.L_00_48
 
 	ldr	c29,[c29]

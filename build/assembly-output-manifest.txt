@@ -28,7 +28,6 @@ coff/mulq_mont_384-x86_64.s
 coff/mulx_mont_256-x86_64.s
 coff/mulx_mont_384-x86_64.s
 coff/sha256-armv8.S
-coff/sha256-portable-x86_64.s
 coff/sha256-x86_64.s
 elf/add_mod_256-armv8.S
 elf/add_mod_256-x86_64.s
@@ -51,7 +50,6 @@ elf/mulq_mont_384-x86_64.s
 elf/mulx_mont_256-x86_64.s
 elf/mulx_mont_384-x86_64.s
 elf/sha256-armv8.S
-elf/sha256-portable-x86_64.s
 elf/sha256-x86_64.s
 mach-o/add_mod_256-armv8.S
 mach-o/add_mod_256-x86_64.s
@@ -74,7 +72,6 @@ mach-o/mulq_mont_384-x86_64.s
 mach-o/mulx_mont_256-x86_64.s
 mach-o/mulx_mont_384-x86_64.s
 mach-o/sha256-armv8.S
-mach-o/sha256-portable-x86_64.s
 mach-o/sha256-x86_64.s
 win64/add_mod_256-armv8.asm
 win64/add_mod_256-x86_64.asm

@@ -45,10 +45,15 @@ __attribute__((constructor))
 #endif
 static int blst_cpuid_init(void)
 {
-    int info[4], cap = 0;
+    int info[4], cap = 0, max_leaf;
 
     blst_cpuid_query(info, 0, 0);
-    if (info[0] > 6) {
+    max_leaf = info[0];
+    if (max_leaf >= 1) {
+        blst_cpuid_query(info, 1, 0);
+        cap |= (info[2] >> 7) & 4;  /* SSSE3 */
+    }
+    if (max_leaf > 6) {
         blst_cpuid_query(info, 7, 0);
         cap |= (info[1] >> 19) & 1; /* ADX */
         cap |= (info[1] >> 28) & 2; /* SHA */

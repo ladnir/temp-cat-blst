@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 project(blst LANGUAGES C CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)
-option(BLST_PORTABLE     "Include generic assembly fallbacks and runtime CPU dispatch" ON)
+option(BLST_PORTABLE     "Include generic arithmetic assembly fallbacks and runtime CPU dispatch" ON)
 option(BLST_ASM          "Enable assembly optimizations" ON)
 option(BLST_ADX          "Enable the x86-64 ADX/BMI2 implementation (deployment CPU must support it)" OFF)
 option(BLST_DEFAULT_ASM  "Select assembly as the default scalar implementation" ${BLST_ASM})

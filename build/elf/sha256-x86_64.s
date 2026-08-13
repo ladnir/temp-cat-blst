@@ -1,5 +1,7 @@
 .comm	blst_platform_cap,4
 
+.hidden	blst_sha256_block_data_order_c
+
 .section	.rodata
 .align	64
 .type	K256,@object
@@ -26,6 +28,23 @@ K256:
 .long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 .byte	83,72,65,50,53,54,32,98,108,111,99,107,32,116,114,97,110,115,102,111,114,109,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,64,100,111,116,45,97,115,109,0
 .text	
+.globl	blst_sha256_block_data_order
+.hidden	blst_sha256_block_data_order
+.type	blst_sha256_block_data_order,@function
+.align	16
+blst_sha256_block_data_order:
+.cfi_startproc
+	.byte	0xf3,0x0f,0x1e,0xfa
+
+#ifndef	__SGX_LVI_HARDENING__
+	testl	$2,blst_platform_cap(%rip)
+	jnz	blst_sha256_block_data_order_shaext
+#endif
+	testl	$4,blst_platform_cap(%rip)
+	jnz	blst_sha256_block_data_order_ssse3
+	jmp	blst_sha256_block_data_order_c
+.cfi_endproc
+.size	blst_sha256_block_data_order,.-blst_sha256_block_data_order
 .globl	blst_sha256_block_data_order_shaext
 .hidden	blst_sha256_block_data_order_shaext
 .type	blst_sha256_block_data_order_shaext,@function
@@ -40,7 +59,6 @@ blst_sha256_block_data_order_shaext:
 .cfi_offset	%rbp,-16
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-.Lblst_sha256_block_data_order$2:
 
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
@@ -262,11 +280,11 @@ blst_sha256_block_data_order_shaext:
 #endif
 .cfi_endproc	
 .size	blst_sha256_block_data_order_shaext,.-blst_sha256_block_data_order_shaext
-.globl	blst_sha256_block_data_order
-.hidden	blst_sha256_block_data_order
-.type	blst_sha256_block_data_order,@function
+.globl	blst_sha256_block_data_order_ssse3
+.hidden	blst_sha256_block_data_order_ssse3
+.type	blst_sha256_block_data_order_ssse3,@function
 .align	64
-blst_sha256_block_data_order:
+blst_sha256_block_data_order_ssse3:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 
@@ -276,10 +294,6 @@ blst_sha256_block_data_order:
 .cfi_offset	%rbp,-16
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-#ifndef	__SGX_LVI_HARDENING__
-	testl	$2,blst_platform_cap(%rip)
-	jnz	.Lblst_sha256_block_data_order$2
-#endif
 	pushq	%rbx
 .cfi_offset	%rbx,-24
 	pushq	%r12
@@ -1402,7 +1416,7 @@ blst_sha256_block_data_order:
 	.byte	0xf3,0xc3
 #endif
 .cfi_endproc	
-.size	blst_sha256_block_data_order,.-blst_sha256_block_data_order
+.size	blst_sha256_block_data_order_ssse3,.-blst_sha256_block_data_order_ssse3
 .globl	blst_sha256_emit
 .hidden	blst_sha256_emit
 .type	blst_sha256_emit,@function

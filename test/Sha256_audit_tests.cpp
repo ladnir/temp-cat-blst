@@ -17,6 +17,14 @@
 #include "bindings/blst_scalar.h"
 #include "blst/sign/sha256.h"
 
+#if defined(BLST_ASM) && (defined(__x86_64__) || defined(__x86_64) || \
+    (defined(_M_X64) && !defined(_M_ARM64EC)))
+# define CATBLST_SHA256_X86_ASM 1
+extern "C" int blst_platform_cap;
+#else
+# define CATBLST_SHA256_X86_ASM 0
+#endif
+
 namespace
 {
     using Digest = std::array<unsigned char, 32>;
@@ -77,6 +85,25 @@ namespace
             message[i] = (unsigned char)((i * 37 + 11) & 0xff);
         return message;
     }
+
+#if CATBLST_SHA256_X86_ASM
+    class PlatformCapabilityOverride
+    {
+        int saved_;
+
+    public:
+        explicit PlatformCapabilityOverride(int capabilities)
+            : saved_(blst_platform_cap)
+        {
+            blst_platform_cap = capabilities;
+        }
+
+        ~PlatformCapabilityOverride()
+        {
+            blst_platform_cap = saved_;
+        }
+    };
+#endif
 }
 
 TEST(Sha256Audit, StandardKnownAnswers)
@@ -145,6 +172,39 @@ TEST(Sha256Audit, PaddingAndBlockBoundaries)
     }
 }
 
+#if CATBLST_SHA256_X86_ASM
+TEST(Sha256Audit, ForcedX86ProvidersMatchKnownAnswers)
+{
+    const int detected_capabilities = blst_platform_cap;
+    const std::string abc = "abc";
+    const auto abc_expected = digest_from_hex(
+        "ba7816bf8f01cfea414140de5dae2223"
+        "b00361a396177a9cb410ff61f20015ad");
+    const auto multi_block = patterned_message(128);
+    const auto multi_block_expected = digest_from_hex(
+        "0aedd4856f8eba0963627336ad5144a9"
+        "a7dbe12498e6066f0165fc97d8ddee4c");
+
+    const int forced_providers[] = {
+        0, /* portable C */
+        4  /* SSSE3 assembly */
+    };
+    for (int capabilities : forced_providers) {
+        PlatformCapabilityOverride force(capabilities);
+        EXPECT_EQ(hash_one_shot(abc.data(), abc.size()), abc_expected);
+        EXPECT_EQ(hash_one_shot(multi_block.data(), multi_block.size()),
+            multi_block_expected);
+    }
+
+    if ((detected_capabilities & 2) != 0) {
+        PlatformCapabilityOverride force(2); /* SHA-NI assembly */
+        EXPECT_EQ(hash_one_shot(abc.data(), abc.size()), abc_expected);
+        EXPECT_EQ(hash_one_shot(multi_block.data(), multi_block.size()),
+            multi_block_expected);
+    }
+}
+#endif
+
 TEST(Sha256Audit, NullEmptyAndOutputOverlap)
 {
     const auto empty = digest_from_hex(
@@ -200,3 +260,5 @@ TEST(Sha256Audit, DebugRejectsInvalidContextStateAndLengthDomain)
     EXPECT_DEATH(blst::sha256_update(&ctx, &byte, 1), "sha256_max_message_bytes");
 }
 #endif
+
+#undef CATBLST_SHA256_X86_ASM

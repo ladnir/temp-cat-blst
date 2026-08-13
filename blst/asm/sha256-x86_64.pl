@@ -41,7 +41,8 @@ push @xlate_args, $output if defined $output;
 open STDOUT, "|-", @xlate_args or die "can't call $xlate: $!";
 
 $pre="blst_";
-$func="${pre}sha256_block_data_order";
+$dispatch="${pre}sha256_block_data_order";
+$func="${pre}sha256_block_data_order_ssse3";
 $TABLE="K256";
 $SZ=4;
 @ROT=($A,$B,$C,$D,$E,$F,$G,$H)=("%eax","%ebx","%ecx","%edx",
@@ -64,6 +65,8 @@ $framesz="16*$SZ+3*8";
 
 $code=<<___;
 .comm	blst_platform_cap,4
+.extern	${pre}sha256_block_data_order_c
+.hidden	${pre}sha256_block_data_order_c
 
 .section	.rodata
 .align	64
@@ -93,6 +96,22 @@ $TABLE:
 .text
 ___
 
+$code.=<<___;
+.globl	$dispatch
+.hidden	$dispatch
+.type	$dispatch,\@abi-omnipotent
+.align	16
+$dispatch:
+#ifndef	__SGX_LVI_HARDENING__
+	testl	\$2,blst_platform_cap(%rip)
+	jnz	${pre}sha256_block_data_order_shaext
+#endif
+	testl	\$4,blst_platform_cap(%rip)
+	jnz	$func
+	jmp	${pre}sha256_block_data_order_c
+.size	$dispatch,.-$dispatch
+___
+
 ######################################################################
 # SIMD code paths
 #
@@ -116,7 +135,6 @@ ${pre}sha256_block_data_order_shaext:
 .cfi_push	%rbp
 	mov	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-.L${func}\$2:
 ___
 $code.=<<___ if ($win64);
 	sub	\$0x50,%rsp
@@ -350,10 +368,6 @@ ${func}:
 .cfi_push	%rbp
 	mov	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
-#ifndef	__SGX_LVI_HARDENING__
-	testl	\$2,blst_platform_cap(%rip)
-	jnz	.L${func}\$2
-#endif
 	push	%rbx
 .cfi_push	%rbx
 	push	%r12

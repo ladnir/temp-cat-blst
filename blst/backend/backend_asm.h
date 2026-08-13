@@ -123,12 +123,24 @@ void ct_inverse_mod_256(asm_UFr ret, const asm_Fr inp, const asm_Fr mod,
  */
 blst::bool_t ct_is_square_mod_384(const asm_Fp inp, const asm_Fp mod);
 
-/* Raw SHA assembly requires positive block/byte counts. */
+/*
+ * Compress blocks positive consecutive 64-byte blocks into the eight-word
+ * state. blocks must not exceed SIZE_MAX/64. The state and input are disjoint.
+ * hcopy accepts disjoint or exactly equal 32-byte storage. emit writes the
+ * state as 32 big-endian digest bytes and accepts disjoint or exactly equal
+ * storage. bcopy accepts a positive length and disjoint or exactly equal
+ * storage. Partial overlap is unsupported. Control flow and memory addresses
+ * depend on public lengths and CPU capabilities, not message contents.
+ */
 void blst_sha256_block_data_order(unsigned int* v, const void* inp,
     size_t blocks);
 void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);
 void blst_sha256_emit(unsigned char md[32], const unsigned int h[8]);
 void blst_sha256_bcopy(void* dst, const void* src, size_t len);
+
+/* Internal no-ISA fallback reached by the x86 assembly dispatcher. */
+void blst_sha256_block_data_order_c(unsigned int* v, const void* inp,
+    size_t blocks);
 
 /*
  * Estimate one quotient limb for (dividend_top * 2^64) / divisor.
