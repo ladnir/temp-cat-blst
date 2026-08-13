@@ -10,13 +10,16 @@
 #include "blst/common/timer.h"
 
 static_assert(noexcept(
-    std::declval<blst::TimingStats&>().add(std::string_view{"sample"}, 1)));
+    std::declval<blst::TimingStats&>().add(
+        std::declval<std::string_view>(), 1)));
 static_assert(noexcept(
     std::declval<blst::TimingStats&>().add(
-        std::string_view{"sample"}, std::string_view{".suffix"}, 1)));
+        std::declval<std::string_view>(),
+        std::declval<std::string_view>(),
+        1)));
 static_assert(noexcept(
     std::declval<const blst::TimingStats&>().get_ns(
-        std::string_view{"sample"})));
+        std::declval<std::string_view>())));
 static_assert(noexcept(std::declval<blst::TimingStats&>().clear()));
 static_assert(std::is_nothrow_default_constructible_v<blst::TimingStats>);
 static_assert(std::is_nothrow_destructible_v<blst::TimingStats>);
