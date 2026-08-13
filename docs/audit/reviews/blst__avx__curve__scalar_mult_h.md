@@ -208,3 +208,12 @@ ordinary MSM is subgroup-only and full-width decomposition canonicalizes
 before using this file's splitters. The file remains `in_review`
 only for the scheduled statistical-leakage, sanitizer, and fuzz evidence
 upgrades, not for a known scalar/domain correctness defect.
+
+## Phase 16 dead-default addendum
+
+Commit `5b08edc8f890ef1cbf4c6443162ec4da985879ee` removes the two unused generic
+curve defaults from `GLVMult` and `GLSMult`. Every retained instantiation names
+its selected MatrixNoK curve explicitly. The scalar decomposition, Booth/wNAF
+executors, tables, and multiplication bodies are unchanged. Focused
+portable-Debug compilation and 37/37 related tests pass. `AVX-P4-003` is
+rebound to the exact new source hash, and `AUD-387` is validated.

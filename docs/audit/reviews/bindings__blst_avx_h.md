@@ -55,3 +55,14 @@ broader cross-compiler evidence remain phase-wide gates. No benchmark was run
 because the only arithmetic optimization selects the existing dedicated field
 square kernel; native performance confirmation remains appropriate at the
 milestone gate.
+
+## Phase 16 MSM boundary addendum
+
+Commit `5b08edc8f890ef1cbf4c6443162ec4da985879ee` documents the exact live-range
+contract for affine G1/G2/GT MSM, expert G1 GLV, and projective multipoint MSM.
+Required writable scratch and all input/output ranges are pairwise disjoint.
+One-point projective exact output/input aliasing remains supported. Invalid
+overlap returns `false` without changing output; entries allocate nothing and
+do not throw across C. Focused portable-Debug tests validate exact and partial
+overlap, failure atomicity, and one-point G1/G2 aliasing. `AUD-390` is
+validated; native, sanitizer, and fuzz evidence remain phase-wide gates.

@@ -1130,3 +1130,32 @@ one instruction each and no conversion, call, spill, or memory round trip.
 Portable-only Clang 18 and GCC 13 warning builds also pass. No benchmark, broad
 suite, CUDA, BTx/BTE audit, sanitizer, Apple CI, or portable-AVX Release build
 ran.
+
+## AVX curve and MSM closure
+
+`AUD-387` through `AUD-391` are validated at `5b08edc8`. The import-era generic
+curve engine had no retained caller after MatrixNoK selection, so its unproved
+add formulas and facades are deleted. The selected doubling and a4 schedules
+are unchanged. The live a4 path now states its curve-coefficient contract and
+passes scalar differentials for equal, distinct, opposite, scaled-projective,
+identity, and aliased G1/G2 inputs.
+
+The G2 public scratch query now selects the same plain layout as execution
+above the 8,192-point GLS cutoff. AVX affine G1/G2/GT, expert G1 GLV, and
+multipoint projective C boundaries reject overlapping live ranges before
+modifying output. One-point projective output/input aliasing remains supported.
+Internal MSM executors require explicit caller scratch; unreachable vector
+allocation fallbacks and dead wrappers are removed without changing bucket
+loops or decomposition formulas.
+
+The AVX README now describes the selected backend, exact ISA/compiler policy,
+compile-time dispatch, developer-only portable emulation, source layout,
+provenance, and proof limits. The empty stale precompute README is deleted, and
+the complete VROOM MIT notice is retained.
+
+A serial portable-Debug build compiled the affected C API and three test
+objects. A purpose-built focused executable passed 37/37 tests: eight curve
+corner cases, nineteen MSM cases, and ten C-boundary cases. No benchmark,
+native job, broad suite, sanitizer, CUDA, Apple CI, BTx/BTE audit, or
+portable-AVX Release build ran. `AUD-358` remains fixed pending its native
+preprocessing performance evidence.

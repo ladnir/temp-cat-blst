@@ -2,6 +2,17 @@
 
 Last updated: 2026-08-13
 
+The latest Phase 16 packet completes the file-by-file reviews of the retained
+AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
+owner is reviewed at `4c58255b`, which adds only its final contract comment to
+the `5b08edc8` implementation. `AUD-387` through `AUD-391` are validated:
+the unselected curve engine and hidden MSM allocation fallbacks are gone, G2
+scratch sizing matches execution, C-boundary overlap is rejected before output
+publication, and the live a4 addition path has restored scalar differentials.
+Focused portable-Debug execution passes 37/37 tests. The proof correspondence
+ledger is rebound only after confirming the mapped selected schedules remain
+unchanged. Native preprocessing performance for `AUD-358` remains open.
+
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
 type/contract packets. Wave 2 records `AUD-198` through `AUD-207`, repairs the

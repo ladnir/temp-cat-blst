@@ -47,3 +47,13 @@ executors, and scalar agreement. MatrixNoK structural validation and exact
 proof correspondence pass without rebinding the proved GT owner. Native
 AVX-512 code generation/runtime, sanitizer/fuzz, Apple, and broad tests remain
 milestone evidence. No benchmark was run.
+
+## Phase 16 MSM boundary addendum
+
+Commit `5b08edc8f890ef1cbf4c6443162ec4da985879ee` adds fixed-count,
+overflow-safe byte-range validation before every affected MSM output is
+published. G2 aggregate scratch sizing now applies the same 8,192-point GLS
+cutoff as execution. Focused portable-Debug execution covers the exact cutoff,
+all overlap families, partial overlap, failure atomicity, and retained
+one-point projective aliasing. The checks execute once at the C boundary; no
+bucket loop or decomposition changed. `AUD-389` and `AUD-390` are validated.
