@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `.github/workflows/audit-integrity.yml` |
 | Phase | Phase 19, Packet 19B |
-| Reviewed commit | `0c7865082575e15f779debab8186bd0eca0eea7a` |
+| Reviewed commit | `5fbe3a5a732264727087f8dcc4db172d80f87f14` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-12 |
+| Date | 2026-08-13 |
 | Disposition | `in_scope_support` |
 | Subsystem | Audit-policy CI |
 | Related files | `scripts/audit/check_audit_manifest.ps1`, `scripts/audit/check_ci_policy.ps1`, Rust policy scripts |
@@ -16,15 +16,17 @@
 ## Purpose and trust boundary
 
 This lightweight workflow rejects drift in audit inventories, retained Rust
-declarations/contracts, binding transforms, and CI policy. Pull-request source
-is untrusted, so the workflow must run without credentials or write access.
+declarations/contracts, binding transforms, Windows export metadata, and CI
+policy. Pull-request source is untrusted, so the workflow must run without
+credentials or write access.
 
 ## Contracts and invariants
 
 - Runs for every pull request, master push, and manual request.
 - Superseded work for the same ref is cancelled.
 - The token is read-only and checkout persistence is disabled.
-- Windows owns PowerShell policy checks; Ubuntu owns Bash/Perl transforms.
+- Windows owns PowerShell policy checks; Ubuntu owns Bash/Perl transforms and
+  deterministic Windows export regeneration.
 - Every job has a 15-minute timeout and performs no product build.
 
 ## Checklist evidence
@@ -48,8 +50,11 @@ is untrusted, so the workflow must run without credentials or write access.
 
 ## Findings and validation
 
-`AUD-349` and `AUD-350` are validated. Commit `5d43ad1` adds the CI policy
+`AUD-349`, `AUD-350`, and `AUD-380` are validated. Commit `5d43ad1` adds the CI policy
 gate; `0c78650` tightens its runner and Dependabot invariants. The workflow
 blob is unchanged in commit `3b21858`, where hosted run `31665323679` passes
 both jobs: manifests, retained CI policy, raw Rust binding integrity, reviewed
-Rust contracts, and the binding transform. The file is complete.
+Rust contracts, and the binding transform. Commit `5fbe3a5a` adds an exact
+Windows export-list comparison; its local equivalent passes. Hosted execution
+of that incremental check awaits the pushed revision. The file remains
+complete.
