@@ -63,6 +63,11 @@ Phase 19.
 
 ## Fuzzing expansion order
 
+`FUZZING_PLAN.md` defines the concrete harness contracts, corpus policy,
+resource limits, and implementation sequence. `FUZZ_API_LEDGER.csv` assigns
+every extracted symbol to one campaign and domain. This section retains the
+subsystem-level expansion order.
+
 Fuzz targets are added with the subsystem review that can define their
 invariants:
 
