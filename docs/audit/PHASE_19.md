@@ -344,3 +344,40 @@ retained group corpus preserves all 1,988 edges and 2,814 features. The 38
 additions total 1,037 bytes, obey both input bounds, use content-derived names,
 and replay successfully under the Peach sanitizer profile. Focused local
 sanitized replay also passes 2/2 without rebuilding product sources.
+
+The first complete scalar discovery campaign runs all nine targets on Peach
+at source commit `23e8b2cc`. Clang 21.1.8 uses RelWithDebInfo, ASan, and UBSan.
+Fifteen fuzz workers share 16 logical CPUs, and every worker runs for 15
+minutes. Each target owns a distinct corpus and artifact directory. The
+controller exits successfully, and no crash, timeout, sanitizer finding,
+assertion, or library mismatch produces an artifact.
+
+The initial parallel controller placed libFuzzer job-log files from different
+targets in one working directory. Those temporary logs collided. The collision
+did not mix target corpora or crash artifacts, but it invalidated exact
+discovery counters. This harness defect does not create an `AUD-*` finding.
+The retained runner now assigns each target a private working directory.
+
+A subsequent one-core replay executes all 2,809 discovered inputs with mutation
+disabled. Every target passes under the same sanitizer profile. Edge-preserving
+set-cover minimization then uses the checked-in corpus at `94aea12a` as a
+protected baseline. The final corpus preserves every replayed edge:
+
+| Target | Working inputs | Retained inputs | Edges | Retained features |
+| --- | ---: | ---: | ---: | ---: |
+| Decode | 690 | 75 | 1,538 | 2,545 |
+| Bytes | 405 | 42 | 741 | 1,380 |
+| Fields | 405 | 40 | 2,556 | 4,578 |
+| Groups | 522 | 36 | 1,990 | 2,920 |
+| Protocol | 83 | 21 | 2,851 | 2,994 |
+| Pairing state | 157 | 8 | 3,059 | 3,665 |
+| Uniqueness | 201 | 20 | 171 | 499 |
+| FFT/middle-product | 97 | 20 | 3,258 | 9,300 |
+| MSM | 249 | 18 | 2,372 | 5,173 |
+
+The promotion adds 145 content-addressed seeds. The complete scalar corpus now
+contains 280 inputs and 6,660 bytes. Every hash-derived filename matches its
+input bytes. The standard local ASan/UBSan replay passes all 14 fuzz and
+infrastructure tests in 40.08 seconds. These results provide executed boundary
+and differential evidence; they do not prove arithmetic or constant-time
+properties.

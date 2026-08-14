@@ -65,13 +65,12 @@ The API-complete fuzz infrastructure is implemented through Packet 19G and
 `FUZZING_PLAN.md`; `FUZZ_API_LEDGER.csv` is its symbol-level scope authority.
 Deterministic scalar, safe Rust, and portable-AVX Debug corpus replay is
 complete. Peach Clang 21.1.8 also passes the native AVX-512/IFMA retained
-corpus under ASan and UBSan at source commit `23e8b2cc`. Long discovery and
-Apple release-candidate replay remain separate approval-gated evidence. A
-later 60-second-per-target Peach pilot completes the scalar `decode` and
-`bytes` campaigns without a crash or sanitizer finding. Edge-preserving
-set-cover minimization promotes 70 new retained seeds. The same bounded Peach
-pilot then completes `fields` and `groups` without a finding and promotes 38
-edge-preserving seeds.
+corpus under ASan and UBSan at source commit `23e8b2cc`. A complete scalar
+campaign then runs all nine targets for 15 minutes with 15 Peach workers. No
+library finding occurs. Sequential replay validates all 2,809 discovered
+inputs. Edge-preserving minimization promotes 145 additional seeds and leaves
+a 280-input corpus. Apple release-candidate replay and longer recurring
+discovery remain separate approval-gated evidence.
 
 ## Current work volume
 

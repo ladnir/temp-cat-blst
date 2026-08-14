@@ -21,21 +21,21 @@ reviewed refinements, and typed call frames enforce documented preconditions.
 All nine scalar campaigns replay retained corpora under RelWithDebInfo
 ASan/UBSan and Debug assertions. Portable AVX Debug replay passes. Both pinned
 safe Rust targets replay under ASan, and their portable native dependency
-replays under UBSan. LLVM coverage emits an independent report for each scalar
-campaign and requires nonzero execution of named success, rejection, boundary,
-aliasing, and round-trip paths. No confirmed library finding arose during
-baseline replay. At source commit `23e8b2cc`, Peach Clang 21.1.8 native
-AVX-512/IFMA RelWithDebInfo passes the retained corpus 1/1 under ASan and
-UBSan. A sequential Peach scalar pilot then runs `decode` and `bytes` for 60
-seconds each under ASan/UBSan. They complete 152,731 and 295,566 executions
-without a crash, timeout, sanitizer finding, or library mismatch. No long
-discovery, Apple replay, or benchmark has run. Edge-preserving set-cover
-minimization promotes 70 content-addressed seeds totaling 2,012 bytes. The
-retained corpora preserve every discovered edge and replay successfully under
-the same sanitizer profile. A second sequential Peach pilot completes 1,143
-field executions and 1,595 group executions without a finding. Its 38 promoted
-seeds preserve all 2,552 field edges and 1,988 group edges; focused local
-sanitized replay passes 2/2.
+replays under UBSan. LLVM coverage requires named success, rejection,
+boundary, aliasing, and round-trip paths. No confirmed library finding arose.
+
+At source commit `23e8b2cc`, Peach Clang 21.1.8 also passes the native
+AVX-512/IFMA corpus. A complete scalar discovery campaign then runs 15 workers
+for 15 minutes across all nine targets. The campaign uses 15 of Peach's 16
+logical CPUs. Its controller exits successfully without a crash, timeout,
+sanitizer finding, assertion, or library mismatch. Sequential replay validates
+all 2,809 discovered inputs. Edge-preserving minimization adds 145 seeds to the
+protected corpus at `94aea12a`. The resulting 280 inputs preserve every
+replayed edge and total 6,660 bytes. Standard local ASan/UBSan replay passes
+14/14 in 40.08 seconds. A temporary parallel-log collision invalidated exact
+discovery counters but did not mix corpora or artifacts; the runner now gives
+each target a private working directory. Apple release-candidate replay and
+longer recurring discovery remain future evidence. No benchmark ran.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

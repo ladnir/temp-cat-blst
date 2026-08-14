@@ -358,9 +358,17 @@ The primary scalar profile disables assembly, ADX, AVX, CUDA, tests, and
 benchmarks. Discovery uses `RelWithDebInfo`. Debug builds replay retained
 corpora with assertions.
 
-Builds use at most two workers. Fuzzing uses exactly one worker and one job.
-No large run starts without explicit approval. An approved default discovery
-packet runs each target sequentially for 15 minutes.
+Builds use at most two workers. The default discovery runner uses one worker
+and runs targets sequentially. No large run starts without explicit approval.
+An approved default packet runs each target for 15 minutes.
+
+`scripts/fuzz/discovery_parallel.sh` is the manual multi-core runner. It
+requires separate discovery and parallel-usage approvals plus an explicit
+worker budget. The runner refuses to oversubscribe detected logical CPUs and
+requires at least one worker per scalar target. Each target receives a private
+working directory for libFuzzer's temporary job logs. Target corpora, crash
+artifacts, and durable logs also remain separate. The scalar and AVX runners
+share one campaign lock, and every worker has a hard time bound.
 
 Per-input limits are:
 
