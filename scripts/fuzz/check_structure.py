@@ -25,6 +25,8 @@ INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/internal/scalar_factory.h",
     "fuzz/tests/scalar_factory_tests.cpp",
     "fuzz/tests/adapter_factory_tests.cpp",
+    "fuzz/targets/decode.cpp",
+    "fuzz/targets/bytes.cpp",
 }
 IGNORED_PREFIXES = ("fuzz/inventory/",)
 ALLOWED_FACTORY_ADAPTER_CALLS = {
@@ -42,6 +44,8 @@ ALLOWED_FACTORY_ADAPTER_CALLS = {
     "refine_nonzero",
     "retained_non_subgroup_g1",
     "retained_non_subgroup_g2",
+    "run_bytes_case",
+    "run_decode_case",
 }
 
 

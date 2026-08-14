@@ -114,4 +114,8 @@ namespace catblst::fuzz::adapter
         PairingG1Pending&& state) noexcept;
     [[nodiscard]] PairingG2Committed pairing_commit(
         PairingG2Pending&& state) noexcept;
+
+    /** Direct byte-boundary campaigns. A failed property aborts the process. */
+    void run_decode_case(std::span<const std::byte> input);
+    void run_bytes_case(std::span<const std::byte> input);
 }

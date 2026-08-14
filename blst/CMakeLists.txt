@@ -161,6 +161,10 @@ else()
 endif()
 
 add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
+
+if(BLST_FUZZ)
+    target_compile_options(blst_static PRIVATE -fsanitize=fuzzer-no-link)
+endif()
 add_library(category_blst::blst ALIAS blst_static)
 set_target_properties(blst_static PROPERTIES
     OUTPUT_NAME blst
