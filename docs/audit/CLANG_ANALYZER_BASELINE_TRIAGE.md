@@ -112,8 +112,9 @@ dependent-template diagnostics as the combined baseline. Clang compiled and
 analyzed the affected AVX instantiations, providing compensating compiler-
 native evidence without rewriting optimized templates for CodeQL.
 
-`AUD-030` remains open because the Rust macro extraction gap and combined
-feature compensation are not yet closed. Future subsystem gates must retain
-focused sanitizer and scalar/AVX differential evidence for the affected group
-operations; a static analyzer cannot prove arithmetic correctness or constant
-time behavior.
+`AUD-030` is validated by explicit compensation. The combined
+`full-rust-bindings,serde-secret` Clippy/MSRV profiles compile the macro-expanded
+Rust surface. Focused scalar/AVX differentials, completed AVX owner reviews,
+and formal correspondence cover the affected group operations. Future gates
+must retain those controls because static analysis does not prove arithmetic
+correctness or constant-time behavior.

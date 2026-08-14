@@ -131,8 +131,8 @@ one-point aliasing.
 
 ### Specialized additions
 
-`AUD-358` remains fixed pending native preprocessing performance evidence. This
-review neither adds nor removes its exact-zero observations.
+`AUD-358` is validated by the later native Peach packet. This review neither
+adds nor removes its exact-zero observations.
 
 The implementation changes are commit `5b08edc8`; commit `4c58255b` adds only
 the final GT executor contract required by the documentation ledger.
@@ -161,7 +161,7 @@ the final GT executor contract required by the documentation ledger.
 
 ## Residual risk and decision
 
-Native performance evidence for `AUD-358`, native execution of this exact
-commit, sanitizer coverage, and fuzzing remain release gates. The file review
+Native Peach execution and before/after performance evidence close `AUD-358`.
+Sanitizer coverage and fuzzing remain release gates. The file review
 is complete: every retained helper and caller was traced, contracts are
 explicit, and focused correctness and boundary evidence passes.

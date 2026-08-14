@@ -2,8 +2,8 @@
 
 Date: 2026-08-10
 
-State: policy applied and focused cross-language validation passing; `AUD-161`
-fixed pending supported native runtime/performance evidence
+State: policy applied and focused cross-language and native AVX validation
+passing; `AUD-161` validated
 
 Scope: supported scalar and AVX C APIs, selected native C++, safe Rust helpers,
 and generated raw Rust FFI. CUDA and frozen BTx/BTE are excluded.

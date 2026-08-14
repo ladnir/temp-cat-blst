@@ -98,8 +98,9 @@ rows with domain-separated SHA-256. CatBLST fixes the subgroup shift. Because
 the selected curves have no nontrivial 2-torsion, conditioning on all other
 coefficients leaves at most one coefficient in {-1,0,+1} that can cancel a
 fixed nonzero quotient component. Under the SHA-256 PRF model, false acceptance
-is therefore at most `(1/3)^81 < 2^-128`. `AUD-161` is fixed; supported native
-runtime and performance evidence remain its validation gate.
+is therefore at most `(1/3)^81 < 2^-128`. `AUD-161` is validated. Native Peach
+AVX-512/IFMA Release passes the friendly acceptance, rejection, entropy, and
+identity-MSM cases; the focused G1/G2 contract test averages 6.53 milliseconds.
 
 The normal safe sequence for adversarial point bytes is:
 
@@ -328,7 +329,7 @@ and is not merely a mathematical precondition.
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
 | `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | validated |
-| `AUD-161` | Expert AVX batch soundness is caller-controlled; friendly G1/G2 APIs now own fresh seeded challenge construction and target a false-accept bound below 2^-128. | fixed pending native validation |
+| `AUD-161` | Expert AVX batch soundness is caller-controlled; friendly G1/G2 APIs now own fresh seeded challenge construction and target a false-accept bound below 2^-128. | validated |
 
 ## Incremental public documentation control
 

@@ -50,7 +50,9 @@ applicable.
 
 ## Findings and decision
 
-- `AUD-376` — fixed: CHERI schedule capabilities are restricted to 64 bytes.
+- `AUD-376` — accepted risk: CHERI schedule capabilities are restricted to 64
+  bytes, but native execution remains mandatory before experimental-target
+  promotion.
 - `AUD-377` — validated: block, overlap, and timing contracts are explicit.
 - `AUD-378` — validated for supported Apple ARM64 through unchanged projection
   and prior hosted known-answer execution.

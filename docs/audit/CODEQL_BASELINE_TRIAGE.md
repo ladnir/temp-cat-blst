@@ -174,11 +174,12 @@ that combination.
    hardening. Completed.
 3. `AUD-027` and no-codegen style cleanups: AVX performance/API cleanup.
    Completed for the reported large parameters.
-4. `AUD-030`: split analyzer profiles and add compensating Clang evidence.
+4. `AUD-030`: split analyzer profiles and add compensating Clang/Rust evidence.
 
 The user approved and validated the `AUD-024`/`AUD-025` correctness packet and
-the `AUD-026` through `AUD-029` focused hardening packet. `AUD-030` remains the
-analyzer-coverage work item.
+the `AUD-026` through `AUD-029` focused hardening packet. The later compiler-
+native, Rust feature-matrix, focused runtime, and proof evidence validates
+`AUD-030` without rewriting optimized templates for the extractor.
 
 ## Split current-tree confirmation
 

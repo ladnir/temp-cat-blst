@@ -127,7 +127,8 @@ and scratch region is call-local or caller-owned.
 
 General interpolation can allocate O(n log n) field storage and rejects sizes
 beyond the largest supported internal transform. Suffix interpolation performs
-no allocation but retains quadratic work in n; `AUD-301` tracks crossover work.
+no allocation but retains quadratic work in n; `AUD-301` accepts that explicit
+performance tradeoff until deployment evidence justifies a crossover.
 
 ### 12. Portability and build behavior
 
@@ -141,7 +142,8 @@ Persistent per-node ownership allocations, quotient-only temporaries, a third
 FFT product buffer, and inverse-root tables were removed. Large multiplication
 uses two operand buffers and one forward-root table. No runtime polymorphism,
 type erasure, thread scheduling, or hidden hot-path validation was introduced.
-No benchmark was run, so the quadratic suffix crossover remains open.
+No benchmark was run. The simple quadratic suffix is an accepted performance
+risk, not an unresolved correctness or memory-safety finding.
 
 ### 14. Tests and automated evidence
 
@@ -156,7 +158,8 @@ No benchmark was run, so the quadratic suffix crossover remains open.
 ## Findings and decision
 
 `AUD-025`, `AUD-034`, `AUD-297` through `AUD-300`, and `AUD-302` are validated.
-`AUD-301` remains open pending explicitly approved sequential benchmark evidence.
+`AUD-301` is accepted risk; a replacement still requires explicitly approved
+sequential deployment-CPU benchmark evidence.
 
 Milestone sanitizer, fuzzing, native AVX-512, and Apple evidence remains pending.
 BTx/BTE was neither audited nor modified; public-header rebuilding exposed only

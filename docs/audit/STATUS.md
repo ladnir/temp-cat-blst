@@ -2,6 +2,17 @@
 
 Last updated: 2026-08-13
 
+The canonical finding register now has no `open`, `fixed`,
+`fix_in_progress`, or `needs_decision` entries. `AUD-016`, `AUD-030`,
+`AUD-161`, and `AUD-358` are validated. `AUD-301` is an accepted performance
+risk. `AUD-360`, `AUD-374`, and `AUD-376` are accepted only for explicitly
+experimental targets and remain target-promotion gates. At exact source commit
+`84103247`, Peach Clang 21.1.8 native AVX-512/IFMA Release passes the four
+focused friendly-membership and identity-MSM cases. The dense nonidentity
+G1+G2 MSM loop measures 3.731 seconds before the sentinel observations and
+3.727 seconds after over 1,000 repetitions. Fuzzing is the next audit program,
+not unfinished finding remediation.
+
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
 owner is reviewed at `4c58255b`, which adds only its final contract comment to
@@ -11,7 +22,8 @@ scratch sizing matches execution, C-boundary overlap is rejected before output
 publication, and the live a4 addition path has restored scalar differentials.
 Focused portable-Debug execution passes 37/37 tests. The proof correspondence
 ledger is rebound only after confirming the mapped selected schedules remain
-unchanged. Native preprocessing performance for `AUD-358` remains open.
+unchanged. Later native evidence validates `AUD-358` without measurable
+preprocessing regression.
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -238,9 +250,10 @@ The production-review reconciliation also promotes eleven completed findings
 from `fixed` to `validated`: `AUD-075` through `AUD-077`, `AUD-079` through
 `AUD-081`, `AUD-086`, `AUD-087`, `AUD-100`, `AUD-195`, and `AUD-222`.
 Their existing focused structural, runtime, code-generation, native AVX, and
-supported-platform evidence now matches the completed owner reviews. Five
-fixed findings still require deliberately unavailable or performance-specific
-evidence: `AUD-161`, `AUD-358`, `AUD-360`, `AUD-374`, and `AUD-376`.
+supported-platform evidence now matches the completed owner reviews. The final
+finding-closure packet subsequently validates `AUD-161` and `AUD-358` and
+records the unavailable experimental MSVC ARM64/CHERI execution evidence as
+accepted target-promotion risk under `AUD-360`, `AUD-374`, and `AUD-376`.
 
 ## Main program phases
 
@@ -479,7 +492,7 @@ relation evaluator and adds friendly G1/G2 membership APIs that own 81
 domain-separated uniform ternary rows and the subgroup shift from one fresh
 unpredictable seed. Portable-AVX Debug low-order and failure-path tests, C99
 header compilation, Rust checking, and native MSVC compilation pass. The
-finding is fixed pending supported native runtime and performance evidence.
+finding is validated by the later native Peach runtime and timing packet.
 `AUD-162` and `AUD-163` remove the empty pairing facade and unused
 scalar fixed-window re-export facade. The selected `blst/curve/point.h` review
 is complete at `5d18e42`: `AUD-164` adds true AVX exact-scalar G1/G2 methods,
@@ -932,8 +945,9 @@ Phase 17 Packet 17F is remediated through implementation commit `1821c58` and
 documented interface commit `baf3e45`. `AUD-297` through `AUD-300` and `AUD-302`
 are validated by threshold-crossing oracles, fixed-shape reconstruction, flat
 tree ownership, remainder-only evaluation, checked reduced scratch, and Debug
-invariants. `AUD-301` remains open because the quadratic suffix crossover needs
-explicit benchmark approval. Validation follow-up `AUD-303` is fixed at
+invariants. `AUD-301` is later closed as an accepted performance risk: the
+simple allocation-free quadratic suffix remains until sequential deployment-CPU
+measurements justify a more complex crossover. Validation follow-up `AUD-303` is fixed at
 `2846e0a`. No benchmark or BTx/BTE change is part of this packet.
 
 Phase 17 Packet 17G completes the two small FFT support owners at implementation
@@ -1101,9 +1115,9 @@ Hosted validation is now fully green. Supported run `31665323681` passes Apple
 Silicon, Linux scalar and assembly, Windows, Rust MSRV, and current Rust on all
 three operating systems. Audit-integrity run `31665323679` passes. Portable AVX
 Debug run `31664863148` also configures, builds, and passes its complete test
-step, closing the execution evidence for `AUD-352` through `AUD-358`. Native
-performance confirmation for the cheap identity observations in `AUD-358`
-remains a later performance gate rather than a correctness blocker.
+step, closing the execution evidence for `AUD-352` through `AUD-358`. The later
+Peach before/after packet confirms no measurable native regression from the
+cheap identity observations and validates `AUD-358`.
 
 Phase 19 hosted-evidence reconciliation promotes the three executed workflow
 owners, `blst/common/cpuid.cpp`, and `blst/common/bytes.h` to complete. It
@@ -1155,7 +1169,8 @@ Euler oracles pass for all selected, portable, ADX, and forced-generic x86
 providers plus the retained interface cases. CHERI residue-test scratch is
 confined to 256 bytes without changing the supported Apple instruction
 projection. `AUD-372` was validated; `AUD-373` initially awaited Apple execution and
-`AUD-374` awaits experimental CHERI target evidence. Batch E SHA-256 is next.
+`AUD-374` is later closed as accepted risk because CHERI remains experimental;
+native CHERI evidence is required before target promotion. Batch E SHA-256 is next.
 
 Assembly trust-chain Batch E is implemented at `2f59883`. x86 SHA compression
 now selects SHA-NI, SSSE3, or portable C from explicit capability bits. The
@@ -1166,8 +1181,9 @@ optimized dispatcher is a stackless direct tail-jump chain.
 ARM retains its hardware-SHA and NEON providers. CHERI schedule capabilities
 are confined to 64 bytes without changing the supported Apple ARM64
 instruction projection. All 97 retained generated outputs reproduce
-deterministically. `AUD-375`, `AUD-377`, and `AUD-378` are validated;
-`AUD-376` awaits experimental CHERI target execution. The handwritten scalar
+deterministically. `AUD-375`, `AUD-377`, and `AUD-378` are validated.
+`AUD-376` is closed as accepted risk for the experimental CHERI artifact;
+native provider and fallback execution remain promotion requirements. The handwritten scalar
 assembly-family audit is complete.
 
 The authoritative manifest now contains 196 complete, 189 in-review, and 252

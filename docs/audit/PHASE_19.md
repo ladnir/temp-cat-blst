@@ -34,8 +34,9 @@ ordinary scalar consumers receive only the required C++20 language feature.
 Unavailable shared-library and removed VROOM-vendor modes fail configuration
 instead of being silently ignored. `BLST_FAST_BUILD` remains the historical
 CUDA-only choice to reduce compilation time at the cost of runtime
-optimization. Final shared installation, exports, package configuration, and
-the selectable public prefix remain coupled to `AUD-016` and Phase 20.
+optimization. Final shared installation, package configuration, and the
+selectable public prefix remain Phase 20 work. `AUD-016` separately validates
+the current deterministic compatibility export allowlist.
 
 ## Focused evidence
 
@@ -219,7 +220,7 @@ policy gates. Portable AVX Debug run `31664863148` configures, builds, and
 passes its complete developer-emulation test step. This closes the hosted
 execution gaps for `AUD-352` through `AUD-358`; only the separately tracked
 native performance evidence for the `AUD-358` preprocessing observation
-remains.
+remained at that point. The later Peach packet closes it.
 
 ## Packet 19E: Hosted-evidence reconciliation
 
@@ -233,8 +234,9 @@ test owners remain `in_review`, but their stale Apple or portable-execution
 gaps are removed.
 
 This packet does not claim native AVX execution from portable emulation. It
-leaves `AUD-358` fixed pending its native preprocessing performance check and
-leaves generated assembly, analyzer, sanitizer, fuzz, negative cross-toolchain,
+left `AUD-358` pending its native preprocessing performance check; the later
+Peach packet completes that evidence. Generated assembly, analyzer, sanitizer,
+fuzz, negative cross-toolchain,
 combined-provider, packaging, and Phase 20 ABI-prefix evidence open. No product
 build, benchmark, CUDA, sanitizer, fuzz campaign, or BTx/BTE work ran.
 

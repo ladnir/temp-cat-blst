@@ -50,9 +50,9 @@ milestone gate.
 
 ## Residual risk
 
-- `build/win64/blst.def` remains globally stale under `AUD-016`; it must be
-  regenerated as a complete export surface during ABI/prefix hardening rather
-  than partially patched here.
+- At this phase, `build/win64/blst.def` remained globally stale under
+  `AUD-016`; the later export-hardening packet regenerated the complete
+  compatibility surface and added a deterministic CI comparison.
 - The generated Rust declaration update should be reproduced when the retained
   bindgen workflow is next exercised.
 - No ARM execution was performed; the implementation uses the existing

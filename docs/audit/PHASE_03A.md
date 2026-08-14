@@ -96,6 +96,10 @@ This is recorded as `AUD-016` rather than silently replacing the Windows ABI
 surface during assembly work. It should be resolved with the supported C ABI,
 shared-library packaging, CatBLST naming, and configurable prefix policy.
 
+Later resolution: the complete current 342-symbol compatibility surface now
+matches a fresh deterministic generator run byte-for-byte. Shared packaging
+and configurable prefixing remain separate Phase 20 work.
+
 ## Residual validation
 
 - ARMv8 and CHERI outputs match their checked-in baselines but were not

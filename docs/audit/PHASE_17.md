@@ -335,7 +335,8 @@ and `baf3e45` add the independent oracle, flatten the product tree, make
 value-derived reconstruction fixed-shape, remove discarded quotients, assert
 the fast-division degree invariant, reduce suffix scratch from `3L+3n+2` to
 `2L+3n+2`, and document ordinary secret-derived storage. Selecting a faster
-suffix algorithm remains benchmark-gated under open `AUD-301` and was not
+suffix algorithm remains benchmark-gated. `AUD-301` later accepts the current
+quadratic path as an explicit performance risk; no algorithm choice was
 inferred from correctness tests.
 
 Portable-enabled MSVC Debug passes eight focused native/C tests. A scalar

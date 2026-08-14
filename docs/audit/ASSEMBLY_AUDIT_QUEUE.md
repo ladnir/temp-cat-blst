@@ -273,8 +273,9 @@ change produces identical ordinary instructions.
 job `94666845914` in run `31767696988` compiles the selected ARM owners and
 passes the complete CTest graph, including the independent inverse and Euler
 oracles. The Apple job reports 465/465 tests passed in 6.98 seconds.
-`AUD-374` remains fixed because CHERI is experimental and no Morello
-toolchain is available. No benchmark, sanitizer, CUDA, portable-AVX Release,
+`AUD-374` is accepted risk because CHERI is experimental and no Morello
+toolchain is available. Native execution remains mandatory before promotion.
+No benchmark, sanitizer, CUDA, portable-AVX Release,
 or source change under BTx/BTE ran. Batch E, SHA-256, is next.
 
 ## Supported Apple closure
@@ -333,8 +334,8 @@ aggregate x86-64 and ARM64 translator-object checks pass. The prior supported
 Apple Silicon run remains applicable because the Apple instruction projection
 did not change.
 
-`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` is fixed; CHERI
-execution remains an experimental platform-promotion requirement. No
+`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` is accepted risk;
+CHERI execution remains an experimental platform-promotion requirement. No
 benchmark, broad test sweep, sanitizer, CUDA, portable-AVX Release, or BTx/BTE
 work ran. Batch E completes the handwritten scalar assembly-family audit.
 

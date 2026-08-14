@@ -118,7 +118,8 @@ reviewed explicitly.
 
 ## Findings
 
-`AUD-340` through `AUD-343`, `AUD-346`; `AUD-016` remains open for exports.
+`AUD-340` through `AUD-343`, `AUD-346`; `AUD-016` validates deterministic
+exports separately.
 
 ## Validation
 
@@ -138,7 +139,8 @@ compile-database inspection passed as recorded in Phase 19.
 Status remains `in_review` until native AVX and negative cross-toolchain
 evidence execute. Linux scalar/assembly, Windows assembly, and Apple Silicon
 are green in run `31665323681`. CUDA remains experimental, and final
-install/shared/export behavior is deferred to `AUD-016` and Phase 20.
+install/shared behavior and configurable prefixing remain Phase 20 work. The
+current compatibility export allowlist is synchronized and CI-controlled.
 
 ## Batch E SHA option follow-up
 

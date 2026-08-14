@@ -1157,8 +1157,8 @@ A serial portable-Debug build compiled the affected C API and three test
 objects. A purpose-built focused executable passed 37/37 tests: eight curve
 corner cases, nineteen MSM cases, and ten C-boundary cases. No benchmark,
 native job, broad suite, sanitizer, CUDA, Apple CI, BTx/BTE audit, or
-portable-AVX Release build ran. `AUD-358` remains fixed pending its native
-preprocessing performance evidence.
+portable-AVX Release build ran. A later Peach AVX-512/IFMA before/after packet
+validates `AUD-358` without a measurable preprocessing regression.
 
 ## AVX file-review status closure
 

@@ -320,8 +320,9 @@ forced-generic x86 inverse providers. A separate Euler-criterion oracle
 validates zero, residue, and nonresidue behavior. Focused MSVC x86-64 Release
 execution passes 8/8 new and retained tests. The CHERI residue-test scratch is
 now confined to 256 bytes; the ordinary Apple projection is unchanged.
-`AUD-372` is validated. `AUD-373` initially awaited supported Apple execution, and
-`AUD-374` awaits experimental CHERI target evidence. Batch E is next.
+`AUD-372` is validated. `AUD-373` initially awaited supported Apple execution.
+`AUD-374` is later accepted as experimental-target risk; native CHERI evidence
+remains mandatory before promotion. Batch E is next.
 
 Batch E SHA remediation is implemented at `2f59883`. The x86 public entry now
 selects SHA-NI, then SSSE3, then portable C from independent capability bits.
@@ -341,8 +342,8 @@ the prior hosted Apple SHA execution remains applicable. Deterministic
 verification reproduces all 97 retained outputs, and aggregate x86-64 and
 ARM64 object translation passes.
 
-`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` remains fixed
-pending experimental CHERI execution. Batch E completes the handwritten
+`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` is accepted risk
+for the experimental artifact pending CHERI execution. Batch E completes the handwritten
 scalar assembly-family audit. No benchmark, broad suite, sanitizer, CUDA,
 portable-AVX Release, or BTx/BTE work ran.
 

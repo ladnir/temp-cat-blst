@@ -38,9 +38,9 @@ acceptable for CatBLST. Phase 8 removes every internal queue and scheduler, so
 ### CHERI generated outputs
 
 The upstream generated commit also contains two Win64 exports associated with
-an API change already translated in Phase 7A. `AUD-016` reserves the complete
-Windows export surface for ABI/prefix hardening, so this packet must not
-partially patch `build/win64/blst.def`.
+an API change already translated in Phase 7A. At this packet, `AUD-016`
+reserved the complete Windows export surface, so the packet did not partially
+patch `build/win64/blst.def`. The later closure regenerated the full surface.
 
 ### CI supply chain and WASI amendment
 
