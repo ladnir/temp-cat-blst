@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 from pathlib import Path
 
 
@@ -20,6 +21,20 @@ ACCEPTED_REQUIRED_FIELDS = (
     "cpp_path",
     "cpp_commit",
     "cpp_sha256",
+    "lean_declaration",
+    "theorem",
+    "portable_evidence",
+    "native_evidence",
+    "residual_assumptions",
+)
+LEDGER_FIELDS = (
+    "id",
+    "status",
+    "cpp_path",
+    "cpp_commit",
+    "cpp_sha256",
+    "constant_path",
+    "constant_sha256",
     "lean_declaration",
     "theorem",
     "portable_evidence",
@@ -62,6 +77,32 @@ def canonical_source_bytes(path: Path, row_id: str) -> bytes:
     return contents
 
 
+def parse_ledger(contents: str) -> list[dict[str, str]]:
+    """Parse the one-record-per-line correspondence format."""
+    physical_lines = contents.splitlines()
+    require(physical_lines, "correspondence ledger is empty")
+    require(all(line.strip() for line in physical_lines), "correspondence ledger has a blank line")
+
+    reader = csv.DictReader(io.StringIO(contents, newline=""))
+    require(reader.fieldnames == list(LEDGER_FIELDS), "correspondence ledger has an invalid header")
+    rows = list(reader)
+    require(
+        len(physical_lines) == len(rows) + 1,
+        "correspondence ledger must contain exactly one record per physical line",
+    )
+    for row_number, row in enumerate(rows, start=2):
+        require(None not in row, f"correspondence row {row_number} has extra fields")
+        require(
+            all(value is not None for value in row.values()),
+            f"correspondence row {row_number} has missing fields",
+        )
+        require(
+            all("\n" not in value and "\r" not in value for value in row.values()),
+            f"correspondence row {row_number} contains an embedded newline",
+        )
+    return rows
+
+
 def validate_hashes(repo: Path, row: dict[str, str], path_field: str, hash_field: str) -> int:
     row_id = row["id"]
     paths = split_field(row[path_field])
@@ -84,10 +125,7 @@ def validate_hashes(repo: Path, row: dict[str, str], path_field: str, hash_field
 def main() -> int:
     repo = Path(__file__).resolve().parents[2]
     ledger = repo / "proof" / "avx" / "CORRESPONDENCE.csv"
-    with ledger.open(newline="", encoding="utf-8") as stream:
-        reader = csv.DictReader(stream)
-        require(reader.fieldnames is not None, "correspondence ledger has no header")
-        rows = list(reader)
+    rows = parse_ledger(ledger.read_text(encoding="utf-8"))
 
     require(rows, "correspondence ledger is empty")
     seen: set[str] = set()
