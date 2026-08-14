@@ -10,6 +10,7 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | `in_scope_production` |
+| Review state | complete |
 | Subsystem | `core` |
 | Profiles | scalar, assembly, AVX-512, experimental CUDA/parallel MSM |
 | Generation/provenance | Handwritten local CMake target definition |
@@ -96,8 +97,8 @@ N/A beyond root target defaults.
 
 ### 12. Portability and build behavior
 
-MSVC scalar/assembly and hosted Linux/Apple execution pass. Native AVX remains
-residual.
+MSVC scalar/assembly and hosted Linux/Apple execution pass. Peach Clang 21.1.8
+and GCC 15.2 native AVX-512/IFMA Release builds each pass 79/79 focused tests.
 
 ### 13. Performance-sensitive structure
 
@@ -126,12 +127,13 @@ not inherit `/arch`, warning, optimization, host-native, or `-fwrapv` flags.
 
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
-| CMake/Ninja | MSVC 19.50 plus hosted run `31665323681` | scalar/assembly Linux, Windows, and Apple pass | Native AVX remains; experimental CUDA is outside the production claim |
+| CMake/Ninja | MSVC 19.50; hosted runs `31665323681` and `31767696988`; Peach Clang 21.1.8 and GCC 15.2 | scalar/assembly Linux, Windows, and Apple plus native AVX pass | Experimental CUDA, non-Apple ARM64, CHERI, and MSVC ARM64 are outside the production claim |
 | Static/sanitizer/fuzz tools | deferred | N/A | Product sources retain their subsystem evidence |
 
 ## Residual risk and decision
 
-Status remains `in_review` pending exact native AVX-512/IFMA release-target
-execution. Supported Linux scalar/assembly, Windows assembly, and Apple Silicon
-are green in run `31665323681`. CUDA is experimental and its C++23 build
-remains outside the production claim.
+The file review is complete. Exact native AVX-512/IFMA release-target execution
+passes under both supported Peach compiler families. Supported Apple Silicon
+job `94666845914` in run `31767696988` builds the current architecture-selection
+source and passes 465/465 tests. CUDA, parallel MSM, non-Apple ARM64, CHERI, and
+MSVC ARM64 remain experimental and outside the production claim.

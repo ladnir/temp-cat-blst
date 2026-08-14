@@ -237,3 +237,13 @@ leaves `AUD-358` fixed pending its native preprocessing performance check and
 leaves generated assembly, analyzer, sanitizer, fuzz, negative cross-toolchain,
 combined-provider, packaging, and Phase 20 ABI-prefix evidence open. No product
 build, benchmark, CUDA, sanitizer, fuzz campaign, or BTx/BTE work ran.
+
+## Packet 19F: Product-owner execution closure
+
+The current `blst/CMakeLists.txt` source predates the consolidated Peach native
+AVX runs and supported Apple run `31767696988`. Peach Clang 21.1.8 and GCC 15.2
+each build the native AVX-512/IFMA Release target and pass 79/79 focused tests.
+Apple arm64 configures and builds the scalar-assembly target and passes 465/465
+CTest cases. `AUD-342` is validated and the product target owner is complete.
+Experimental CUDA, parallel MSM, non-Apple ARM64, CHERI, and MSVC ARM64 remain
+outside the production claim.

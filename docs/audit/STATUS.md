@@ -1294,3 +1294,21 @@ The Apple job reports 465/465 tests passed in 6.98 seconds. The complete
 supported build run concludes successfully. The authoritative manifest now
 contains 315 complete, 157 in-review, and 170 pending files across 832 tracked
 paths. Experimental, frozen, excluded, and catalogued scope is unchanged.
+
+Batch B status reconciliation closes seven add/subtract/division generator
+owners whose independent-oracle Apple evidence was already green in run
+`31712201574` and is reaccepted by `31767696988`. The product target owner also
+closes: its current source predates both Peach Clang/GCC native-AVX Release
+79/79 runs and the Apple 465/465 run. `AUD-342` is validated. Every
+`in_scope_production` row is now complete; the remaining in-review rows are
+support or process records. The authoritative manifest contains 323 complete,
+149 in-review, and 170 pending files across 832 tracked paths.
+
+The final pending-production reconciliation removes two unbuilt stale
+`client_min_*` amalgamation demos whose relative C-source includes no longer
+exist. The two `blst/curve/multi_scalar_par*` compatibility headers forward
+only into the retained experimental CUDA/parallel-MSM implementation and are
+reclassified accordingly. No product target, supported API, benchmark, or
+runtime code changes. The authoritative manifest contains 323 complete, 149
+in-review, and 166 pending files across 830 tracked paths; experimental scope
+increases to 96 files.
