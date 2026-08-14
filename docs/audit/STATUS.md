@@ -1214,7 +1214,7 @@ all 21 AVX correspondence rows with 61 exact hashes pass after the
 documentation-only proof rebind. Native exact-hash code generation joins the
 next consolidated Peach run because no arithmetic body changed.
 
-The authoritative manifest now contains 288 complete, 184 in-review, and 170
+The authoritative manifest now contains 289 complete, 183 in-review, and 170
 pending files across 832 tracked paths. Experimental, frozen, excluded, and
 catalogued scope is unchanged.
 

@@ -56,8 +56,8 @@ VROOM lineage is recorded by Phase 16.
 
 ### 4. Correctness
 
-Structural intrinsic inventory requires AVX2/F/DQ/IFMA; native compilation is
-pending supported Clang/GCC execution.
+Structural intrinsic inventory requires AVX2/F/DQ/IFMA. Peach Clang 21.1.8
+and GCC 15.2 compile and execute the exact flag set.
 
 ### 5. Memory and lifetime safety
 
@@ -100,7 +100,8 @@ introducing wrappers.
 
 ### 14. Tests and evidence
 
-Preset parsing and scalar no-leakage pass; Peach native execution remains.
+Preset parsing and scalar no-leakage pass. Peach native execution passes under
+both supported compiler families.
 
 ### Specialized additions
 
@@ -114,16 +115,20 @@ families.
 ## Validation
 
 Local configuration proves no native AVX flags in scalar mode and correct
-target relationships. Supported native Clang/GCC compilation is pending.
+target relationships. On Peach, Clang 21.1.8 and GCC 15.2 each configure the
+native Release preset, build with two workers, and pass all 79 `Avx*.*` tests.
+The compile commands contain the exact AVX2, AVX-512F, AVX-512DQ, and
+AVX-512IFMA requirements. No `-march=native` or host-derived flag appears.
 
 ## Automated evidence
 
 | Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
 | --- | --- | --- | --- |
 | CMake parser | local MSVC host | passed scalar configuration | MSVC is intentionally unsupported for native AVX |
-| Peach/native AVX | deferred | pending | Required before completion |
+| Peach/native AVX | Clang 21.1.8 and GCC 15.2, Ryzen 9 7950X | 79/79 AVX tests pass under each compiler | Does not replace sanitizer, fuzz, or leakage evidence for arithmetic owners |
 
 ## Residual risk and decision
 
-Status remains `in_review` until the exact flag set compiles and runs the
-focused native AVX target on supported hardware and compiler versions.
+Complete for the AVX build owner. The exact flag set compiles and runs under
+both supported native compiler families. Arithmetic, sanitizer, fuzz, and
+leakage evidence remains with the source owners rather than this CMake file.
