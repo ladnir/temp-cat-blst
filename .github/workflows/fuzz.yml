@@ -1,0 +1,150 @@
+name: Fuzz corpus replay
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/fuzz.yml'
+      - 'CMakeLists.txt'
+      - 'blst/**'
+      - 'bindings/**'
+      - 'fuzz/**'
+      - 'scripts/fuzz/**'
+      - 'docs/audit/FUZZ_API_LEDGER.csv'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/fuzz.yml'
+      - 'CMakeLists.txt'
+      - 'blst/**'
+      - 'bindings/**'
+      - 'fuzz/**'
+      - 'scripts/fuzz/**'
+      - 'docs/audit/FUZZ_API_LEDGER.csv'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Bounded fuzz operation
+        required: true
+        default: replay
+        type: choice
+        options:
+          - replay
+          - discovery
+          - coverage-replay
+          - apple-replay
+          - portable-avx-replay
+      seconds_per_target:
+        description: Discovery seconds per target
+        required: false
+        default: '900'
+        type: string
+
+concurrency:
+  group: category-blst-fuzz
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  structural:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check API inventory and adapter boundary
+        run: |
+          python3 scripts/fuzz/generate_api_ledger.py --check
+          python3 scripts/fuzz/check_structure.py --self-test
+      - name: Check pinned safe Rust fuzz targets
+        run: |
+          rustup toolchain install nightly-2026-01-15 --profile minimal
+          cargo +nightly-2026-01-15 check \
+            --locked \
+            --manifest-path bindings/rust/fuzz/Cargo.toml \
+            --bins \
+            --jobs 2
+
+  scalar-replay:
+    if: github.event_name != 'workflow_dispatch' || inputs.mode == 'replay'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure scalar sanitizers
+        run: bash scripts/fuzz/configure_scalar.sh out/fuzz-ci RelWithDebInfo
+      - name: Replay retained corpora sequentially
+        run: bash scripts/fuzz/replay.sh out/fuzz-ci
+
+  discovery:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discovery'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure discovery profile
+        run: bash scripts/fuzz/configure_scalar.sh out/fuzz-discovery RelWithDebInfo
+      - name: Run one fuzz worker sequentially
+        env:
+          BLST_FUZZ_DISCOVERY_APPROVED: YES
+        run: >-
+          bash scripts/fuzz/discovery.sh out/fuzz-discovery
+          '${{ inputs.seconds_per_target }}'
+
+  coverage-replay:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'coverage-replay'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure LLVM source coverage
+        run: >-
+          bash scripts/fuzz/configure_scalar.sh
+          out/fuzz-coverage RelWithDebInfo coverage
+      - name: Replay retained corpora with coverage
+        run: bash scripts/fuzz/coverage_replay.sh out/fuzz-coverage
+      - name: Print descriptive coverage report
+        run: cat out/fuzz-coverage/coverage/report.txt
+
+  apple-replay:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'apple-replay'
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Confirm Apple Silicon
+        run: test "$(uname -m)" = arm64
+      - name: Configure release-candidate replay
+        run: bash scripts/fuzz/configure_scalar.sh out/fuzz-apple RelWithDebInfo
+      - name: Replay retained corpora sequentially
+        run: bash scripts/fuzz/replay.sh out/fuzz-apple
+
+  portable-avx-replay:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'portable-avx-replay'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure developer AVX emulation
+        run: bash scripts/fuzz/configure_avx.sh out/fuzz-avx-portable portable
+      - name: Replay AVX corpus sequentially
+        run: bash scripts/fuzz/replay_avx.sh out/fuzz-avx-portable

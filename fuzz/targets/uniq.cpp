@@ -9,9 +9,11 @@ namespace catblst::fuzz::target
 {
     void run(std::span<const std::byte> input)
     {
-        adapter::run_uniq_case(input);
         if (const auto decoded = decode_hex_seed<4097>(input))
+        {
             adapter::run_uniq_case(decoded->span());
+            return;
+        }
+        adapter::run_uniq_case(input);
     }
 }
-

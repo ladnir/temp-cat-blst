@@ -22,6 +22,7 @@ option(BLST_TEST         "Build test executables" ${PROJECT_IS_TOP_LEVEL})
 option(BLST_BENCHMARK    "Build benchmark executables" OFF)
 option(BLST_FUZZ         "Build developer fuzzing targets and Phase 0 gates" OFF)
 option(BLST_FUZZ_AVX     "Build the manual AVX differential fuzz target" OFF)
+option(BLST_FUZZ_COVERAGE "Instrument fuzz corpus replay for LLVM coverage" OFF)
 option(BLST_CUDA         "Enable CUDA support" OFF)
 option(BLST_CUDA_MSM     "Enable experimental CUDA MSM kernels" ${BLST_CUDA})
 option(BLST_FAST_BUILD   "Reduce experimental CUDA compile time at the cost of runtime performance" OFF)
@@ -37,7 +38,8 @@ mark_as_advanced(
     BLST_PARALLEL_MSM
     BLST_CRNS_BATCH_VROOM_VENDOR
     BLST_FUZZ
-    BLST_FUZZ_AVX)
+    BLST_FUZZ_AVX
+    BLST_FUZZ_COVERAGE)
 
 if(BLST_FUZZ)
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -65,6 +67,10 @@ if(BLST_FUZZ_AVX)
             "BLST_FUZZ_AVX requires BLST_AVX512=ON or "
             "BLST_AVX512_PORTABLE=ON.")
     endif()
+endif()
+
+if(BLST_FUZZ_COVERAGE AND NOT BLST_FUZZ)
+    message(FATAL_ERROR "BLST_FUZZ_COVERAGE requires BLST_FUZZ=ON.")
 endif()
 
 if(BLST_BUILD_SHARED)
@@ -225,6 +231,13 @@ endif()
 
 add_library(blst_sanitizers INTERFACE)
 
+if(BLST_FUZZ_COVERAGE)
+    target_compile_options(blst_sanitizers INTERFACE
+        -fprofile-instr-generate
+        -fcoverage-mapping)
+    target_link_options(blst_sanitizers INTERFACE -fprofile-instr-generate)
+endif()
+
 if(BLST_ASAN OR BLST_UBSAN)
     if(MSVC)
         if(BLST_ASAN)
@@ -349,6 +362,7 @@ message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
 message("BLST_FUZZ            = ${BLST_FUZZ}")      # build developer fuzz targets
 message("BLST_FUZZ_AVX        = ${BLST_FUZZ_AVX}")  # manual AVX fuzz profile
+message("BLST_FUZZ_COVERAGE   = ${BLST_FUZZ_COVERAGE}") # LLVM corpus coverage
 
 
 message(STATUS "C compiler: ${CMAKE_C_COMPILER}")

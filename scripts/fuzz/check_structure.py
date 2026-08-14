@@ -34,6 +34,7 @@ INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/internal/scalar_factory.h",
     "fuzz/tests/scalar_factory_tests.cpp",
     "fuzz/tests/adapter_factory_tests.cpp",
+    "fuzz/tests/seed_encoding_tests.cpp",
     "fuzz/targets/decode.cpp",
     "fuzz/targets/avx.cpp",
     "fuzz/targets/bytes.cpp",

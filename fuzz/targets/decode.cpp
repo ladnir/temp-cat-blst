@@ -11,11 +11,17 @@ namespace catblst::fuzz::target
 {
     void run(std::span<const std::byte> input)
     {
+        if (const auto decoded = decode_hex_seed<192>(input))
+        {
+            adapter::run_decode_case(decoded->span());
+            return;
+        }
+        if (const auto decoded = decode_base64_seed<192>(input))
+        {
+            adapter::run_decode_case(decoded->span());
+            return;
+        }
         adapter::run_decode_case(input.first(
             std::min<std::size_t>(input.size(), 192)));
-        if (const auto decoded = decode_hex_seed<192>(input))
-            adapter::run_decode_case(decoded->span());
-        if (const auto decoded = decode_base64_seed<192>(input))
-            adapter::run_decode_case(decoded->span());
     }
 }

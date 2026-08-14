@@ -121,6 +121,29 @@ foreach ($required in @(
     }
 }
 
+$fuzzPath = Join-Path $workflowRoot 'fuzz.yml'
+$fuzz = Get-Content -LiteralPath $fuzzPath -Raw
+foreach ($required in @(
+    'group: category-blst-fuzz',
+    'python3 scripts/fuzz/generate_api_ledger.py --check',
+    'python3 scripts/fuzz/check_structure.py --self-test',
+    'cargo +nightly-2026-01-15 check',
+    '--locked',
+    'bash scripts/fuzz/replay.sh',
+    'BLST_FUZZ_DISCOVERY_APPROVED: YES',
+    'bash scripts/fuzz/discovery.sh',
+    'bash scripts/fuzz/coverage_replay.sh',
+    'runs-on: macos-15',
+    'bash scripts/fuzz/configure_avx.sh out/fuzz-avx-portable portable'
+)) {
+    if (-not $fuzz.Contains($required)) {
+        throw "fuzz.yml: missing required bounded-fuzz policy '$required'."
+    }
+}
+if ($fuzz -match '(?m)^\s*run:.*benchmark') {
+    throw 'fuzz.yml: fuzz workflows must not invoke benchmarks.'
+}
+
 $dependabotPath = Join-Path $repoRoot '.github\dependabot.yml'
 $dependabot = Get-Content -LiteralPath $dependabotPath -Raw
 foreach ($required in @(

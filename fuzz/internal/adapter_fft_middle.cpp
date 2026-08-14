@@ -74,7 +74,7 @@ namespace catblst::fuzz::adapter
         require(invalid == invalid_before);
         require(::blst_fr_fft_domain_len(3) == 0);
 
-        const std::size_t interpolation_n = std::min<std::size_t>(n, 8);
+        const std::size_t interpolation_n = std::min<std::size_t>(n, 32);
         std::vector<blst_fr> points(interpolation_n);
         std::vector<blst_fr> values(interpolation_n);
         std::vector<blst_fr> expected_coefficients(
@@ -106,7 +106,13 @@ namespace catblst::fuzz::adapter
         for (std::size_t index = ell; index < n; ++index)
             require(object_equal(suffix[index - ell], coefficients[index]));
 
-        const std::size_t middle_n = std::min<std::size_t>(n, 4);
+        // Middle-product final exponentiation is intentionally expensive in
+        // sanitizer Debug builds.  A third input byte explicitly selects this
+        // subcampaign so ordinary FFT seeds do not repeat the same work.
+        if (input.size() < 3)
+            return;
+        const std::size_t middle_n =
+            1 + std::to_integer<unsigned char>(input[2]) % 16;
         std::vector<blst_p1> a(middle_n);
         std::vector<blst_p2> b(2 * middle_n);
         const auto scalar = detail::fixed_bytes<32>(input);
@@ -156,4 +162,3 @@ namespace catblst::fuzz::adapter
             require(::blst_gt_is_equal(&aliased[index], &full[index]));
     }
 }
-

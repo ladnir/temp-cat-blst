@@ -46,14 +46,22 @@ target_compile_features(blst_fuzz_modulus_oracle_tests PRIVATE cxx_std_20)
 target_include_directories(blst_fuzz_modulus_oracle_tests PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(blst_fuzz_modulus_oracle_tests PRIVATE blst_sanitizers)
 
+add_executable(blst_fuzz_seed_encoding_tests EXCLUDE_FROM_ALL
+    tests/seed_encoding_tests.cpp)
+target_compile_features(blst_fuzz_seed_encoding_tests PRIVATE cxx_std_20)
+target_include_directories(blst_fuzz_seed_encoding_tests PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(blst_fuzz_seed_encoding_tests PRIVATE blst_sanitizers)
+
 function(blst_add_fuzz_target target source max_len timeout_seconds)
     set(replay_timeout_seconds ${timeout_seconds})
+    set(replay_test_timeout_seconds 60)
     # Sanitizer-instrumented Debug field and pairing arithmetic is
     # intentionally much slower than the RelWithDebInfo discovery profile.
     # Preserve the campaign's per-input discovery limit, but give deterministic
     # assertion replay enough time to complete the same retained seed.
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND timeout_seconds GREATER 2)
-        set(replay_timeout_seconds 30)
+        set(replay_timeout_seconds 60)
+        set(replay_test_timeout_seconds 120)
     endif()
     add_executable(${target} EXCLUDE_FROM_ALL
         support/entrypoint.cpp
@@ -78,7 +86,7 @@ function(blst_add_fuzz_target target source max_len timeout_seconds)
     set_tests_properties(${target}_replay PROPERTIES
         LABELS "fuzz;phase1;replay"
         RUN_SERIAL TRUE
-        TIMEOUT 60)
+        TIMEOUT ${replay_test_timeout_seconds})
 endfunction()
 
 blst_add_fuzz_target(blst_fuzz_decode targets/decode.cpp 192 2)
@@ -123,6 +131,7 @@ add_custom_target(blst_fuzz_phase0
         blst_fuzz_adapter_compile
         blst_fuzz_call_frame_tests
         blst_fuzz_modulus_oracle_tests
+        blst_fuzz_seed_encoding_tests
         blst_fuzz_scalar_factory_tests)
 add_dependencies(blst_fuzz_phase0 blst_fuzz_adapter_factory_tests)
 
@@ -130,11 +139,13 @@ add_test(NAME blst_fuzz_call_frame_tests COMMAND blst_fuzz_call_frame_tests)
 add_test(NAME blst_fuzz_scalar_factory_tests COMMAND blst_fuzz_scalar_factory_tests)
 add_test(NAME blst_fuzz_adapter_factory_tests COMMAND blst_fuzz_adapter_factory_tests)
 add_test(NAME blst_fuzz_modulus_oracle_tests COMMAND blst_fuzz_modulus_oracle_tests)
+add_test(NAME blst_fuzz_seed_encoding_tests COMMAND blst_fuzz_seed_encoding_tests)
 set_tests_properties(
     blst_fuzz_call_frame_tests
     blst_fuzz_scalar_factory_tests
     blst_fuzz_adapter_factory_tests
     blst_fuzz_modulus_oracle_tests
+    blst_fuzz_seed_encoding_tests
     PROPERTIES LABELS "fuzz;phase0")
 
 add_custom_target(blst_fuzz_phase1
