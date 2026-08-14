@@ -324,7 +324,7 @@ and is not merely a mathematical precondition.
 | `AUD-097` | Pairing retains the validate-once-PK policy under explicit complete-membership and raw subgroup contracts. | validated |
 | `AUD-098` | Signing, weighted pairing, and AVX multiplication rely on explicit narrow subgroup/SK preconditions without Release validation. | validated |
 | `AUD-099` | GT is represented by Fp12 storage under explicit GT-operation preconditions and a separate MillerResult native type. | accepted risk |
-| `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
+| `AUD-100` | C cyclotomic squaring states its cyclotomic precondition and lack of Release validation. | validated |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
 | `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | validated |

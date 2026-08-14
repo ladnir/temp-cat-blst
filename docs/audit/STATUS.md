@@ -234,6 +234,14 @@ on-curve non-subgroup and off-curve G1/G2 operands in both orientations without
 mutating the context. No arithmetic, benchmark, broad suite, CUDA, or BTx work
 was included.
 
+The production-review reconciliation also promotes eleven completed findings
+from `fixed` to `validated`: `AUD-075` through `AUD-077`, `AUD-079` through
+`AUD-081`, `AUD-086`, `AUD-087`, `AUD-100`, `AUD-195`, and `AUD-222`.
+Their existing focused structural, runtime, code-generation, native AVX, and
+supported-platform evidence now matches the completed owner reviews. Five
+fixed findings still require deliberately unavailable or performance-specific
+evidence: `AUD-161`, `AUD-358`, `AUD-360`, `AUD-374`, and `AUD-376`.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
