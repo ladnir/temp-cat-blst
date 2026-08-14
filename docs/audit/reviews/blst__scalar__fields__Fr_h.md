@@ -32,10 +32,12 @@ alignment branches are removed.
 
 ## Residual risk
 
-`AUD-070` is validated. `AUD-069` now has a fixed zero-copy
-public/internal type model, with focused runtime, Rust, and Apple validation
-still pending. Butterfly nonalias contracts, inverse of
-zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.
+`AUD-069` and `AUD-070` are validated. Exact C/C++ type assertions, focused
+boundary behavior, and supported native C++/Rust run `31665323681` cover the
+zero-copy public/internal representation on Apple Silicon, Linux, and Windows.
+The later assembly-layout and independent-oracle additions at `a29895f` and
+`83c11ba` still require Apple execution. Broad sanitizer evidence remains a
+phase gate.
 
 ## Wave 2 exact-contract follow-up
 

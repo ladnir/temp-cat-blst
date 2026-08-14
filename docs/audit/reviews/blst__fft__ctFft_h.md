@@ -205,5 +205,7 @@ likewise do not validate plan internals or overlap. Public C/Rust adapters
 validate their exposed shapes. The generic names remain in the global namespace
 for compatibility with frozen BTx/BTE callers; namespace cleanup is deferred
 until that integration can move without editing frozen code. Final manifest
-closure awaits later sanitizer, native-AVX, and differential-fuzz milestone
-evidence.
+closure awaits selected native-AVX execution of
+`FftCore.*:FftApi.*:Timer.*`. Sanitizer and differential-fuzz campaigns remain
+Phase 19 release gates and do not require reopening this source review unless
+they find a defect.

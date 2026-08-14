@@ -31,11 +31,12 @@ sequence are unchanged.
 
 ## Residual risk
 
-`AUD-070` is validated. `AUD-069` now has a fixed zero-copy public/internal
-type model, with
-focused runtime, Rust, and Apple validation still pending. Retained Rust
-execution for the changed square-root failure output, independent big-integer
-constants, and full sanitizer/oracle evidence remain follow-ups.
+`AUD-069`, `AUD-070`, and `AUD-071` are validated. Exact C/C++ type assertions,
+focused boundary behavior, and the retained Rust field test cover the repaired
+ABI and square-root publication contract. Supported run `31665323681` passes
+the containing revision on Apple Silicon, Linux, and Windows. The later
+assembly-layout and independent-oracle additions at `a29895f` and `83c11ba`
+still require Apple execution. Broad sanitizer evidence remains a phase gate.
 
 ## Generated-addition-chain follow-up
 

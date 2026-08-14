@@ -113,11 +113,11 @@ compiles pass with MSVC 19.50, Clang 18.1.3, and GCC 13.3. The finding remains
 fixed rather than validated until a later, intentionally scheduled Apple run;
 the old run does not validate the newer CPU-capability or endian fixes.
 
-The first Phase 14 Fr/Fp wave is implemented. `AUD-067`, `AUD-068`,
-`AUD-072`, `AUD-073`, and `AUD-074` are validated; `AUD-071` is fixed pending
-retained Rust execution. Full-width x86 repeated-square generation is committed
-at `7c0e399`, and the remaining straightforward field boundary packet is at
-`b6a51bb`. Commit `61c8cd4` validates the `AUD-070` object-lifetime packet with
+The first Phase 14 Fr/Fp wave is implemented. `AUD-067`, `AUD-068`, and
+`AUD-071` through `AUD-074` are validated. Full-width x86 repeated-square
+generation is committed at `7c0e399`. The remaining straightforward field
+boundary packet is at `b6a51bb`. Commit `61c8cd4` validates the `AUD-070`
+object-lifetime packet with
 an explicit little-endian platform requirement, typed Fp12 identity storage,
 raw-limb reciprocal scratch, and documented scalar/Fr representation and alias
 contracts. Commit `a720184` retires the isolated generic `blst_t.hpp` shim and
@@ -1249,3 +1249,24 @@ owners already had complete source, regeneration, correspondence, portable,
 and native evidence. Their sanitizer, fuzz, leakage, compiler/IFMA, and broad
 matrix residuals remain explicit subsystem release gates. No build or runtime
 job accompanied this status correction.
+
+The scalar-core evidence triage closes `AUD-069`, `AUD-071`, `AUD-198`,
+`AUD-204`, `AUD-205`, and `AUD-207`. Their remediation predates supported run
+`31665323681`, which passes native C++ and Rust on Apple Silicon, Linux, and
+Windows. The Rust field test directly calls `blst_fp_sqrt`; focused C tests
+cover failed-output clearing and exact aliasing. Complete owner/caller review
+binds the exponent, GT/cyclotomic, timing, and sparse-operand declarations to
+their implementations. `Fp12.h` and `Fp12.cpp` are therefore complete file
+reviews. The visible native `Fp4` name remains fixed two-`Fp2` scratch storage,
+not a C or Rust API or a promised general Fp4 algebra.
+
+`Fp.h`, `Fp2.h`, and `Fr.h` remain in review. Their source reviews are complete,
+but `a29895f` and `83c11ba` postdate the green hosted run. The static assembly
+layout assertions and independent Montgomery/inversion oracles still require
+supported Apple execution. `ctFft.h` also remains in review until the selected
+native-AVX `FftCore.*:FftApi.*:Timer.*` filter executes. No build, runtime job,
+benchmark, sanitizer, or CI run accompanied this triage.
+
+The authoritative manifest now contains 295 complete, 177 in-review, and 170
+pending files across 832 tracked paths. Experimental, frozen, excluded, and
+catalogued scope is unchanged.

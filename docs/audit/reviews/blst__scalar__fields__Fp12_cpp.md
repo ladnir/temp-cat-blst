@@ -10,6 +10,7 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | in-scope production |
+| Review state | complete |
 | Subsystem | scalar Fp6/Fp12 arithmetic, final exponentiation, GT GLV exponentiation |
 | Profiles | scalar, C, C++, Rust; experimental CUDA consumers excluded from release evidence |
 | Generation/provenance | Hand-maintained C++ refactor of upstream tower/pairing code plus local Hypercat GT/GLV work |
@@ -235,10 +236,13 @@ coefficient position, canonical non-GT input, failure atomicity, and deferred
 aggregate checking. `cl /W4 /WX /Zs` passed the earlier implementation packet.
 No broad suite or decoder benchmark ran.
 
-The file remains in review for broader sanitizer, oracle, and supported-platform
-evidence. The timing decision is resolved by constant-time default and named
-variable-time GT multiplication (`AUD-082`/`AUD-088`), and the checked versus
-deferred deserialization contract (`AUD-085`) is resolved.
+The timing decision is resolved by constant-time default and named variable-
+time GT multiplication (`AUD-082`/`AUD-088`). The checked versus deferred
+deserialization contract (`AUD-085`) is also resolved. Complete source and
+caller review found no remaining implementation decision. Supported run
+`31665323681` passes the containing revision on Apple Silicon, Linux, and
+Windows. The file review is complete; broader sanitizer, oracle, and fuzz
+campaigns remain subsystem release gates.
 
 ## Wave 2 exact-contract follow-up
 

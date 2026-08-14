@@ -167,9 +167,10 @@ failed square-root output is unspecified, must be ignored, and exact aliasing
 may overwrite the input. The unused generic macro from `AUD-087` was removed.
 The focused zero-bit regression and strict MSVC test-unit compilation pass.
 
-The file remains in review for independent arithmetic-oracle and sanitizer
-coverage. Supported C++ and Rust execution on Apple, Linux, and Windows is
-green in run `31665323681`.
+Supported C++ and Rust execution on Apple, Linux, and Windows is green in run
+`31665323681`. The file remains in review because the later static assembly
+layout assertions at `a29895f` have not compiled on supported Apple Silicon.
+Broader sanitizer evidence remains a phase gate.
 
 ## Generated-addition-chain follow-up
 

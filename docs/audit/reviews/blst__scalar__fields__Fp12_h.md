@@ -10,6 +10,7 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
+| Review state | complete |
 | Subsystem | scalar Fp6/Fp12 types and internal Fp4 support |
 | Profiles | scalar C, C++, and Rust shared representation |
 | Generation/provenance | Hand-maintained native C++ type declarations with upstream tower lineage |
@@ -154,9 +155,15 @@ changes resolve the header portions of `AUD-083`, `AUD-086`, and `AUD-087`.
 Full-width GT scalar behavior is now explicit and covered by focused comparison
 against basic exponentiation. The GT timing decision is implemented, selected,
 and benchmarked under `AUD-082`/`AUD-088`. Canonical, failure-atomic Fp12
-decoding resolves this header's part of `AUD-085`. The file remains in review
-pending a decision whether the Fp4 scratch type should remain re-exported by the
-selected header.
+decoding resolves this header's part of `AUD-085`.
+
+`Fp4` remains a visible native C++ implementation type. Scalar cyclotomic
+squaring uses its fixed two-`Fp2` storage, and the selected field facade
+intentionally re-exports native field names. It is not a C or Rust API type,
+and no wider algebraic API contract is promised. This resolves the final type-
+surface decision without a wrapper, copy, or access restriction. The file
+review is complete; sanitizer and fuzz campaigns remain subsystem release
+gates rather than missing source-review work.
 
 ## Wave 2 exact-contract follow-up
 

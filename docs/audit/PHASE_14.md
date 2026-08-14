@@ -37,9 +37,10 @@ Commit `7c0e399` changes the x86 q/x repeated-square generators and all eight
 affected ELF, COFF, Mach-O, and Win64 products to preserve full `size_t`
 counters. Commit `b6a51bb` implements the remaining approved straightforward
 field packet. `AUD-067`, `AUD-068`, `AUD-072`, `AUD-073`, and `AUD-074` are
-validated. `AUD-071` is fixed with focused C evidence and remains pending a
-retained Rust execution check. `AUD-069` is fixed pending focused runtime,
-Rust, and Apple evidence; `AUD-070` is validated at `61c8cd4`.
+validated. `AUD-071` initially remained fixed with focused C evidence, and
+`AUD-069` initially remained fixed pending focused runtime, Rust, and Apple
+evidence. `AUD-070` was validated at `61c8cd4`. The later closure note below
+records the supported evidence that validates `AUD-069` and `AUD-071`.
 
 Validation remained focused. One existing Debug target was rebuilt with one
 Ninja worker after the field headers invalidated dependent objects; only three
@@ -306,7 +307,7 @@ FFT, middle-product, and AVX conversion boundaries. Intentional opaque pairing,
 uniqueness-tree, AVX shell, and caller scratch-buffer casts remain separate
 review subjects; none aliases a duplicate public field or point type.
 
-Focused evidence currently marks `AUD-069` fixed, not yet validated. MSVC parses
+This packet initially marked `AUD-069` fixed, not yet validated. MSVC parses
 the complete retained scalar library source list, native and portable AVX C
 boundaries, and the affected scalar/public tests. GCC 13 and Clang 18 compile
 the standalone header as C11 and C++20, and GCC parses the scalar exports, C
@@ -317,6 +318,25 @@ backend calls or tail calls and no `memcpy`, `memmove`, conversion loop, or
 temporary lane object. A focused linked/runtime check, retained Rust compile,
 and Apple execution remain before validation. No full build, sanitizer sweep,
 benchmark, CUDA build, or CI run was started.
+
+### Scalar-core evidence reconciliation
+
+Supported run `31665323681` tests a descendant of the representation and field-
+boundary remediations. Native C++ and Rust pass on Apple Silicon, Linux, and
+Windows. The retained Rust field test calls `blst_fp_sqrt`; focused C tests
+cover the failed-output and exact-alias cases. This evidence validates
+`AUD-069` and `AUD-071`.
+
+The completed field-owner and direct-caller reviews also validate the
+documentation-only `AUD-198`, `AUD-204`, `AUD-205`, and `AUD-207` repairs.
+`Fp12.h` and `Fp12.cpp` have no remaining source-review decision and are
+complete. Their broader sanitizer, oracle, and fuzz work remains Phase 19
+release evidence.
+
+`Fp.h`, `Fp2.h`, and `Fr.h` remain in review for a narrower reason. Commits
+`a29895f` and `83c11ba` postdate the green hosted run, so the new assembly-
+layout assertions and independent arithmetic oracles still require Apple
+execution. No build or runtime job was performed during this reconciliation.
 
 Final review also completed the `blst_byte`/`blst_limb_t` migration in retained
 BTx/TRX boundary sources and public-header tests. BTx/TRX behavior was not
