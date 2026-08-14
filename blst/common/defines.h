@@ -192,10 +192,14 @@ namespace blst {
 
  /* MSVC: use __pragma */
 #define BLST_UNROLL        __pragma(loop(ivdep))
+#elif defined(__clang__)
+
+ /* Clang accepts the generic unroll directive. */
+#define BLST_UNROLL        _Pragma("unroll")
 #else
 
- /* GCC/Clang: use _Pragma (and keep it generic). */
-#define BLST_UNROLL        _Pragma("unroll")
+ /* GCC rejects the generic directive; fixed-bound loops remain optimizer-owned. */
+#define BLST_UNROLL        /* no-op */
 #endif
 
 
