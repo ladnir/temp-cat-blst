@@ -311,9 +311,10 @@ impl Pairing {
     /// `P` selects the pairing orientation at compile time. `sig` is supplied
     /// once for an internally aggregated signature and is `None` for later
     /// public-key/message contributions. The signature is fully subgroup
-    /// checked when `sig_groupcheck` is true. The public key is subgroup
-    /// checked only when `pk_validate` is true and must otherwise have been
-    /// validated by the caller.
+    /// checked for curve and subgroup membership when `sig_groupcheck` is
+    /// true. The public key receives the same complete membership check only
+    /// when `pk_validate` is true and must otherwise have been validated by
+    /// the caller. A false flag does not opt an operand into a wider domain.
     pub fn aggregate<P: PairingPublicKey>(
         &mut self,
         pk: &P,
@@ -393,8 +394,9 @@ impl Pairing {
 
     /// Aggregates one raw affine `(G2 q, G1 p)` pair into the context.
     ///
-    /// No curve or subgroup validation is performed; inputs must be trusted
-    /// on-curve affine points. Either infinity contributes the Miller identity.
+    /// No curve or subgroup validation is performed; inputs must be previously
+    /// validated subgroup affine points. Either infinity contributes the
+    /// Miller identity.
     pub fn raw_aggregate(&mut self, q: &blst_p2_affine, p: &blst_p1_affine) {
         unsafe { blst_pairing_raw_aggregate(self.ctx(), q, p) }
     }

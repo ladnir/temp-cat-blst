@@ -1670,7 +1670,7 @@ extern "C" {
     );
 }
 extern "C" {
-    #[doc = " Adds a PK-in-G2 verification item. A nonnull signature is fully subgroup\n checked; a nonnull PK must already be a subgroup point and cannot be\n infinity. Failure leaves `ctx` unchanged."]
+    #[doc = " Adds a PK-in-G2 verification item. A nonnull signature receives a complete\n curve and subgroup membership check. A nonnull PK must already be a subgroup\n point and cannot be infinity. Failure leaves `ctx` unchanged."]
     pub fn blst_pairing_aggregate_pk_in_g2(
         ctx: *mut blst_pairing,
         PK: *const blst_p2_affine,
@@ -1682,7 +1682,7 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    #[doc = " Adds a PK-in-G2 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership."]
+    #[doc = " Adds a PK-in-G2 item with independently selected complete membership checks; false flags require caller-established subgroup membership."]
     pub fn blst_pairing_chk_n_aggr_pk_in_g2(
         ctx: *mut blst_pairing,
         PK: *const blst_p2_affine,
@@ -1710,7 +1710,7 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    #[doc = " Adds a weighted PK-in-G2 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged."]
+    #[doc = " Adds a weighted PK-in-G2 item with explicit complete-membership-check policy; false flags require subgroup points, the public scalar is reduced modulo r, and malformed shape leaves `ctx` unchanged."]
     pub fn blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
         ctx: *mut blst_pairing,
         PK: *const blst_p2_affine,
@@ -1726,7 +1726,7 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    #[doc = " Adds a PK-in-G1 verification item. A nonnull signature is fully subgroup\n checked; a nonnull PK must already be a subgroup point and cannot be\n infinity. Failure leaves `ctx` unchanged."]
+    #[doc = " Adds a PK-in-G1 verification item. A nonnull signature receives a complete\n curve and subgroup membership check. A nonnull PK must already be a subgroup\n point and cannot be infinity. Failure leaves `ctx` unchanged."]
     pub fn blst_pairing_aggregate_pk_in_g1(
         ctx: *mut blst_pairing,
         PK: *const blst_p1_affine,
@@ -1738,7 +1738,7 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    #[doc = " Adds a PK-in-G1 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership."]
+    #[doc = " Adds a PK-in-G1 item with independently selected complete membership checks; false flags require caller-established subgroup membership."]
     pub fn blst_pairing_chk_n_aggr_pk_in_g1(
         ctx: *mut blst_pairing,
         PK: *const blst_p1_affine,
@@ -1766,7 +1766,7 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    #[doc = " Adds a weighted PK-in-G1 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged."]
+    #[doc = " Adds a weighted PK-in-G1 item with explicit complete-membership-check policy; false flags require subgroup points, the public scalar is reduced modulo r, and malformed shape leaves `ctx` unchanged."]
     pub fn blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
         ctx: *mut blst_pairing,
         PK: *const blst_p1_affine,

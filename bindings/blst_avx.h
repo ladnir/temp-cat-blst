@@ -594,7 +594,9 @@ const blst_avx_fp12* blst_avx_fp12_one(void);
 /**
  * Computes final_exponentiation(miller_loop(g2, g1)) in AVX-native form.
  * Both inputs must already be prime-order subgroup points; no point validation
- * is performed and behavior for non-subgroup inputs is not promised.
+ * is performed and behavior for non-subgroup inputs is not promised. The
+ * boolean reports only null arguments or unavailable AVX support; it does not
+ * report curve or subgroup validation.
  */
 bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_p2* g2);
 

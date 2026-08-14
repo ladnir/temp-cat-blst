@@ -843,28 +843,28 @@ void blst_pairing_get_miller_result(blst_fp12* out, blst_pairing* ctx);
  */
 void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, const blst_p1_affine* p);
 /**
- * Adds a PK-in-G2 verification item. A nonnull signature is fully subgroup
- * checked; a nonnull PK must already be a subgroup point and cannot be
- * infinity. Failure leaves `ctx` unchanged.
+ * Adds a PK-in-G2 verification item. A nonnull signature receives a complete
+ * curve and subgroup membership check. A nonnull PK must already be a subgroup
+ * point and cannot be infinity. Failure leaves `ctx` unchanged.
  */
 BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
-/** Adds a PK-in-G2 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
+/** Adds a PK-in-G2 item with independently selected complete membership checks; false flags require caller-established subgroup membership. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Aggregates one PK-in-G2 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
-/** Adds a weighted PK-in-G2 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
+/** Adds a weighted PK-in-G2 item with explicit complete-membership-check policy; false flags require subgroup points, the public scalar is reduced modulo r, and malformed shape leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
- * Adds a PK-in-G1 verification item. A nonnull signature is fully subgroup
- * checked; a nonnull PK must already be a subgroup point and cannot be
- * infinity. Failure leaves `ctx` unchanged.
+ * Adds a PK-in-G1 verification item. A nonnull signature receives a complete
+ * curve and subgroup membership check. A nonnull PK must already be a subgroup
+ * point and cannot be infinity. Failure leaves `ctx` unchanged.
  */
 BLST_ERROR blst_pairing_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
-/** Adds a PK-in-G1 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
+/** Adds a PK-in-G1 item with independently selected complete membership checks; false flags require caller-established subgroup membership. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Aggregates one PK-in-G1 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
-/** Adds a weighted PK-in-G1 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
+/** Adds a weighted PK-in-G1 item with explicit complete-membership-check policy; false flags require subgroup points, the public scalar is reduced modulo r, and malformed shape leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Merges committed `ctx1` into committed `ctx`; orientations must match when both are defined, `ctx1` is unchanged, and failure leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1);
