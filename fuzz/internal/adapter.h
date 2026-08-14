@@ -118,4 +118,6 @@ namespace catblst::fuzz::adapter
     /** Direct byte-boundary campaigns. A failed property aborts the process. */
     void run_decode_case(std::span<const std::byte> input);
     void run_bytes_case(std::span<const std::byte> input);
+    void run_fields_case(std::span<const std::byte> input);
+    void run_groups_case(std::span<const std::byte> input);
 }

@@ -50,7 +50,8 @@ function(blst_add_fuzz_target target source max_len timeout_seconds)
     add_executable(${target} EXCLUDE_FROM_ALL
         support/entrypoint.cpp
         ${source}
-        internal/adapter.cpp)
+        internal/adapter.cpp
+        ${ARGN})
     target_compile_features(${target} PRIVATE cxx_std_20)
     target_include_directories(${target} PRIVATE
         ${PROJECT_SOURCE_DIR}
@@ -74,6 +75,14 @@ endfunction()
 
 blst_add_fuzz_target(blst_fuzz_decode targets/decode.cpp 192 2)
 blst_add_fuzz_target(blst_fuzz_bytes targets/bytes.cpp 1024 2)
+blst_add_fuzz_target(
+    blst_fuzz_groups targets/groups.cpp 64 2 internal/adapter_groups.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_fields targets/fields.cpp 256 2 internal/adapter_fields.cpp)
+set_tests_properties(
+    blst_fuzz_groups_replay
+    blst_fuzz_fields_replay
+    PROPERTIES LABELS "fuzz;phase2;replay")
 
 add_custom_target(blst_fuzz_phase0
     DEPENDS
@@ -97,3 +106,6 @@ set_tests_properties(
 
 add_custom_target(blst_fuzz_phase1
     DEPENDS blst_fuzz_decode blst_fuzz_bytes)
+
+add_custom_target(blst_fuzz_phase2
+    DEPENDS blst_fuzz_fields blst_fuzz_groups)

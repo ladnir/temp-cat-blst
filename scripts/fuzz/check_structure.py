@@ -19,6 +19,9 @@ BLST_ALLOWED_INTERNAL = {
     "fuzz/internal/adapter.cpp",
     "fuzz/internal/adapter.h",
     "fuzz/internal/adapter_access.h",
+    "fuzz/internal/adapter_common.h",
+    "fuzz/internal/adapter_fields.cpp",
+    "fuzz/internal/adapter_groups.cpp",
 }
 INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/internal/factory_access.h",
@@ -27,6 +30,8 @@ INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/tests/adapter_factory_tests.cpp",
     "fuzz/targets/decode.cpp",
     "fuzz/targets/bytes.cpp",
+    "fuzz/targets/groups.cpp",
+    "fuzz/targets/fields.cpp",
 }
 IGNORED_PREFIXES = ("fuzz/inventory/",)
 ALLOWED_FACTORY_ADAPTER_CALLS = {
@@ -46,6 +51,8 @@ ALLOWED_FACTORY_ADAPTER_CALLS = {
     "retained_non_subgroup_g2",
     "run_bytes_case",
     "run_decode_case",
+    "run_fields_case",
+    "run_groups_case",
 }
 
 
