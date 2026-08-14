@@ -21,6 +21,7 @@ option(BLST_UBSAN        "Enable Undefined Behavior Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ${PROJECT_IS_TOP_LEVEL})
 option(BLST_BENCHMARK    "Build benchmark executables" OFF)
 option(BLST_FUZZ         "Build developer fuzzing targets and Phase 0 gates" OFF)
+option(BLST_FUZZ_AVX     "Build the manual AVX differential fuzz target" OFF)
 option(BLST_CUDA         "Enable CUDA support" OFF)
 option(BLST_CUDA_MSM     "Enable experimental CUDA MSM kernels" ${BLST_CUDA})
 option(BLST_FAST_BUILD   "Reduce experimental CUDA compile time at the cost of runtime performance" OFF)
@@ -35,7 +36,8 @@ mark_as_advanced(
     BLST_FAST_BUILD
     BLST_PARALLEL_MSM
     BLST_CRNS_BATCH_VROOM_VENDOR
-    BLST_FUZZ)
+    BLST_FUZZ
+    BLST_FUZZ_AVX)
 
 if(BLST_FUZZ)
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -44,12 +46,24 @@ if(BLST_FUZZ)
     if(NOT (BLST_ASAN AND BLST_UBSAN))
         message(FATAL_ERROR "BLST_FUZZ requires BLST_ASAN=ON and BLST_UBSAN=ON.")
     endif()
-    if(BLST_ASM OR BLST_ADX OR BLST_AVX512 OR BLST_AVX512_PORTABLE OR
+    if(BLST_ASM OR BLST_ADX OR
+       ((BLST_AVX512 OR BLST_AVX512_PORTABLE) AND NOT BLST_FUZZ_AVX) OR
        BLST_CUDA OR BLST_TEST OR BLST_BENCHMARK)
         message(FATAL_ERROR
             "The primary BLST_FUZZ profile requires BLST_ASM=OFF, "
             "BLST_ADX=OFF, BLST_AVX512=OFF, BLST_AVX512_PORTABLE=OFF, "
             "BLST_CUDA=OFF, BLST_TEST=OFF, and BLST_BENCHMARK=OFF.")
+    endif()
+endif()
+
+if(BLST_FUZZ_AVX)
+    if(NOT BLST_FUZZ)
+        message(FATAL_ERROR "BLST_FUZZ_AVX requires BLST_FUZZ=ON.")
+    endif()
+    if(NOT (BLST_AVX512 OR BLST_AVX512_PORTABLE))
+        message(FATAL_ERROR
+            "BLST_FUZZ_AVX requires BLST_AVX512=ON or "
+            "BLST_AVX512_PORTABLE=ON.")
     endif()
 endif()
 
@@ -334,6 +348,7 @@ message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}")
 message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
 message("BLST_FUZZ            = ${BLST_FUZZ}")      # build developer fuzz targets
+message("BLST_FUZZ_AVX        = ${BLST_FUZZ_AVX}")  # manual AVX fuzz profile
 
 
 message(STATUS "C compiler: ${CMAKE_C_COMPILER}")

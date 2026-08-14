@@ -125,4 +125,5 @@ namespace catblst::fuzz::adapter
     void run_fft_middle_case(std::span<const std::byte> input);
     void run_msm_case(std::span<const std::byte> input);
     void run_uniq_case(std::span<const std::byte> input);
+    void run_avx_case(std::span<const std::byte> input);
 }

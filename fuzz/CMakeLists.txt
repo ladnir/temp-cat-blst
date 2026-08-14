@@ -99,6 +99,12 @@ blst_add_fuzz_target(
     internal/adapter_fft_middle.cpp)
 blst_add_fuzz_target(
     blst_fuzz_msm targets/msm.cpp 64 10 internal/adapter_msm.cpp)
+if(BLST_FUZZ_AVX)
+    blst_add_fuzz_target(
+        blst_fuzz_avx targets/avx.cpp 192 10 internal/adapter_avx.cpp)
+    set_tests_properties(blst_fuzz_avx_replay PROPERTIES
+        LABELS "fuzz;phase4;replay;manual-avx")
+endif()
 set_tests_properties(
     blst_fuzz_groups_replay
     blst_fuzz_fields_replay
@@ -144,3 +150,7 @@ add_custom_target(blst_fuzz_phase3
         blst_fuzz_pairing_state
         blst_fuzz_protocol
         blst_fuzz_uniq)
+
+if(BLST_FUZZ_AVX)
+    add_custom_target(blst_fuzz_phase4_avx DEPENDS blst_fuzz_avx)
+endif()

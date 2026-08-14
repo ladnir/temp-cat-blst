@@ -17,6 +17,7 @@ from pathlib import Path
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp"}
 BLST_ALLOWED_INTERNAL = {
     "fuzz/internal/adapter.cpp",
+    "fuzz/internal/adapter_avx.cpp",
     "fuzz/internal/adapter.h",
     "fuzz/internal/adapter_access.h",
     "fuzz/internal/adapter_common.h",
@@ -34,6 +35,7 @@ INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/tests/scalar_factory_tests.cpp",
     "fuzz/tests/adapter_factory_tests.cpp",
     "fuzz/targets/decode.cpp",
+    "fuzz/targets/avx.cpp",
     "fuzz/targets/bytes.cpp",
     "fuzz/targets/groups.cpp",
     "fuzz/targets/fields.cpp",
@@ -60,6 +62,7 @@ ALLOWED_FACTORY_ADAPTER_CALLS = {
     "retained_non_subgroup_g1",
     "retained_non_subgroup_g2",
     "run_bytes_case",
+    "run_avx_case",
     "run_decode_case",
     "run_fields_case",
     "run_fft_middle_case",
@@ -153,6 +156,38 @@ def repository_sources(root: Path) -> list[tuple[str, str]]:
     return result
 
 
+def inspect_rust_source(relative: str, text: str) -> list[Finding]:
+    findings: list[Finding] = []
+    rules = (
+        (re.compile(r"\bunsafe\s*\{"), "unsafe Rust is forbidden in safe fuzz targets"),
+        (
+            re.compile(r"\bblst_[a-z0-9_]+\s*\("),
+            "raw Rust FFI calls are indirect through the C campaigns",
+        ),
+        (
+            re.compile(r"\b(?:transmute|from_raw(?:_parts)?)\s*\("),
+            "raw Rust object fabrication is forbidden in safe fuzz targets",
+        ),
+    )
+    for pattern, message in rules:
+        for match in pattern.finditer(text):
+            findings.append(Finding(relative, line_number(text, match.start()), message))
+    return findings
+
+
+def inspect_rust_fuzz_targets(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    target_root = root / "bindings/rust/fuzz/fuzz_targets"
+    if not target_root.exists():
+        return findings
+    for path in sorted(target_root.glob("*.rs")):
+        relative = path.relative_to(root).as_posix()
+        findings.extend(
+            inspect_rust_source(relative, path.read_text(encoding="utf-8"))
+        )
+    return findings
+
+
 def self_test() -> list[str]:
     failures: list[str] = []
     cases = {
@@ -179,6 +214,12 @@ def self_test() -> list[str]:
         "fuzz/example.cpp", "adapter::refine_nonzero();", {"refine_nonzero"}
     ):
         failures.append("self-test rejected a classified factory call")
+    if not inspect_rust_source("fuzz_targets/example.rs", "unsafe { raw(); }"):
+        failures.append("self-test accepted unsafe Rust fuzz code")
+    if not inspect_rust_source("fuzz_targets/example.rs", "blst_p1_double();"):
+        failures.append("self-test accepted a raw Rust FFI call")
+    if inspect_rust_source("fuzz_targets/example.rs", "blst_fr::default();"):
+        failures.append("self-test rejected construction of a public Rust type")
     return failures
 
 
@@ -204,6 +245,7 @@ def main() -> int:
     findings: list[Finding] = []
     for relative, text in repository_sources(root):
         findings.extend(inspect_source(relative, text, known_adapter_calls))
+    findings.extend(inspect_rust_fuzz_targets(root))
 
     for error in errors:
         print(error, file=sys.stderr)
