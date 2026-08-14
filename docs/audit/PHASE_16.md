@@ -1159,3 +1159,22 @@ corner cases, nineteen MSM cases, and ten C-boundary cases. No benchmark,
 native job, broad suite, sanitizer, CUDA, Apple CI, BTx/BTE audit, or
 portable-AVX Release build ran. `AUD-358` remains fixed pending its native
 preprocessing performance evidence.
+
+## AVX file-review status closure
+
+The consolidated Peach reacceptance separates completed source review from
+remaining release evidence. `point.h` and `scalar_mult.h` have complete
+line-by-line reviews, portable/scalar differentials, native AVX execution, and
+optimized code-generation evidence. Their sanitizer, fuzz, and leakage work
+remains tracked at the subsystem release boundary.
+
+Both generated MatrixNoK constant headers are also complete file reviews. The
+tables independently regenerate, deliberate corruptions are rejected, exact
+C++ and Lean hashes validate, accepted proof rows bind their consumers, and
+the selected arithmetic passes the native suite under Clang and GCC. P0
+compiler/IFMA semantics remain external proof assumptions rather than missing
+generated-file review.
+
+No `blst/avx/**` path remains `in_review`. This status does not declare the AVX
+release gate complete; sanitizer, fuzzing, statistical leakage, and selected
+microarchitectural evidence remain permission-gated milestone work.

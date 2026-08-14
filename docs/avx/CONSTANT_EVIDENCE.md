@@ -70,9 +70,9 @@ six corruptions must be rejected.
   `uint128_t` accumulator. Encoded tower constants and their per-kernel bounds
   are covered separately by the accepted P3 correspondence rows.
 
-Native execution is not required for constant regeneration. The candidate
-arithmetic that consumes these tables will require portable differential tests
-and native Peach evidence before selection.
+Native execution is not required for constant regeneration. The selected
+arithmetic that consumes these tables now has portable differentials, native
+Peach execution under Clang and GCC, and exact correspondence bindings.
 
 `matrixnok_fixed.h` derives the remaining reducer multiples, Montgomery
 factors, and shifted corrections at compile time from these checked constants.
@@ -84,3 +84,12 @@ The P0/P1 correspondence rows are accepted after the structured source,
 parser, intrinsic, and regeneration review in `P0_P1_REVIEW.md`. Acceptance
 keeps compiler correctness, x86 execution, and microarchitectural behavior as
 explicit external boundaries rather than Lean results.
+
+## File-review closure
+
+Both generated constant owners are complete as immutable generated-production
+files. Independent regeneration, corruption self-tests, exact C++/Lean hashes,
+accepted correspondence rows, and native selected-consumer execution cover
+their file-level obligations. Compiler correctness, IFMA semantics,
+sanitizers, fuzzing, and leakage analysis remain subsystem release boundaries;
+they are not missing constant-table review work.

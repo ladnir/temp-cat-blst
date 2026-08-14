@@ -11,7 +11,7 @@
 | Date | 2026-08-06 |
 | Disposition | in-scope production |
 | Subsystem | AVX G1/G2 point representation, arithmetic, encoding, validation, and signing |
-| Profiles | portable AVX Debug, scalar-default C/C++, AVX-default C/C++; native AVX-512 evidence pending |
+| Profiles | portable AVX Debug, scalar-default C/C++, AVX-default C/C++, native AVX-512/IFMA Release |
 | Generation/provenance | VROOM AVX backend adapted to CatBLST homogeneous points and selected API |
 | Upstream references | VROOM import lineage; no direct upstream BLST AVX counterpart |
 | Related files | `blst/avx/curve/ec.h`, `blst/avx/curve/scalar_mult.h`, `blst/c_api.cpp`, `blst/scalar/curve/point.h`, `bindings/blst_scalar.h`, `test/avx/Avx_c_api_contract_tests.cpp` |
@@ -153,8 +153,8 @@ and `times_minus_z`.
 ### Specialized additions
 
 Secret-key assertions and scalar differential tests cover G1 and G2. Native
-code-generation inspection remains mandatory because portable emulation cannot
-prove AVX-512 register, spill, or instruction shape.
+code-generation inspection is retained because portable emulation cannot prove
+AVX-512 register, spill, or instruction shape.
 
 ## Findings
 
@@ -185,8 +185,10 @@ values. The separately checked curve-literal header regenerates from canonical
 BLS12-381 coordinates and the existing RNS parameters. The focused portable
 target passes 35/35, including direct scalar comparisons for both generators,
 both negative generators, both A-prime values, and Fp12 identity. MSVC
-production objects contain no dynamic-initialization symbols. Native Clang
-code-generation reacceptance remains pending.
+production objects contain no dynamic-initialization symbols. Peach Clang
+21.1.8 native Release passes the consolidated 79-test AVX suite and all five
+MatrixNoK audit gates. The optimized probe contains no selected-vector wrapper
+or conversion symbol and retains the accepted hot-owner stack bounds.
 
 ## Automated evidence
 
@@ -200,8 +202,8 @@ code-generation reacceptance remains pending.
 
 ## Residual risk and decision
 
-The source review and portable correctness remediation are complete, but the
-file remains `in_review`. `AUD-169` is fixed rather than validated until native
-AVX-512/IFMA optimized code generation and runtime confirm the intended
-constant-time and no-conversion shape. Sanitizer, fuzz, Apple, and full-matrix
-evidence remain milestone gates. No benchmark was run.
+Complete for this file at the reviewed source commit. `AUD-169` is validated by
+native AVX-512/IFMA optimized code generation and runtime evidence. Sanitizer,
+fuzz, statistical-leakage, and broad release matrices remain subsystem gates;
+they do not reopen the completed line-by-line review. Apple is a supported
+scalar platform and does not compile this x86 AVX owner. No benchmark was run.

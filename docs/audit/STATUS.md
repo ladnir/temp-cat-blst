@@ -1214,7 +1214,7 @@ all 21 AVX correspondence rows with 61 exact hashes pass after the
 documentation-only proof rebind. Native exact-hash code generation joins the
 next consolidated Peach run because no arithmetic body changed.
 
-The authoritative manifest now contains 289 complete, 183 in-review, and 170
+The authoritative manifest now contains 293 complete, 179 in-review, and 170
 pending files across 832 tracked paths. Experimental, frozen, excluded, and
 catalogued scope is unchanged.
 
@@ -1242,3 +1242,10 @@ accepted a malformed quoted field that merged later physical CSV records. At
 line, and complete field counts before checking hashes. The repaired ledger
 passes all 21 rows and 61 hashes; the malformed in-memory reproduction fails
 with the intended structural diagnostic.
+
+The final AVX status triage closes the four remaining `blst/avx/**` rows as
+complete file reviews. `point.h`, `scalar_mult.h`, and both generated constant
+owners already had complete source, regeneration, correspondence, portable,
+and native evidence. Their sanitizer, fuzz, leakage, compiler/IFMA, and broad
+matrix residuals remain explicit subsystem release gates. No build or runtime
+job accompanied this status correction.

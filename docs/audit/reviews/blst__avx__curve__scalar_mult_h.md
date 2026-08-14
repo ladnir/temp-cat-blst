@@ -202,12 +202,12 @@ involved.
 
 ## Residual risk and decision
 
-The single-point code is reviewed and has independent scalar, portable-AVX,
-and native AVX evidence. The high-severity `AUD-091` caller defect is validated:
+Complete for this file at the reviewed source commit. The single-point code has
+independent scalar, portable-AVX, and native AVX evidence. The high-severity
+`AUD-091` caller defect is validated:
 ordinary MSM is subgroup-only and full-width decomposition canonicalizes
-before using this file's splitters. The file remains `in_review`
-only for the scheduled statistical-leakage, sanitizer, and fuzz evidence
-upgrades, not for a known scalar/domain correctness defect.
+before using this file's splitters. Statistical-leakage, sanitizer, and fuzz
+evidence remain subsystem release gates, not incomplete source-review work.
 
 ## Phase 16 dead-default addendum
 
