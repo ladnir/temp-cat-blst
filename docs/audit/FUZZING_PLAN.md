@@ -37,6 +37,39 @@ The following areas remain excluded:
 Portable AVX may replay a bounded corpus in Debug mode. It is developer
 evidence, not native AVX or production evidence.
 
+## Implementation status
+
+Phases 0 through 5 are implemented on `codex/fuzzing`. The implementation is
+split into these reviewable commits:
+
+- `8c92bfdd`: complete API ledger, private domain types, factories, typed call
+  frames, and structural enforcement;
+- `6c59ed14`: byte-boundary decode and conversion campaigns;
+- `68bd058f`: constructed field and group campaigns;
+- `83dd5b7d`: protocol, pairing-state, uniqueness, FFT/middle-product, and MSM
+  campaigns;
+- `ad472e46`: portable/native AVX profiles and pinned safe Rust targets;
+- `486cf3bf`: bounded runners, CI policy, approval gates, and source coverage;
+  and
+- `58f078b8`: independent per-target LLVM coverage reports.
+
+The ledger contains 1,228 classified rows: 342 C declarations, 386 reviewed
+native C++ methods, 342 raw Rust FFI mappings, and 158 safe Rust functions or
+methods. Structural checks reject missing classifications, direct library
+calls outside the adapter, and unsafe/raw FFI use in safe Rust targets.
+
+All nine scalar campaigns replay their retained corpora under RelWithDebInfo
+ASan/UBSan and Debug assertions. The independent modulus oracle and all domain
+factory tests pass. Portable AVX Debug replay passes its retained corpus. Both
+safe Rust targets compile with the pinned nightly toolchain. LLVM source
+coverage produces one profile, text section, and HTML report per scalar
+campaign; no percentage gate applies.
+
+No discovery campaign, native AVX run, Apple replay, or benchmark has run.
+`cargo-fuzz` is not installed locally, so Rust discovery also remains pending.
+Long discovery, native AVX on Peach, and Apple release-candidate replay retain
+their explicit approval gates.
+
 ## Phase 0: inventory and enforce preconditions
 
 ### Symbol ledger

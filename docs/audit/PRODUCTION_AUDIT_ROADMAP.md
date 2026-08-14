@@ -61,6 +61,11 @@ Phase 12 is the first platform milestone, not the end of automated work.
 13-18 own both their hand review and the subsystem-specific automation needed
 to close them.
 
+The API-complete fuzz infrastructure is implemented through Packet 19G and
+`FUZZING_PLAN.md`. Deterministic scalar and portable-AVX Debug corpus replay is
+complete. Long discovery, native AVX fuzzing, and Apple release-candidate
+replay remain separate approval-gated evidence.
+
 ## Current work volume
 
 The generated manifest currently contains 631 in-scope production, generated,

@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 The canonical finding register now has no `open`, `fixed`,
 `fix_in_progress`, or `needs_decision` entries. `AUD-016`, `AUD-030`,
@@ -10,13 +10,19 @@ experimental targets and remain target-promotion gates. At exact source commit
 `84103247`, Peach Clang 21.1.8 native AVX-512/IFMA Release passes the four
 focused friendly-membership and identity-MSM cases. The dense nonidentity
 G1+G2 MSM loop measures 3.731 seconds before the sentinel observations and
-3.727 seconds after over 1,000 repetitions. Fuzzing is the next audit program,
-not unfinished finding remediation. Phase 0 is in progress on `codex/fuzzing`.
-The generated symbol ledger currently accounts for 342 C declarations, 386
+3.727 seconds after over 1,000 repetitions. Fuzzing is the current audit
+program, not unfinished finding remediation. Phases 0 through 5 are implemented
+on `codex/fuzzing`. The generated ledger classifies 342 C declarations, 386
 reviewed native C++ methods, 342 raw Rust FFI mappings, and 158 safe Rust
-functions or methods. Structural self-tests, private domain carriers, scalar
-refinements, and typed call-frame foundations pass focused Clang 18 ASan/UBSan
-checks. No discovery run has started.
+functions or methods. Structural gates, private domain carriers, reviewed
+refinements, and typed call frames enforce documented preconditions.
+
+All nine scalar campaigns replay retained corpora under RelWithDebInfo
+ASan/UBSan and Debug assertions. Portable AVX Debug replay passes. Both pinned
+safe Rust targets compile, and LLVM coverage emits an independent report for
+each scalar campaign. No confirmed library finding arose during baseline
+replay. No long discovery, native AVX fuzz run, Apple replay, or benchmark has
+run; those remain explicit later evidence packets.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

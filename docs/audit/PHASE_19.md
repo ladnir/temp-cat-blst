@@ -2,10 +2,10 @@
 
 ## State
 
-Phase 19 is in progress. Its first packet reviews the CMake target graph,
-configuration contracts, presets, and test dependency boundary. Tests,
-workflows, vectors, remaining repository policy, packaging, analyzers,
-sanitizers, fuzzing, and the supported release matrix remain queued.
+Phase 19 is in progress. Packets 19A through 19F review the build, workflow,
+hosted execution, and supported release evidence. Packet 19G implements the
+API-complete fuzz foundation. Long fuzz discovery and the remaining packaging
+and release-candidate gates remain queued.
 
 BTx/BTE remains frozen, benchmarks remain excluded from file-by-file audit,
 and CUDA remains experimental. This packet did not edit or audit those source
@@ -249,3 +249,44 @@ Apple arm64 configures and builds the scalar-assembly target and passes 465/465
 CTest cases. `AUD-342` is validated and the product target owner is complete.
 Experimental CUDA, parallel MSM, non-Apple ARM64, CHERI, and MSVC ARM64 remain
 outside the production claim.
+
+## Packet 19G: API-complete fuzz foundation
+
+The controlling design is recorded at
+`b8874839ba3fc9f98891695bf509c06137446cb2`. Phase 0 is implemented through
+`8c92bfdd0190ac383a28ef24ceed855eafd853bd`. Its generated ledger classifies
+1,228 supported API rows: 342 C declarations, 386 reviewed native C++ methods,
+342 raw Rust FFI mappings, and 158 safe Rust functions or methods. Private
+domain carriers, reviewed refinements, typed call frames, and structural gates
+prevent a campaign from silently violating a narrow arithmetic contract.
+
+The scalar campaigns land in `6c59ed148559e43e0ac2b2b5cea798a90cac10e2`,
+`68bd058fc7061eef5b49bf9a4b95671ef201bb96`, and
+`83dd5b7d7c0a464cb7d17b4e9279e9229eeae854`. They cover byte boundaries,
+constructed field and group arithmetic, protocols, pairing state, uniqueness,
+FFT and middle product, and MSM. All nine retained corpora replay under
+RelWithDebInfo ASan/UBSan and Debug assertions. Independent modulus-oracle,
+domain-factory, call-frame, and seed-decoding regressions pass.
+
+Commit `ad472e4639e8f61691a70aded9e61e6c5962bd30` adds the bounded AVX profile
+and two safe Rust targets. Portable AVX Debug replay passes its retained
+corpus. The Rust targets compile with pinned nightly `2026-01-15`; local Rust
+discovery is pending because `cargo-fuzz` is not installed. Native AVX remains
+manual and was not run.
+
+Commit `486cf3bf81d6dab958fc9d29130d92a9bd3bc6b8` adds sequential runners,
+resource limits, approval gates, deterministic CI replay, and manual workflow
+modes. Commit `58f078b871c6a64b0f06d3574af5c57ce467d3da` emits independent LLVM
+profiles and reports for all nine scalar binaries, which avoids invalid
+cross-binary profile merging. Structural, workflow-policy, shell-syntax, and
+workflow-lint checks pass.
+
+Three observed mismatches were harness defects: MSM tile interpretation,
+Debug replay time limits, and double delivery of encoded corpus seeds. Each
+was corrected before accepting the replay evidence. Fuzzing found no confirmed
+library defect in this packet, so no new `AUD-*` entry was created.
+
+No long discovery, native AVX execution, Apple replay, benchmark, CUDA,
+BTx/BTE, or portable-AVX Release build ran. The next evidence packet should run
+a small sequential scalar discovery pilot before authorizing the default
+15-minute-per-target campaign.
