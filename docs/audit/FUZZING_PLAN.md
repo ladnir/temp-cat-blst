@@ -72,7 +72,10 @@ Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan and replays
 the native C/C++ boundary under UBSan. At source commit `23e8b2cc`, Peach
 Clang 21.1.8 builds the native AVX-512/IFMA target under RelWithDebInfo ASan and
 UBSan. Its retained-corpus replay passes 1/1 in 0.85 seconds. No discovery
-campaign, Apple replay, or benchmark has run. Long discovery and Apple
+campaign, Apple replay, or benchmark had run at foundation closure. A later
+Peach pilot runs `decode` and `bytes` sequentially for 60 seconds each under
+the same scalar ASan/UBSan profile. They complete 152,731 and 295,566
+executions without a crash or sanitizer finding. Long discovery and Apple
 release-candidate replay retain their explicit approval gates.
 
 ## Phase 0: inventory and enforce preconditions

@@ -66,7 +66,9 @@ The API-complete fuzz infrastructure is implemented through Packet 19G and
 Deterministic scalar, safe Rust, and portable-AVX Debug corpus replay is
 complete. Peach Clang 21.1.8 also passes the native AVX-512/IFMA retained
 corpus under ASan and UBSan at source commit `23e8b2cc`. Long discovery and
-Apple release-candidate replay remain separate approval-gated evidence.
+Apple release-candidate replay remain separate approval-gated evidence. A
+later 60-second-per-target Peach pilot completes the scalar `decode` and
+`bytes` campaigns without a crash or sanitizer finding.
 
 ## Current work volume
 

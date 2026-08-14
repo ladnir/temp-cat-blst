@@ -301,6 +301,13 @@ library defect in this packet, so no new `AUD-*` entry was created.
 At source commit `23e8b2cc`, Peach Clang 21.1.8 builds the native
 AVX-512/IFMA fuzz target under RelWithDebInfo ASan and UBSan. The bounded
 retained-corpus replay passes 1/1 in 0.85 seconds. No long discovery, Apple
-replay, benchmark, CUDA, BTx/BTE, or portable-AVX Release build ran. The next
-evidence packet should run a small sequential scalar discovery pilot before
-authorizing the default 15-minute-per-target campaign.
+replay, benchmark, CUDA, BTx/BTE, or portable-AVX Release build ran in that
+packet.
+
+That scalar pilot also runs on Peach at `23e8b2cc` with Clang 21.1.8,
+RelWithDebInfo, ASan, and UBSan. `decode` completes 152,731 executions with
+1,531 edges and 2,781 features. `bytes` completes 295,566 executions with 741
+edges and 1,859 features. Each target runs for 61 seconds, sequentially, with
+one fuzz worker. Both artifact directories contain only `discovery.log`; no
+crash, timeout, sanitizer finding, or library mismatch occurred. Generated
+corpora remain under Peach's `out/` tree and do not modify checked-in seeds.
