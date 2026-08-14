@@ -29,8 +29,10 @@ AVX-512/IFMA RelWithDebInfo passes the retained corpus 1/1 under ASan and
 UBSan. A sequential Peach scalar pilot then runs `decode` and `bytes` for 60
 seconds each under ASan/UBSan. They complete 152,731 and 295,566 executions
 without a crash, timeout, sanitizer finding, or library mismatch. No long
-discovery, Apple replay, or benchmark has run; those remain explicit later
-evidence packets.
+discovery, Apple replay, or benchmark has run. Edge-preserving set-cover
+minimization promotes 70 content-addressed seeds totaling 2,012 bytes. The
+retained corpora preserve every discovered edge and replay successfully under
+the same sanitizer profile.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

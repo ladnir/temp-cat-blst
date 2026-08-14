@@ -75,8 +75,11 @@ UBSan. Its retained-corpus replay passes 1/1 in 0.85 seconds. No discovery
 campaign, Apple replay, or benchmark had run at foundation closure. A later
 Peach pilot runs `decode` and `bytes` sequentially for 60 seconds each under
 the same scalar ASan/UBSan profile. They complete 152,731 and 295,566
-executions without a crash or sanitizer finding. Long discovery and Apple
-release-candidate replay retain their explicit approval gates.
+executions without a crash or sanitizer finding. Edge-preserving set-cover
+minimization promotes 44 decode seeds and 26 byte-conversion seeds. The
+retained corpus preserves all 1,531 and 741 discovered edges while keeping
+2,358 and 1,336 features. Long discovery and Apple release-candidate replay
+retain their explicit approval gates.
 
 ## Phase 0: inventory and enforce preconditions
 
@@ -376,6 +379,9 @@ defect receives:
 Crash artifacts remain under `out/` until triage. CI never modifies the
 checked-in corpus. Discovery copies retained seeds into a per-build corpus
 under `out/`; only reviewed minimized seeds are promoted into the repository.
+The first promotion uses edge-preserving set-cover minimization. Feature-only
+seeds require a separate justification when they would materially enlarge the
+checked-in corpus.
 
 ### Coverage and automation
 

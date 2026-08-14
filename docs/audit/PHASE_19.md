@@ -311,3 +311,14 @@ edges and 1,859 features. Each target runs for 61 seconds, sequentially, with
 one fuzz worker. Both artifact directories contain only `discovery.log`; no
 crash, timeout, sanitizer finding, or library mismatch occurred. Generated
 corpora remain under Peach's `out/` tree and do not modify checked-in seeds.
+
+Clang 21's greedy set-cover merge initially reduces the full feature corpus to
+216 additions. That packet is still too large for routine review. Repeating
+the merge without counter or value-profile features produces an
+edge-preserving packet of 44 decode seeds and 26 byte-conversion seeds. The
+retained decode corpus preserves all 1,531 edges and 2,358 of 2,781 features;
+the retained byte corpus preserves all 741 edges and 1,336 of 1,859 features.
+The promoted additions total 2,012 bytes, obey both target input bounds, use
+content-derived names, and replay successfully under the same ASan/UBSan
+profile. A focused local sanitized replay of the promoted checked-in corpora
+also passes 2/2 without rebuilding product sources.
