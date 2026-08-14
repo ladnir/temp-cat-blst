@@ -12,6 +12,25 @@ fi
 build_dir=$1
 coverage_dir="$build_dir/coverage"
 mkdir -p "$coverage_dir"
+rm -f "$coverage_dir"/*.profraw "$coverage_dir"/*.profdata \
+    "$coverage_dir/report.txt"
+rm -rf "$coverage_dir/html"
+
+find_llvm_tool() {
+    local name=$1
+    local candidate
+    for candidate in "$name" "$name-18" "$name-19" "$name-20" "$name-21"; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+    echo "required LLVM tool not found: $name" >&2
+    return 1
+}
+
+llvm_profdata=$(find_llvm_tool llvm-profdata)
+llvm_cov=$(find_llvm_tool llvm-cov)
 
 targets=(
     blst_fuzz_decode
@@ -29,33 +48,27 @@ cmake --build "$build_dir" \
     --target blst_fuzz_phase1 blst_fuzz_phase2 blst_fuzz_phase3 \
     --parallel 2
 
-profiles=()
-objects=()
+: > "$coverage_dir/report.txt"
 for target in "${targets[@]}"; do
     profile="$coverage_dir/$target.profraw"
     LLVM_PROFILE_FILE="$profile" "$build_dir/fuzz/$target" \
         -runs=0 \
         -rss_limit_mb=2048 \
         "fuzz/corpus/$target"
-    profiles+=("$profile")
-    if [[ "$target" != "${targets[0]}" ]]; then
-        objects+=("-object" "$build_dir/fuzz/$target")
-    fi
+    profdata="$coverage_dir/$target.profdata"
+    "$llvm_profdata" merge -sparse "$profile" -o "$profdata"
+    echo "===== $target =====" >> "$coverage_dir/report.txt"
+    "$llvm_cov" report \
+        "$build_dir/fuzz/$target" \
+        -instr-profile="$profdata" \
+        -ignore-filename-regex='(fuzz/|test/|_deps/)' \
+        >> "$coverage_dir/report.txt"
+    "$llvm_cov" show \
+        "$build_dir/fuzz/$target" \
+        -instr-profile="$profdata" \
+        -ignore-filename-regex='(fuzz/|test/|_deps/)' \
+        -format=html \
+        -output-dir="$coverage_dir/html/$target"
 done
-
-llvm-profdata merge -sparse "${profiles[@]}" -o "$coverage_dir/corpus.profdata"
-llvm-cov report \
-    "$build_dir/fuzz/${targets[0]}" \
-    "${objects[@]}" \
-    -instr-profile="$coverage_dir/corpus.profdata" \
-    -ignore-filename-regex='(fuzz/|test/|_deps/)' \
-    > "$coverage_dir/report.txt"
-llvm-cov show \
-    "$build_dir/fuzz/${targets[0]}" \
-    "${objects[@]}" \
-    -instr-profile="$coverage_dir/corpus.profdata" \
-    -ignore-filename-regex='(fuzz/|test/|_deps/)' \
-    -format=html \
-    -output-dir="$coverage_dir/html"
 
 echo "coverage report: $coverage_dir/report.txt"
