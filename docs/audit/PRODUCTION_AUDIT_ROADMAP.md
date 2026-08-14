@@ -64,8 +64,9 @@ to close them.
 The API-complete fuzz infrastructure is implemented through Packet 19G and
 `FUZZING_PLAN.md`; `FUZZ_API_LEDGER.csv` is its symbol-level scope authority.
 Deterministic scalar, safe Rust, and portable-AVX Debug corpus replay is
-complete. Long discovery, native AVX fuzzing, and Apple release-candidate
-replay remain separate approval-gated evidence.
+complete. Peach Clang 21.1.8 also passes the native AVX-512/IFMA retained
+corpus under ASan and UBSan at source commit `23e8b2cc`. Long discovery and
+Apple release-candidate replay remain separate approval-gated evidence.
 
 ## Current work volume
 

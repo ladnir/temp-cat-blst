@@ -68,10 +68,12 @@ LLVM source coverage produces one profile, text section, and HTML report per
 scalar campaign. Named success, rejection, boundary, aliasing, and round-trip
 paths have nonzero retained-corpus coverage; no percentage gate applies.
 
-No discovery campaign, native AVX run, Apple replay, or benchmark has run.
 Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan and replays
-the native C/C++ boundary under UBSan. Long discovery, native AVX on Peach, and
-Apple release-candidate replay retain their explicit approval gates.
+the native C/C++ boundary under UBSan. At source commit `23e8b2cc`, Peach
+Clang 21.1.8 builds the native AVX-512/IFMA target under RelWithDebInfo ASan and
+UBSan. Its retained-corpus replay passes 1/1 in 0.85 seconds. No discovery
+campaign, Apple replay, or benchmark has run. Long discovery and Apple
+release-candidate replay retain their explicit approval gates.
 
 ## Phase 0: inventory and enforce preconditions
 

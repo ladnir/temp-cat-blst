@@ -24,8 +24,10 @@ safe Rust targets replay under ASan, and their portable native dependency
 replays under UBSan. LLVM coverage emits an independent report for each scalar
 campaign and requires nonzero execution of named success, rejection, boundary,
 aliasing, and round-trip paths. No confirmed library finding arose during
-baseline replay. No long discovery, native AVX fuzz run, Apple replay, or
-benchmark has run; those remain explicit later evidence packets.
+baseline replay. At source commit `23e8b2cc`, Peach Clang 21.1.8 native
+AVX-512/IFMA RelWithDebInfo passes the retained corpus 1/1 under ASan and
+UBSan. No long discovery, Apple replay, or benchmark has run; those remain
+explicit later evidence packets.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

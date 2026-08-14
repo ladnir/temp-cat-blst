@@ -273,7 +273,7 @@ Commit `ad472e4639e8f61691a70aded9e61e6c5962bd30` adds the bounded AVX profile
 and two safe Rust targets. Portable AVX Debug replay passes its retained
 corpus. Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan
 and instruments their native C/C++ dependency under a separate UBSan replay.
-Native AVX remains manual and was not run.
+Native AVX remains manual.
 
 Commit `486cf3bf81d6dab958fc9d29130d92a9bd3bc6b8` adds sequential runners,
 resource limits, approval gates, deterministic CI replay, and manual workflow
@@ -298,7 +298,9 @@ Debug replay time limits, and double delivery of encoded corpus seeds. Each
 was corrected before accepting the replay evidence. Fuzzing found no confirmed
 library defect in this packet, so no new `AUD-*` entry was created.
 
-No long discovery, native AVX execution, Apple replay, benchmark, CUDA,
-BTx/BTE, or portable-AVX Release build ran. The next evidence packet should run
-a small sequential scalar discovery pilot before authorizing the default
-15-minute-per-target campaign.
+At source commit `23e8b2cc`, Peach Clang 21.1.8 builds the native
+AVX-512/IFMA fuzz target under RelWithDebInfo ASan and UBSan. The bounded
+retained-corpus replay passes 1/1 in 0.85 seconds. No long discovery, Apple
+replay, benchmark, CUDA, BTx/BTE, or portable-AVX Release build ran. The next
+evidence packet should run a small sequential scalar discovery pilot before
+authorizing the default 15-minute-per-target campaign.
