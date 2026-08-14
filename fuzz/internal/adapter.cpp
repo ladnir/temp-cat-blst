@@ -931,6 +931,13 @@ namespace catblst::fuzz::adapter
             require(fp_words64_out[index] == expected);
         }
 
+        const blst_fp12 fp12 = native<blst_fp12>(reduce_fp12(input));
+        std::array<blst_byte, 48 * 12> fp12_export{};
+        std::array<blst_byte, 48 * 12> fp12_repeat{};
+        ::blst_bendian_from_fp12(fp12_export.data(), &fp12);
+        ::blst_bendian_from_fp12(fp12_repeat.data(), &fp12);
+        require(fp12_export == fp12_repeat);
+
         std::array<blst_byte, 99> hex{};
         const std::size_t hex_size = std::min<std::size_t>(input.size(), 98);
         if (hex_size != 0)

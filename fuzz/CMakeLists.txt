@@ -47,6 +47,14 @@ target_include_directories(blst_fuzz_modulus_oracle_tests PRIVATE ${PROJECT_SOUR
 target_link_libraries(blst_fuzz_modulus_oracle_tests PRIVATE blst_sanitizers)
 
 function(blst_add_fuzz_target target source max_len timeout_seconds)
+    set(replay_timeout_seconds ${timeout_seconds})
+    # Sanitizer-instrumented Debug field and pairing arithmetic is
+    # intentionally much slower than the RelWithDebInfo discovery profile.
+    # Preserve the campaign's per-input discovery limit, but give deterministic
+    # assertion replay enough time to complete the same retained seed.
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND timeout_seconds GREATER 2)
+        set(replay_timeout_seconds 30)
+    endif()
     add_executable(${target} EXCLUDE_FROM_ALL
         support/entrypoint.cpp
         ${source}
@@ -65,7 +73,7 @@ function(blst_add_fuzz_target target source max_len timeout_seconds)
         COMMAND ${target}
             -runs=0
             -max_len=${max_len}
-            -timeout=${timeout_seconds}
+            -timeout=${replay_timeout_seconds}
             ${PROJECT_SOURCE_DIR}/fuzz/corpus/${target})
     set_tests_properties(${target}_replay PROPERTIES
         LABELS "fuzz;phase1;replay"
@@ -79,10 +87,29 @@ blst_add_fuzz_target(
     blst_fuzz_groups targets/groups.cpp 64 2 internal/adapter_groups.cpp)
 blst_add_fuzz_target(
     blst_fuzz_fields targets/fields.cpp 256 2 internal/adapter_fields.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_protocol targets/protocol.cpp 2048 10 internal/adapter_protocol.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_uniq targets/uniq.cpp 4097 10 internal/adapter_uniq.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_pairing_state targets/pairing_state.cpp 1024 10
+    internal/adapter_pairing.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_fft_middle targets/fft_middle.cpp 128 10
+    internal/adapter_fft_middle.cpp)
+blst_add_fuzz_target(
+    blst_fuzz_msm targets/msm.cpp 64 10 internal/adapter_msm.cpp)
 set_tests_properties(
     blst_fuzz_groups_replay
     blst_fuzz_fields_replay
     PROPERTIES LABELS "fuzz;phase2;replay")
+set_tests_properties(
+    blst_fuzz_protocol_replay
+    blst_fuzz_pairing_state_replay
+    blst_fuzz_fft_middle_replay
+    blst_fuzz_msm_replay
+    blst_fuzz_uniq_replay
+    PROPERTIES LABELS "fuzz;phase3;replay")
 
 add_custom_target(blst_fuzz_phase0
     DEPENDS
@@ -109,3 +136,11 @@ add_custom_target(blst_fuzz_phase1
 
 add_custom_target(blst_fuzz_phase2
     DEPENDS blst_fuzz_fields blst_fuzz_groups)
+
+add_custom_target(blst_fuzz_phase3
+    DEPENDS
+        blst_fuzz_fft_middle
+        blst_fuzz_msm
+        blst_fuzz_pairing_state
+        blst_fuzz_protocol
+        blst_fuzz_uniq)

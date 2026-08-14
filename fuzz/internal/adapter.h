@@ -120,4 +120,9 @@ namespace catblst::fuzz::adapter
     void run_bytes_case(std::span<const std::byte> input);
     void run_fields_case(std::span<const std::byte> input);
     void run_groups_case(std::span<const std::byte> input);
+    void run_protocol_case(std::span<const std::byte> input);
+    void run_pairing_state_case(std::span<const std::byte> input);
+    void run_fft_middle_case(std::span<const std::byte> input);
+    void run_msm_case(std::span<const std::byte> input);
+    void run_uniq_case(std::span<const std::byte> input);
 }

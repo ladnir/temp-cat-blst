@@ -58,4 +58,13 @@ namespace catblst::fuzz::adapter::detail
             std::memcpy(result.data(), input.data(), copied);
         return result;
     }
+
+    [[nodiscard]] inline const blst_byte* bytes(
+        std::span<const std::byte> input) noexcept
+    {
+        return input.empty()
+            ? nullptr
+            : static_cast<const blst_byte*>(
+                  static_cast<const void*>(input.data()));
+    }
 }
