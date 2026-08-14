@@ -1,0 +1,1550 @@
+{
+  "schema": 1,
+  "surface": "cpp",
+  "symbols": [
+    {
+      "symbol": "blst::CoeffCtx::from_u64",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::CoeffCtx::inverse",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::CoeffCtx::minus",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::CoeffCtx::mult",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::CoeffCtx::neg",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::CoeffCtx::plus",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::FrCoeffCtx::from_u64",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::FrCoeffCtx::inverse",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::FrCoeffCtx::minus",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::FrCoeffCtx::mult",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::FrCoeffCtx::plus",
+      "owner": "blst/fft/context.h"
+    },
+    {
+      "symbol": "blst::MiddleProductWorkspaceImpl::ensure_size",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::G1AffinePoint",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::cneg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::compress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::compress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::deserialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::deserialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::equal",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::generator",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::in_subgroup",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::is_inf",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::on_curve",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::serialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::serialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::uncompress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1AffinePoint::uncompress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::G1Point",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::add",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::ccopy",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::cneg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::compress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::compress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::cswap",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::dadd",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::doubling",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::equal",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::from_affine",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::from_jacobian",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::generator",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::identity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::in_subgroup",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::infinity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::is_identity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::is_inf",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::mult",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::mult_vartime",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::neg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::on_curve",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::serialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::serialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::sign",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::sign2",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::to_affine",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::to_pk",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::to_pk2",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G1Point::unchecked_mult",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::G2AffinePoint",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::cneg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::compress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::compress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::deserialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::deserialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::equal",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::generator",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::in_subgroup",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::is_inf",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::on_curve",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::serialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::serialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::uncompress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2AffinePoint::uncompress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::G2Point",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::add",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::ccopy",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::cneg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::compress",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::compress_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::cswap",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::dadd",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::doubling",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::equal",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::from_affine",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::from_jacobian",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::generator",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::identity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::in_subgroup",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::infinity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::is_identity",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::is_inf",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::mult",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::mult_vartime",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::neg",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::on_curve",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::operator()",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::serialize",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::serialize_BE",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::sign",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::sign2",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::to_affine",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::to_pk",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::to_pk2",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::G2Point::unchecked_mult",
+      "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::GT::GT",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::add",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::add_n_dbl",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::ccopy",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::cneg",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::conjugate",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::cswap",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::dadd",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::deserialize",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::deserialize_unchecked",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::doubling",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::equal",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::final_exp",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::final_exp_n",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::frobenius_map",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::generator",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::identity",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::in_group",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::is_cyclotomic",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::is_identity",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop_lines",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop_lines_finite",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop_lines_n",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop_lines_n_preprocessed",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::miller_loop_n",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::mult",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::mult_by_z",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::mult_by_z_div_by_2",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::mult_vartime",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::neg",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::operator()",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::operator[]",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::precompute_lines",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::serialize",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::sub",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::MillerResult::MillerResult",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::MillerResult::conjugate",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::MillerResult::identity",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::MillerResult::mul",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::cneg",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::compress",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::compress_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::ctime_replace_if",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::ctime_select",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::deserialize",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::deserialize_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::equal",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::generator",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::in_subgroup",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::is_inf",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::on_curve",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::serialize",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::serialize_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::uncompress",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::AffinePoint::uncompress_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::add",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cneg",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::compress",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::compress_BE",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::conjugate",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_basic",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_glv",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_glv4",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_glv4_ct",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_glv_jsf",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_exp_vartime",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_sqr",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::cyclotomic_sqr_scalar",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::dadd",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::deserialize",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::deserialize_BE",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::equal",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::exp",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::final_exp",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::frobenius_map",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::from_affine",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::from_bendian",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::generator",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::glv4_compile",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::glv_recode_jsf",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::glv_split_2",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::gt_split_scalar_4d",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::gt_split_scalar_4d_ct",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::in_group",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::in_subgroup",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::inverse",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::is_cyclotomic",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::is_inf",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::is_one",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::mul",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::mul_by_xy00z0",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::mul_by_xy00z0_scalar",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::mul_n_sqr",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::mul_scalar",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::on_curve",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::one",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::operator[]",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::raise_to_z",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::raise_to_z_div_by_2",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::serialize",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::serialize_BE",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::sqr",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::sqr_scalar",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::sub",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::to_Jacobian",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::to_bendian",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::uncompress",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp12::uncompress_BE",
+      "owner": "blst/scalar/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::add",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::cneg",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::conjugate",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::exp",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::flt_reciprocal",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::from_mont",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::is_square",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::lshift",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::mul",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::mul_by_3",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::mul_by_8",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::mul_by_u_plus_1",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::neg",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::one",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::operator[]",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::recip_sqrt",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::reciprocal",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sgn0_pty",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sgn0_pty_mont",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sqr",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sqrt",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sqrt_align",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::sub",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::to_mont",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp2::zero",
+      "owner": "blst/scalar/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::add",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::cneg",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::div_by_2",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::equal",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::exp",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::flt_reciprocal",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::from_mont",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::is_redc",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::is_sqrt",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::lshift",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::modulus",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::montgomery_constant",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::mul",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::mul_by_3",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::mul_by_8",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::neg",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::neg_modulus",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::num_limb",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::one",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::operator[]",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::recip_sqrt",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::recip_sqrt_3mod4",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::reciprocal",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::redc",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::rshift",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sgn0_pty",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sgn0_pty_mont",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sqr",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sqr_n_mul",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sqrt",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::sub",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::to_mont",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fp::zero",
+      "owner": "blst/scalar/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::add",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::check_mod",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::cneg",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::ct_bfly",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::equal",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::exp",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::from_hexascii",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::from_mont",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::from_scalar",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::from_uint64",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::gs_bfly",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::is_redc",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::lshift",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::modulus",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::montgomery_constant",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::mul",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::mul_by_3",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::neg",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::num_limbs",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::one",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::operator!=",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::operator==",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::operator[]",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::reciprocal",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::redc",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::rshift",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::sqr",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::sub",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::to_hexascii",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::to_mont",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::to_scaler",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::Fr::zero",
+      "owner": "blst/scalar/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::GT",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::add",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::add_n_dbl",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::ccopy",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::cneg",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::conjugate",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::cswap",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::dadd",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::deserialize",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::deserialize_unchecked",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::doubling",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::equal",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::final_exp",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::frobenius_map",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::generator",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::identity",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::in_group",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::is_cyclotomic",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::is_identity",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop_lines",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop_lines_finite",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop_lines_n",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop_lines_n_preprocessed",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::miller_loop_n",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::mult",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::mult_by_z",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::mult_by_z_div_by_2",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::mult_vartime",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::neg",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::operator=",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::operator[]",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::precompute_lines",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::serialize",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::GT::sub",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::MillerResult::MillerResult",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::MillerResult::conjugate",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::MillerResult::identity",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::MillerResult::mul",
+      "owner": "blst/scalar/curve/GT.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::Point",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::add",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::add_n_dbl",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::ccopy",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::cneg",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::compress",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::compress_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::cswap",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::dadd",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::doubling",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::equal",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::from_affine",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::from_jacobian",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::generator",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::get_B",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::identity",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::in_subgroup",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::infinity",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::is_identity",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::is_inf",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mul_by_4b",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mul_by_b",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult_glsv",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult_glsv_vartime",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult_glsv_window",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult_glsv_wnaf",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::mult_vartime",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::neg",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::on_curve",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::operator=",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::serialize",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::serialize_BE",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::sign",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::sign2",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::to_affine",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::to_pk",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::to_pk2",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::to_xyzz",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Point::unchecked_mult",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Pointxyzz::dadd",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Pointxyzz::equal",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Pointxyzz::from_affine",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::scalar::Pointxyzz::to_Jacobian",
+      "owner": "blst/scalar/curve/point.h"
+    }
+  ]
+}

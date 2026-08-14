@@ -1,0 +1,638 @@
+{
+  "schema": 1,
+  "surface": "rust_safe",
+  "symbols": [
+    {
+      "symbol": "blst::avx::avx_p1s_in_g1",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::avx::avx_p2s_in_g2",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::avx::gt_msm",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::final_exp",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::finalverify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::gt_mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::gt_mult_vartime",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::in_group",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::miller_loop",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::miller_loop_n",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_fp12::to_bendian",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p1::mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p1::mult_vartime",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p1::unchecked_mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p2::mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p2::mult_vartime",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_p2::unchecked_mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::blst_scalar::hash_to",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_fft",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_fft_domain_init",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_fft_domain_len",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_fft_with_domain",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_interpolate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_interpolate_fft_domain_suffix_scratch_len",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::fft::fr_interpolate_fft_domain_suffix_with_scratch",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::MiddleProductPrecomputedB::is_empty",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::MiddleProductPrecomputedB::len",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::MiddleProductPrecomputedB::new",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::combine",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::middle_product",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::precompute_middle_product_b",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::middle_product::update",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::add_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::add_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::aggregate_serialized",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::aggregate_with_randomness",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::from_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::sub_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregatePublicKey::to_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::add_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::add_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::aggregate_serialized",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::aggregate_with_randomness",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::from_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::subgroup_check",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::to_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::AggregateSignature::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::compress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::from_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::key_validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::uncompress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::PublicKey::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::derive_child_eip2333",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::derive_master_eip2333",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::key_gen",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::key_gen_v3",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::key_gen_v4_5",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::key_gen_v5",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::sign",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::sk_to_pk",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::SecretKey::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::aggregate_verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::compress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::fast_aggregate_verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::fast_aggregate_verify_pre_aggregated",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::from_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::sig_validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::subgroup_check",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::uncompress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_pk::Signature::verify_multiple_aggregate_signatures",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::add_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::add_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::aggregate_serialized",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::aggregate_with_randomness",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::from_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::sub_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregatePublicKey::to_public_key",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::add_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::add_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::aggregate_serialized",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::aggregate_with_randomness",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::from_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::subgroup_check",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::to_signature",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::AggregateSignature::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::compress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::from_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::key_validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::uncompress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::PublicKey::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::derive_child_eip2333",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::derive_master_eip2333",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::key_gen",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::key_gen_v3",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::key_gen_v4_5",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::key_gen_v5",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::sign",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::sk_to_pk",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::SecretKey::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::aggregate_verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::compress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::deserialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::fast_aggregate_verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::fast_aggregate_verify_pre_aggregated",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::from_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::from_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::serialize",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::sig_validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::subgroup_check",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::to_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::uncompress",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::validate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::verify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::min_sig::Signature::verify_multiple_aggregate_signatures",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p1_affines::add",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p1_affines::as_slice",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p1_affines::from",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p1_affines::mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p2_affines::add",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p2_affines::as_slice",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p2_affines::from",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::p2_affines::mult",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::aggregated",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::commit",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::finalverify",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::init",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::merge",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::miller_result",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::mul_n_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::new",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::Pairing::raw_aggregate",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::print_bytes",
+      "owner": "bindings/rust/Cargo.toml"
+    },
+    {
+      "symbol": "blst::pairing::uniq",
+      "owner": "bindings/rust/Cargo.toml"
+    }
+  ]
+}

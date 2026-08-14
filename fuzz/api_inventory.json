@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "c_headers": [
+    "bindings/blst_scalar.h",
+    "bindings/blst_avx.h",
+    "bindings/blst_fft.h",
+    "bindings/blst_middle_product.h"
+  ],
+  "cpp_owners": [
+    "blst/scalar/fields/Fr.h",
+    "blst/scalar/fields/Fp.h",
+    "blst/scalar/fields/Fp2.h",
+    "blst/scalar/fields/Fp12.h",
+    "blst/scalar/curve/point.h",
+    "blst/scalar/curve/GT.h",
+    "blst/scalar/curve/map_to_G.h",
+    "blst/scalar/curve/multi_scalar.h",
+    "blst/scalar/curve/bulk_addition.h",
+    "blst/avx/curve/point.h",
+    "blst/avx/curve/GT.h",
+    "blst/avx/curve/map_to_G.h",
+    "blst/avx/curve/multi_scalar.h",
+    "blst/fields/Fr.h",
+    "blst/fields/Fp.h",
+    "blst/fields/Fp2.h",
+    "blst/fields/Fp12.h",
+    "blst/curve/point.h",
+    "blst/curve/GT.h",
+    "blst/curve/map_to_G.h",
+    "blst/curve/multi_scalar.h",
+    "blst/fft/context.h",
+    "blst/fft/domain.h",
+    "blst/fft/ctFft.h",
+    "blst/fft/fr_interpolation.h",
+    "blst/fft/middle_product.h",
+    "blst/sign/aggregate.h",
+    "blst/sign/sha256.h"
+  ],
+  "cpp_public_types": {
+    "blst::scalar::Fr": "blst/scalar/fields/Fr.h",
+    "blst::scalar::Fp": "blst/scalar/fields/Fp.h",
+    "blst::scalar::Fp2": "blst/scalar/fields/Fp2.h",
+    "blst::scalar::Fp12": "blst/scalar/fields/Fp12.h",
+    "blst::scalar::Point": "blst/scalar/curve/point.h",
+    "blst::scalar::AffinePoint": "blst/scalar/curve/point.h",
+    "blst::scalar::Pointxyzz": "blst/scalar/curve/point.h",
+    "blst::scalar::MillerResult": "blst/scalar/curve/GT.h",
+    "blst::scalar::GT": "blst/scalar/curve/GT.h",
+    "blst::avx::G1AffinePoint": "blst/avx/curve/point.h",
+    "blst::avx::G1Point": "blst/avx/curve/point.h",
+    "blst::avx::G2AffinePoint": "blst/avx/curve/point.h",
+    "blst::avx::G2Point": "blst/avx/curve/point.h",
+    "blst::avx::PreparedLine": "blst/avx/curve/GT.h",
+    "blst::avx::MillerResult": "blst/avx/curve/GT.h",
+    "blst::avx::GT": "blst/avx/curve/GT.h",
+    "blst::FrCoeffCtx": "blst/fft/context.h",
+    "blst::CoeffCtx": "blst/fft/context.h",
+    "blst::FftTruncatedForwardPlan": "blst/fft/ctFft.h",
+    "blst::FftInverseTruncatedRangePlan": "blst/fft/ctFft.h",
+    "blst::MiddleProductPrecomputedBImpl": "blst/fft/middle_product.h",
+    "blst::MiddleProductWorkspaceImpl": "blst/fft/middle_product.h",
+    "blst::MiddleProductPrecomputedBMultipairImpl": "blst/fft/middle_product.h",
+    "blst::MiddleProductWorkspaceMultipairImpl": "blst/fft/middle_product.h",
+    "blst::AggregatedSignature": "blst/sign/aggregate.h",
+    "blst::PAIRING": "blst/sign/aggregate.h",
+    "blst::Sha256Context": "blst/sign/sha256.h"
+  },
+  "rust": {
+    "manifest": "bindings/rust/Cargo.toml",
+    "toolchain": "nightly-2026-01-15",
+    "features": "full-rust-bindings,portable,serde-secret",
+    "excluded_modules": [
+      "bindings",
+      "avx::raw"
+    ]
+  },
+  "generated": {
+    "cpp_ast": "out/fuzz-inventory/cpp-compact.txt",
+    "rustdoc": "out/fuzz-inventory/rust-target/doc/blst.json"
+  },
+  "snapshots": {
+    "cpp": "fuzz/generated/cpp_api.json",
+    "rust_safe": "fuzz/generated/rust_safe_api.json"
+  }
+}

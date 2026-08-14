@@ -11,7 +11,12 @@ experimental targets and remain target-promotion gates. At exact source commit
 focused friendly-membership and identity-MSM cases. The dense nonidentity
 G1+G2 MSM loop measures 3.731 seconds before the sentinel observations and
 3.727 seconds after over 1,000 repetitions. Fuzzing is the next audit program,
-not unfinished finding remediation.
+not unfinished finding remediation. Phase 0 is in progress on `codex/fuzzing`.
+The generated symbol ledger currently accounts for 342 C declarations, 386
+reviewed native C++ methods, 342 raw Rust FFI mappings, and 158 safe Rust
+functions or methods. Structural self-tests, private domain carriers, scalar
+refinements, and typed call-frame foundations pass focused Clang 18 ASan/UBSan
+checks. No discovery run has started.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

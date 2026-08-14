@@ -52,6 +52,8 @@ for compatibility.
 | `../avx/VROOM_UPSTREAM_MANIFEST.md` | Decision for every VROOM commit after the imported baseline and the selected BLS12-381 translation groups |
 | `../avx/PROOF_PLAN.md` | Lean proof layers, C++ correspondence boundary, constant-time evidence, and first theorem milestone |
 | `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
+| `FUZZING_PLAN.md` | Phased API-complete fuzzing design, domain enforcement, resource policy, and acceptance gates |
+| `FUZZ_API_LEDGER.csv` | Symbol-level campaign, domain, factory, invalid-shape, and oracle disposition for supported APIs |
 | `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
 | `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
 | `CLANG_ANALYZER_BASELINE_TRIAGE.md` | Split scalar/AVX Clang analyzer evidence, dispositions, and proposed cleanup packet |
@@ -75,6 +77,9 @@ for compatibility.
 | `scripts/audit/check_public_api_documentation.ps1` | Enforces source, anchor, scope, and disposition coverage for audited public API documentation |
 | `scripts/audit/check_rust_threading_policy.ps1` | Enforces the caller-threaded Rust runtime contract |
 | `scripts/audit/run_sanitizers_local.sh` | Runs the pinned focused scalar ASan/UBSan boundary baseline on x86-64 Linux |
+| `scripts/fuzz/api_inventory.py` | Generates and validates the exact C, C++, raw Rust, and safe Rust fuzz ledger |
+| `scripts/fuzz/check_structure.py` | Enforces the private adapter boundary and rejects unclassified direct calls |
+| `scripts/fuzz/generate_api_inventory.sh` | Regenerates compact Clang AST and rustdoc snapshots with bounded workers |
 
 ## Scope dispositions
 

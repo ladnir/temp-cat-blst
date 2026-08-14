@@ -20,6 +20,7 @@ endif()
 option(BLST_UBSAN        "Enable Undefined Behavior Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ${PROJECT_IS_TOP_LEVEL})
 option(BLST_BENCHMARK    "Build benchmark executables" OFF)
+option(BLST_FUZZ         "Build developer fuzzing targets and Phase 0 gates" OFF)
 option(BLST_CUDA         "Enable CUDA support" OFF)
 option(BLST_CUDA_MSM     "Enable experimental CUDA MSM kernels" ${BLST_CUDA})
 option(BLST_FAST_BUILD   "Reduce experimental CUDA compile time at the cost of runtime performance" OFF)
@@ -33,7 +34,24 @@ mark_as_advanced(
     BLST_ALLOW_UNTESTED_CHERI
     BLST_FAST_BUILD
     BLST_PARALLEL_MSM
-    BLST_CRNS_BATCH_VROOM_VENDOR)
+    BLST_CRNS_BATCH_VROOM_VENDOR
+    BLST_FUZZ)
+
+if(BLST_FUZZ)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR "BLST_FUZZ requires Clang and libFuzzer.")
+    endif()
+    if(NOT (BLST_ASAN AND BLST_UBSAN))
+        message(FATAL_ERROR "BLST_FUZZ requires BLST_ASAN=ON and BLST_UBSAN=ON.")
+    endif()
+    if(BLST_ASM OR BLST_ADX OR BLST_AVX512 OR BLST_AVX512_PORTABLE OR
+       BLST_CUDA OR BLST_TEST OR BLST_BENCHMARK)
+        message(FATAL_ERROR
+            "The primary BLST_FUZZ profile requires BLST_ASM=OFF, "
+            "BLST_ADX=OFF, BLST_AVX512=OFF, BLST_AVX512_PORTABLE=OFF, "
+            "BLST_CUDA=OFF, BLST_TEST=OFF, and BLST_BENCHMARK=OFF.")
+    endif()
+endif()
 
 if(BLST_BUILD_SHARED)
     message(FATAL_ERROR
@@ -315,6 +333,7 @@ message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # faster CUDA compile, slow
 message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}")
 message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
+message("BLST_FUZZ            = ${BLST_FUZZ}")      # build developer fuzz targets
 
 
 message(STATUS "C compiler: ${CMAKE_C_COMPILER}")
@@ -354,5 +373,9 @@ endif()
 # Add benchmark subdirectory if benchmarks are enabled
 if(BLST_BENCHMARK)
     add_subdirectory(benchmark)
+endif()
+
+if(BLST_FUZZ)
+    add_subdirectory(fuzz)
 endif()
 
