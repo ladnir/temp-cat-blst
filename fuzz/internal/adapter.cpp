@@ -661,10 +661,10 @@ namespace catblst::fuzz::adapter
         const BLST_ERROR g1_deserialize_status =
             ::blst_p1_deserialize(&g1_deserialized, g1_wire.data());
         if (g1_deserialize_status != BLST_SUCCESS)
-            require(object_equal(g1_deserialized, g1_sentinel));
+            require(object_equal(g1_deserialized, g1_sentinel)); // FUZZ_PATH: decode.reject_atomic
         else
         {
-            require(::blst_p1_affine_on_curve(&g1_deserialized));
+            require(::blst_p1_affine_on_curve(&g1_deserialized)); // FUZZ_PATH: decode.success
             std::array<blst_byte, 96> serialized{};
             std::array<blst_byte, 48> compressed{};
             std::array<blst_byte, 96> readable_compressed{};
@@ -674,7 +674,7 @@ namespace catblst::fuzz::adapter
 
             blst_p1_affine roundtrip{};
             require(::blst_p1_deserialize(&roundtrip, serialized.data()) == BLST_SUCCESS);
-            require(::blst_p1_affine_is_equal(&g1_deserialized, &roundtrip));
+            require(::blst_p1_affine_is_equal(&g1_deserialized, &roundtrip)); // FUZZ_PATH: decode.roundtrip
             require(::blst_p1_uncompress(&roundtrip, compressed.data()) == BLST_SUCCESS);
             require(::blst_p1_affine_is_equal(&g1_deserialized, &roundtrip));
             require(::blst_p1_deserialize(&roundtrip, readable_compressed.data()) == BLST_SUCCESS);
@@ -708,6 +708,11 @@ namespace catblst::fuzz::adapter
         else
         {
             require(::blst_p1_in_g1(&aggregate));
+            blst_p1_affine aggregate_affine{};
+            ::blst_p1_to_affine(&aggregate_affine, &aggregate);
+            blst_fp12 aggregated_check{};
+            ::blst_aggregated_in_g1(&aggregated_check, &aggregate_affine);
+            require(!object_equal(aggregated_check, blst_fp12{}));
             require(g1_deserialize_status == BLST_SUCCESS);
             require(::blst_p1_affine_in_g1(&g1_deserialized));
             blst_p1 expected{};
@@ -800,7 +805,7 @@ namespace catblst::fuzz::adapter
             ::blst_scalar_from_be_bytes(&scalar_be, bytes, input.size());
         std::array<blst_byte, 32> scalar_export{};
         ::blst_lendian_from_scalar(scalar_export.data(), &scalar_le);
-        require(equal_prefix(scalar_export, scalar_le_bytes.data()));
+        require(equal_prefix(scalar_export, scalar_le_bytes.data())); // FUZZ_PATH: bytes.modulus_boundary
         require(le_nonzero == !ModulusOracle<8>::is_zero(scalar_le_expected));
         require(::blst_scalar_fr_check(&scalar_le));
         require(::blst_sk_check(&scalar_le) == le_nonzero);
@@ -878,6 +883,13 @@ namespace catblst::fuzz::adapter
         require(equal_prefix(fp_export, fp_le_bytes.data()));
         ::blst_lendian_from_fp(fp_export.data(), &fp_be);
         require(equal_prefix(fp_export, fp_be_bytes.data()));
+        blst_fp fp_endian_roundtrip{};
+        ::blst_bendian_from_fp(fp_export.data(), &fp_le);
+        ::blst_fp_from_bendian(&fp_endian_roundtrip, fp_export.data());
+        require(object_equal(fp_endian_roundtrip, fp_le));
+        ::blst_bendian_from_fp(fp_export.data(), &fp_be);
+        ::blst_fp_from_bendian(&fp_endian_roundtrip, fp_export.data());
+        require(object_equal(fp_endian_roundtrip, fp_be));
 
         blst_fp empty_fp;
         std::memset(&empty_fp, 0xa5, sizeof(empty_fp));
@@ -997,5 +1009,14 @@ namespace catblst::fuzz::adapter
         }
         else
             require(object_equal(fp_hex, fp_hex_before));
+    }
+
+    void run_abi_regressions() noexcept
+    {
+        require(::blst_p1_sizeof() == sizeof(blst_p1));
+        require(::blst_p1_affine_sizeof() == sizeof(blst_p1_affine));
+        require(::blst_p2_sizeof() == sizeof(blst_p2));
+        require(::blst_p2_affine_sizeof() == sizeof(blst_p2_affine));
+        require(::blst_fp12_sizeof() == sizeof(blst_fp12));
     }
 }

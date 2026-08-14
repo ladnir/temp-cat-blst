@@ -10,7 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 rmp-serde = "1.3"
-blst = { path = "..", features = ["full-rust-bindings", "serde"] }
+blst = { path = "..", features = ["full-rust-bindings", "portable", "serde-secret"] }
 
 [[bin]]
 name = "blst_rust_fuzz_decode"

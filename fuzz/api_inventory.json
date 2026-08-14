@@ -65,6 +65,34 @@
     "blst::PAIRING": "blst/sign/aggregate.h",
     "blst::Sha256Context": "blst/sign/sha256.h"
   },
+  "cpp_free_owners": [
+    "blst/fields/Fr.h",
+    "blst/fields/Fp.h",
+    "blst/fields/Fp2.h",
+    "blst/fields/Fp12.h",
+    "blst/fields/hash_to_field.h",
+    "blst/curve/point.h",
+    "blst/curve/map_to_G.h",
+    "blst/curve/multi_scalar.h",
+    "blst/curve/bulk_addition.h",
+    "blst/fft/fr_interpolation.h",
+    "blst/fft/middle_product.h",
+    "blst/sign/aggregate.h",
+    "blst/sign/sha256.h"
+  ],
+  "cpp_global_functions": {
+    "bit_reverse": "blst/fft/ctFft.h",
+    "fft_butterflies": "blst/fft/ctFft.h",
+    "fft_scale": "blst/fft/ctFft.h",
+    "fft": "blst/fft/ctFft.h",
+    "fft_with_forward_roots": "blst/fft/ctFft.h",
+    "fft_forward_truncated_prefix": "blst/fft/ctFft.h",
+    "fft_log2_size": "blst/fft/ctFft.h",
+    "make_fft_truncated_forward_plan": "blst/fft/ctFft.h",
+    "make_fft_inverse_truncated_range_plan": "blst/fft/ctFft.h",
+    "poly_mult_fft": "blst/fft/ctFft.h",
+    "fft_inverse_truncated_range": "blst/fft/ctFft.h"
+  },
   "rust": {
     "manifest": "bindings/rust/Cargo.toml",
     "toolchain": "nightly-2026-01-15",
@@ -75,7 +103,11 @@
     ]
   },
   "generated": {
-    "cpp_ast": "out/fuzz-inventory/cpp-compact.txt",
+    "cpp_ast": "out/fuzz-inventory/cpp-ast",
+    "cpp_free_ast": [
+      "out/fuzz-inventory/cpp-free-scalar.txt",
+      "out/fuzz-inventory/cpp-free-portable-avx.txt"
+    ],
     "rustdoc": "out/fuzz-inventory/rust-target/doc/blst.json"
   },
   "snapshots": {

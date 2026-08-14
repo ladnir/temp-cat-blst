@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source "$script_dir/target_limits.sh"
+
 if [[ ${BLST_FUZZ_DISCOVERY_APPROVED:-} != YES ]]; then
     echo "set BLST_FUZZ_DISCOVERY_APPROVED=YES for an approved long run" >&2
     exit 2
@@ -59,13 +62,19 @@ for target in "${targets[@]}"; do
         exit 2
     fi
     cmake --build "$build_dir" --target "$target" --parallel 2
+    blst_fuzz_target_limits "$target"
     artifact_dir="$build_dir/artifacts/$target"
+    working_corpus="$build_dir/discovery-corpus/$target"
     mkdir -p "$artifact_dir"
+    mkdir -p "$working_corpus"
+    cp -n "fuzz/corpus/$target"/* "$working_corpus"/
     "$build_dir/fuzz/$target" \
         -jobs=1 \
         -workers=1 \
         -max_total_time="$seconds" \
+        -max_len="$BLST_FUZZ_MAX_LEN" \
+        -timeout="$BLST_FUZZ_TIMEOUT" \
         -rss_limit_mb=2048 \
         -artifact_prefix="$artifact_dir/" \
-        "fuzz/corpus/$target" 2>&1 | tee "$artifact_dir/discovery.log"
+        "$working_corpus" 2>&1 | tee "$artifact_dir/discovery.log"
 done

@@ -4,7 +4,10 @@
 #include "fuzz/internal/adapter_common.h"
 #include "bindings/blst_fft.h"
 #include "bindings/blst_middle_product.h"
+#include "blst/fft/context.h"
+#include "blst/fft/ctFft.h"
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -54,7 +57,7 @@ namespace catblst::fuzz::adapter
         require(::blst_fr_fft(allocating.data(), n, false));
         auto roundtrip = allocating;
         require(::blst_fr_fft(roundtrip.data(), n, true));
-        require(roundtrip == coefficients);
+        require(roundtrip == coefficients); // FUZZ_PATH: fft.roundtrip
 
         const std::size_t domain_len = ::blst_fr_fft_domain_len(n);
         require(domain_len != 0);
@@ -67,6 +70,49 @@ namespace catblst::fuzz::adapter
         require(::blst_fr_fft_with_domain(
             prepared.data(), n, domain.data(), domain.size(), true));
         require(prepared == coefficients);
+
+        const std::size_t xn = input.size() < 4
+            ? n
+            : 1 + std::to_integer<unsigned char>(input[3]) % n;
+        auto truncated_input = coefficients;
+        std::fill(truncated_input.begin() + xn, truncated_input.end(), blst_fr{});
+        auto truncated_reference = truncated_input;
+        require(::blst_fr_fft(truncated_reference.data(), n, false));
+        auto truncated_native = truncated_input;
+        // FUZZ_COVER: make_fft_truncated_forward_plan
+        const auto forward_plan = ::make_fft_truncated_forward_plan(n, xn);
+        // FUZZ_COVER: fft_forward_truncated_prefix
+        ::fft_forward_truncated_prefix<blst_fr, blst_fr, blst::FrCoeffCtx>(
+            std::span<blst_fr>(truncated_native),
+            std::span<const blst_fr>(domain.data(), n),
+            xn,
+            forward_plan);
+        require(truncated_native == truncated_reference);
+
+        std::vector<blst_fr> inverse_roots(n);
+        for (std::size_t index = 0; index < n; ++index)
+            inverse_roots[index] = blst::FrCoeffCtx::inverse(domain[index]);
+        const std::size_t inverse_start = input.size() < 5
+            ? 0
+            : std::to_integer<unsigned char>(input[4]) % n;
+        const std::size_t inverse_length = input.size() < 6
+            ? n - inverse_start
+            : 1 + std::to_integer<unsigned char>(input[5]) % (n - inverse_start);
+        auto inverse_native = allocating;
+        // FUZZ_COVER: make_fft_inverse_truncated_range_plan
+        const auto inverse_plan = ::make_fft_inverse_truncated_range_plan(
+            n, inverse_start, inverse_length);
+        // FUZZ_COVER: fft_inverse_truncated_range
+        ::fft_inverse_truncated_range<blst_fr, blst_fr, blst::FrCoeffCtx>(
+            std::span<blst_fr>(inverse_native),
+            std::span<const blst_fr>(inverse_roots),
+            inverse_start,
+            inverse_length,
+            inverse_plan);
+        for (std::size_t index = inverse_start;
+             index < inverse_start + inverse_length;
+             ++index)
+            require(object_equal(inverse_native[index], coefficients[index]));
 
         std::array<blst_fr, 3> invalid{seed, seed, seed};
         const auto invalid_before = invalid;

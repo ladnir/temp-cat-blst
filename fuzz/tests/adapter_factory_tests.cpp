@@ -13,6 +13,8 @@ int main()
     using namespace catblst::fuzz;
     namespace adapter = catblst::fuzz::adapter;
 
+    adapter::run_abi_regressions();
+
     const std::array<std::byte, 1> one{std::byte{1}};
     const std::span<const std::byte> empty;
 

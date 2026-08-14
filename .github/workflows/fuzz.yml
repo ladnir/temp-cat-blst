@@ -56,13 +56,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install pinned Rust inventory toolchain
+        run: rustup toolchain install nightly-2026-01-15 --profile minimal
       - name: Check API inventory and adapter boundary
         run: |
-          python3 scripts/fuzz/generate_api_ledger.py --check
+          bash scripts/fuzz/generate_api_inventory.sh
+          git diff --exit-code -- docs/audit/FUZZ_API_LEDGER.csv fuzz/generated
           python3 scripts/fuzz/check_structure.py --self-test
+          python3 scripts/fuzz/check_coverage_paths.py --check-config --self-test
       - name: Check pinned safe Rust fuzz targets
         run: |
-          rustup toolchain install nightly-2026-01-15 --profile minimal
           cargo +nightly-2026-01-15 check \
             --locked \
             --manifest-path bindings/rust/fuzz/Cargo.toml \
@@ -82,11 +85,17 @@ jobs:
         run: bash scripts/fuzz/configure_scalar.sh out/fuzz-ci RelWithDebInfo
       - name: Replay retained corpora sequentially
         run: bash scripts/fuzz/replay.sh out/fuzz-ci
+      - name: Install pinned Rust fuzz toolchain and runner
+        run: |
+          rustup toolchain install nightly-2026-01-15 --profile minimal
+          cargo +nightly-2026-01-15 install cargo-fuzz --version 0.13.2 --locked
+      - name: Replay safe Rust corpora sequentially
+        run: bash scripts/fuzz/replay_rust.sh
 
   discovery:
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discovery'
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -99,6 +108,16 @@ jobs:
           BLST_FUZZ_DISCOVERY_APPROVED: YES
         run: >-
           bash scripts/fuzz/discovery.sh out/fuzz-discovery
+          '${{ inputs.seconds_per_target }}'
+      - name: Install pinned Rust fuzz toolchain and runner
+        run: |
+          rustup toolchain install nightly-2026-01-15 --profile minimal
+          cargo +nightly-2026-01-15 install cargo-fuzz --version 0.13.2 --locked
+      - name: Run safe Rust discovery sequentially
+        env:
+          BLST_FUZZ_DISCOVERY_APPROVED: YES
+        run: >-
+          bash scripts/fuzz/discovery_rust.sh
           '${{ inputs.seconds_per_target }}'
 
   coverage-replay:

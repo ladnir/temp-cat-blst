@@ -34,26 +34,44 @@ cmake -S "$repo_root" -B "$portable_config" -G Ninja \
     -DBLST_DEFAULT_AVX=ON \
     -DBLST_CUDA=OFF
 
-ast_kinds='(CXXMethodDecl|CXXConstructorDecl|CXXConversionDecl|CXXDestructorDecl|FunctionDecl|UsingDecl|UsingShadowDecl|CXXRecordDecl)'
+cpp_ast_dir="$out_dir/cpp-ast"
+rm -rf "$cpp_ast_dir"
+mkdir -p "$cpp_ast_dir"
+
+mapfile -t cpp_public_types < <(
+    python3 -c \
+        'import json,sys; print(*json.load(open(sys.argv[1]))["cpp_public_types"], sep="\n")' \
+        "$repo_root/fuzz/api_inventory.json"
+)
+
+for index in "${!cpp_public_types[@]}"; do
+    public_type=${cpp_public_types[$index]}
+    config=$scalar_config
+    if [[ $public_type == blst::avx::* ]]; then
+        config=$portable_config
+    fi
+    printf -v ast_name '%03d.json' "$index"
+    clang++ -std=c++20 \
+        -I"$repo_root" -I"$config" -I"$config/blst" \
+        -Xclang -ast-dump=json \
+        -Xclang -ast-dump-filter="$public_type" \
+        -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
+        > "$cpp_ast_dir/$ast_name"
+done
 
 clang++ -std=c++20 \
     -I"$repo_root" -I"$scalar_config" -I"$scalar_config/blst" \
-    -Xclang -ast-dump -Xclang -ast-dump-filter=blst \
+    -Xclang -ast-dump \
+    -Xclang -ast-dump-filter=blst:: \
     -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
-    | grep -E "$ast_kinds" > "$out_dir/cpp-scalar-compact.txt"
+    > "$out_dir/cpp-free-scalar.txt"
 
 clang++ -std=c++20 \
     -I"$repo_root" -I"$portable_config" -I"$portable_config/blst" \
-    -Xclang -ast-dump -Xclang -ast-dump-filter=blst::avx \
+    -Xclang -ast-dump \
+    -Xclang -ast-dump-filter=blst:: \
     -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
-    | grep -E "$ast_kinds" > "$out_dir/cpp-avx-compact.txt"
-
-{
-    printf '# profile: scalar\n'
-    cat "$out_dir/cpp-scalar-compact.txt"
-    printf '# profile: avx\n'
-    cat "$out_dir/cpp-avx-compact.txt"
-} > "$out_dir/cpp-compact.txt"
+    > "$out_dir/cpp-free-portable-avx.txt"
 
 export CARGO_BUILD_JOBS=2
 cargo +nightly-2026-01-15 rustdoc \

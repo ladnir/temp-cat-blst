@@ -3,6 +3,8 @@
 
 #include "fuzz/internal/adapter_common.h"
 #include "bindings/blst_avx.h"
+#include "blst/avx/curve/GT.h"
+#include "blst/avx/curve/point.h"
 
 #include <vector>
 
@@ -432,6 +434,40 @@ namespace catblst::fuzz::adapter
             require(::blst_fp12_from_avx(&roundtrip, &gt_msm));
             require(::blst_fp12_is_equal(&roundtrip, &scalar_gt_product));
         }
+
+        void exercise_unique_native_avx_methods()
+        {
+            using detail::require;
+            using blst::avx::G1Point;
+            using blst::avx::G2Point;
+            using blst::avx::GT;
+
+            G1Point g1_sum{};
+            // FUZZ_COVER: blst::avx::G1Point::dadd
+            G1Point::dadd(g1_sum, G1Point::generator(), G1Point::generator());
+            G1Point g1_double{};
+            G1Point::doubling(g1_double, G1Point::generator());
+            require(G1Point::equal(g1_sum, g1_double));
+
+            G2Point g2_sum{};
+            // FUZZ_COVER: blst::avx::G2Point::dadd
+            G2Point::dadd(g2_sum, G2Point::generator(), G2Point::generator());
+            G2Point g2_double{};
+            G2Point::doubling(g2_double, G2Point::generator());
+            require(G2Point::equal(g2_sum, g2_double));
+
+            GT gt_sum{};
+            // FUZZ_COVER: blst::avx::GT::dadd
+            GT::dadd(gt_sum, GT::identity(), GT::generator());
+            require(GT::equal(gt_sum, GT::generator()));
+
+            std::array<unsigned char, 12 * 48> encoded{};
+            GT::serialize(encoded.data(), GT::generator());
+            GT decoded = GT::identity();
+            // FUZZ_COVER: blst::avx::GT::deserialize_unchecked
+            require(GT::deserialize_unchecked(decoded, encoded.data()));
+            require(GT::equal(decoded, GT::generator()));
+        }
     }
 
     void run_avx_case(std::span<const std::byte> input)
@@ -458,5 +494,6 @@ namespace catblst::fuzz::adapter
         exercise_msm(input);
         exercise_fp12_and_pairing(
             input, scalar_g1, scalar_g2, avx_g1, avx_g2);
+        exercise_unique_native_avx_methods();
     }
 }

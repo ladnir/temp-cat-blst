@@ -64,6 +64,7 @@ ALLOWED_FACTORY_ADAPTER_CALLS = {
     "retained_non_subgroup_g2",
     "run_bytes_case",
     "run_avx_case",
+    "run_abi_regressions",
     "run_decode_case",
     "run_fields_case",
     "run_fft_middle_case",
@@ -234,6 +235,143 @@ def ledger_c_symbols(root: Path) -> set[str]:
         }
 
 
+def ledger_rows(root: Path) -> list[dict[str, str]]:
+    path = root / "docs/audit/FUZZ_API_LEDGER.csv"
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def coverage_findings(root: Path) -> list[Finding]:
+    rows = ledger_rows(root)
+    findings: list[Finding] = []
+
+    adapter_text = "\n".join(
+        (root / relative).read_text(encoding="utf-8")
+        for relative in sorted(BLST_ALLOWED_INTERNAL)
+        if (root / relative).is_file()
+    )
+    required_c = {
+        row["symbol"]
+        for row in rows
+        if row["surface"] == "c"
+        and row["classification"] not in {"indirect", "excluded"}
+    }
+    for symbol in sorted(required_c):
+        if not re.search(rf"\b{re.escape(symbol)}\s*\(", adapter_text):
+            findings.append(
+                Finding(
+                    "docs/audit/FUZZ_API_LEDGER.csv",
+                    1,
+                    f"classified C API has no adapter call: {symbol}",
+                )
+            )
+
+    required_cpp = {
+        row["symbol"]
+        for row in rows
+        if row["surface"] == "cpp"
+        and row["classification"] not in {"indirect", "excluded"}
+    }
+    claimed_cpp = set(
+        re.findall(
+            r"FUZZ_COVER:\s*([A-Za-z_][A-Za-z0-9_:~]+)",
+            adapter_text,
+        )
+    )
+    for symbol in sorted(required_cpp - claimed_cpp):
+        findings.append(
+            Finding(
+                "docs/audit/FUZZ_API_LEDGER.csv",
+                1,
+                f"unique native C++ API has no exact coverage marker: {symbol}",
+            )
+        )
+    for symbol in sorted(claimed_cpp - required_cpp):
+        findings.append(
+            Finding(
+                "fuzz/internal",
+                1,
+                f"native C++ coverage marker is absent from the ledger: {symbol}",
+            )
+        )
+
+    evidence_path = root / "bindings/rust/fuzz/SAFE_API_COVERAGE.txt"
+    claimed_rust: dict[str, str] = {}
+    if not evidence_path.is_file():
+        findings.append(
+            Finding(
+                "bindings/rust/fuzz/SAFE_API_COVERAGE.txt",
+                1,
+                "safe Rust coverage ownership file is missing",
+            )
+        )
+        return findings
+    for number, raw in enumerate(
+        evidence_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.count("|") != 1:
+            findings.append(
+                Finding(evidence_path.relative_to(root).as_posix(), number,
+                        "malformed safe Rust coverage row")
+            )
+            continue
+        symbol, owner = line.split("|", 1)
+        if symbol in claimed_rust:
+            findings.append(
+                Finding(evidence_path.relative_to(root).as_posix(), number,
+                        f"duplicate safe Rust coverage row: {symbol}")
+            )
+            continue
+        claimed_rust[symbol] = owner
+
+    required_rust = {
+        row["symbol"]
+        for row in rows
+        if row["surface"] == "rust_safe"
+        and row["classification"] != "excluded"
+    }
+    for symbol in sorted(required_rust - claimed_rust.keys()):
+        findings.append(
+            Finding(evidence_path.relative_to(root).as_posix(), 1,
+                    f"safe Rust API has no evidence owner: {symbol}")
+        )
+    for symbol in sorted(claimed_rust.keys() - required_rust):
+        findings.append(
+            Finding(evidence_path.relative_to(root).as_posix(), 1,
+                    f"safe Rust evidence row is absent from the ledger: {symbol}")
+        )
+    fuzz_root = root / "bindings/rust/fuzz"
+    for symbol, owner in sorted(claimed_rust.items()):
+        owner_path = fuzz_root / owner
+        if not owner_path.is_file():
+            findings.append(
+                Finding(evidence_path.relative_to(root).as_posix(), 1,
+                        f"safe Rust evidence owner does not exist: {owner}")
+            )
+            continue
+        leaf = symbol.rsplit("::", 1)[-1]
+        owner_text = owner_path.read_text(encoding="utf-8")
+        if not re.search(rf"\b{re.escape(leaf)}\s*\(", owner_text):
+            findings.append(
+                Finding(owner_path.relative_to(root).as_posix(), 1,
+                        f"claimed safe Rust API spelling is not executed: {symbol}")
+            )
+
+    coverage_source = root / "bindings/rust/fuzz/fuzz_targets/api_coverage.rs"
+    if coverage_source.is_file():
+        coverage_text = coverage_source.read_text(encoding="utf-8")
+        for variant in ("min_pk", "min_sig"):
+            if f"exercise_variant!({variant}" not in coverage_text:
+                findings.append(
+                    Finding(coverage_source.relative_to(root).as_posix(), 1,
+                            f"shared safe wrapper campaign omits {variant}")
+                )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
@@ -247,6 +385,7 @@ def main() -> int:
     for relative, text in repository_sources(root):
         findings.extend(inspect_source(relative, text, known_adapter_calls))
     findings.extend(inspect_rust_fuzz_targets(root))
+    findings.extend(coverage_findings(root))
 
     for error in errors:
         print(error, file=sys.stderr)

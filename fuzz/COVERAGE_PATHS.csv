@@ -1,0 +1,7 @@
+target,category,name,file,marker
+blst_fuzz_decode,success,valid G1 decode,fuzz/internal/adapter.cpp,decode.success
+blst_fuzz_decode,rejection,rejected decode preserves output,fuzz/internal/adapter.cpp,decode.reject_atomic
+blst_fuzz_decode,roundtrip,canonical G1 decode round trip,fuzz/internal/adapter.cpp,decode.roundtrip
+blst_fuzz_bytes,boundary,independent scalar modulus boundary,fuzz/internal/adapter.cpp,bytes.modulus_boundary
+blst_fuzz_groups,aliasing,exact G1 multiplication alias,fuzz/internal/adapter_groups.cpp,groups.exact_alias
+blst_fuzz_fft_middle,roundtrip,Fr FFT inverse round trip,fuzz/internal/adapter_fft_middle.cpp,fft.roundtrip

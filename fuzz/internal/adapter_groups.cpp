@@ -171,7 +171,7 @@ namespace catblst::fuzz::adapter
             require(::blst_p1_is_equal(&ct, &unchecked));
             blst_p1 alias = subgroup;
             ::blst_p1_mult(&alias, &alias, scalar_pointer, nbits);
-            require(::blst_p1_is_equal(&alias, &ct));
+            require(::blst_p1_is_equal(&alias, &ct)); // FUZZ_PATH: groups.exact_alias
 
             const std::size_t direct_bits = std::min<std::size_t>(nbits, 16);
             blst_p1 direct{};
@@ -304,6 +304,31 @@ namespace catblst::fuzz::adapter
             ::blst_p2_unchecked_mult(&bounded, &p, scalar.data(), direct_bits);
             require(::blst_p2_is_equal(&direct, &bounded));
         }
+
+        template<class Point, class Affine, class PointXyzz>
+        void exercise_unique_native_group_methods()
+        {
+            using detail::require;
+            const Point& generator = Point::generator();
+            Point doubled{};
+            // FUZZ_COVER: blst::scalar::Point::dadd
+            Point::dadd(doubled, generator, generator);
+            Point expected{};
+            Point::doubling(expected, generator);
+            require(Point::equal(doubled, expected));
+
+            PointXyzz left{};
+            PointXyzz right{};
+            PointXyzz sum{};
+            const Affine& affine = Affine::generator();
+            PointXyzz::from_affine(left, affine);
+            PointXyzz::from_affine(right, affine);
+            // FUZZ_COVER: blst::scalar::Pointxyzz::dadd
+            PointXyzz::dadd(sum, left, right);
+            Point roundtrip{};
+            PointXyzz::to_Jacobian(roundtrip, sum);
+            require(Point::equal(roundtrip, expected));
+        }
     }
 
     void run_groups_case(std::span<const std::byte> input)
@@ -312,5 +337,13 @@ namespace catblst::fuzz::adapter
         const std::size_t nbits = scalar_bits(input);
         exercise_g1(input, scalar, nbits);
         exercise_g2(input, scalar, nbits);
+        exercise_unique_native_group_methods<
+            blst::scalar::G1Point,
+            blst::scalar::G1AffinePoint,
+            blst::scalar::G1PointZZ>();
+        exercise_unique_native_group_methods<
+            blst::scalar::G2Point,
+            blst::scalar::G2AffinePoint,
+            blst::scalar::G2PointZZ>();
     }
 }

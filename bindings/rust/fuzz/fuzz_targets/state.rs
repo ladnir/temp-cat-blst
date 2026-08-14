@@ -3,6 +3,8 @@
 
 #![no_main]
 
+mod api_coverage;
+
 use blst::{
     combine, fft, middle_product, min_pk, min_sig, precompute_middle_product_b,
     update, blst_fp12, blst_fr, blst_p1, blst_p1_affine, blst_p2,
@@ -11,6 +13,7 @@ use blst::{
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
+    api_coverage::exercise_state(data);
     let mut ikm = [0u8; 64];
     let copied = data.len().min(ikm.len());
     ikm[..copied].copy_from_slice(&data[..copied]);

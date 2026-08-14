@@ -3,6 +3,10 @@
   "surface": "cpp",
   "symbols": [
     {
+      "symbol": "bit_reverse",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
       "symbol": "blst::CoeffCtx::from_u64",
       "owner": "blst/fft/context.h"
     },
@@ -27,6 +31,10 @@
       "owner": "blst/fft/context.h"
     },
     {
+      "symbol": "blst::Encode_to_curve",
+      "owner": "blst/curve/map_to_G.h"
+    },
+    {
       "symbol": "blst::FrCoeffCtx::from_u64",
       "owner": "blst/fft/context.h"
     },
@@ -47,8 +55,8 @@
       "owner": "blst/fft/context.h"
     },
     {
-      "symbol": "blst::MiddleProductWorkspaceImpl::ensure_size",
-      "owner": "blst/fft/middle_product.h"
+      "symbol": "blst::Hash_to_curve",
+      "owner": "blst/curve/map_to_G.h"
     },
     {
       "symbol": "blst::avx::G1AffinePoint::G1AffinePoint",
@@ -379,10 +387,6 @@
       "owner": "blst/avx/curve/point.h"
     },
     {
-      "symbol": "blst::avx::G2Point::operator()",
-      "owner": "blst/avx/curve/point.h"
-    },
-    {
       "symbol": "blst::avx::G2Point::serialize",
       "owner": "blst/avx/curve/point.h"
     },
@@ -413,6 +417,14 @@
     {
       "symbol": "blst::avx::G2Point::unchecked_mult",
       "owner": "blst/avx/curve/point.h"
+    },
+    {
+      "symbol": "blst::avx::GT::FinalExpScratch::has_capacity",
+      "owner": "blst/avx/curve/GT.h"
+    },
+    {
+      "symbol": "blst::avx::GT::FinalExpScratch::reserve",
+      "owner": "blst/avx/curve/GT.h"
     },
     {
       "symbol": "blst::avx::GT::GT",
@@ -539,10 +551,6 @@
       "owner": "blst/avx/curve/GT.h"
     },
     {
-      "symbol": "blst::avx::GT::operator()",
-      "owner": "blst/avx/curve/GT.h"
-    },
-    {
       "symbol": "blst::avx::GT::operator[]",
       "owner": "blst/avx/curve/GT.h"
     },
@@ -575,6 +583,358 @@
       "owner": "blst/avx/curve/GT.h"
     },
     {
+      "symbol": "blst::blst_expand_message_xmd",
+      "owner": "blst/fields/hash_to_field.h"
+    },
+    {
+      "symbol": "blst::blst_fp12_finalverify",
+      "owner": "blst/sign/aggregate.h"
+    },
+    {
+      "symbol": "blst::blst_pairing_get_miller_result",
+      "owner": "blst/sign/aggregate.h"
+    },
+    {
+      "symbol": "blst::cc_add_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_lshift_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_mul_by_1_plus_i_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_mul_by_3_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_mul_by_8_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_mul_mont_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_sgn0_pty_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_sgn0_pty_mont_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_sqr_mont_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::cc_sub_mod_384x",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::combine",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::ct_inverse_mod_v256",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::ct_inverse_mod_v384",
+      "owner": "blst/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::fft_admissible_size",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::get_B",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_Aprime_E1",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_Aprime_E2",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_B_E1",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_B_E2",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_Bprime_E1",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_Bprime_E2",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_G1",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_G2",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_NEG_G1",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_NEG_G2",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_P",
+      "owner": "blst/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::get_BLST_RR",
+      "owner": "blst/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::get_BLST_RRRR",
+      "owner": "blst/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::get_BLST_Rx",
+      "owner": "blst/fields/Fp12.h"
+    },
+    {
+      "symbol": "blst::get_BLST_beta",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::get_BLST_gt_lambda",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::get_BLST_gt_lambda2",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::get_BLST_negP",
+      "owner": "blst/fields/Fp.h"
+    },
+    {
+      "symbol": "blst::get_BLST_r",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::get_BLST_rRR",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::get_BLST_sqrt_minus_1",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::get_BLST_sqrt_minus_sqrt_minus_1",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::get_BLST_sqrt_sqrt_minus_1",
+      "owner": "blst/fields/Fp2.h"
+    },
+    {
+      "symbol": "blst::make_fft_roots",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::make_ifft_roots",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_auto_uses_multipair",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_auto_uses_multipair_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_auto_uses_multipair_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_b_size",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_basic",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_basic_fft_size",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_collect_multipair_g1_affine",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_convert_multipair_g1_inputs",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_convert_multipair_g2_inputs",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_fft_size",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_finalize_avx_millers",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_is_dense_mask",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_avx_window_dense",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_avx_window_sparse",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_impl",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_public",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_scalar_window_dense",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_multipair_scalar_window_sparse",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_n_is_supported",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_prepare_scalar_line_eval_points",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::middle_product_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::msm_mult_pippenger",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::msm_mult_pippenger_scratch_sizeof_",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::msm_mult_pippenger_window_scratch_sizeof_",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::msm_mult_table",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::msm_precompute_wbits",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::pippenger_window_size",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::points_add",
+      "owner": "blst/curve/bulk_addition.h"
+    },
+    {
+      "symbol": "blst::points_mult_wbits_precompute_sizeof",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::points_mult_wbits_scratch_sizeof",
+      "owner": "blst/curve/multi_scalar.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_multipair",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_multipair_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_multipair_backend_impl",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_multipair_impl",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_multipair_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::precompute_middle_product_b_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::print",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::psi",
+      "owner": "blst/curve/point.h"
+    },
+    {
       "symbol": "blst::scalar::AffinePoint::cneg",
       "owner": "blst/scalar/curve/point.h"
     },
@@ -584,14 +944,6 @@
     },
     {
       "symbol": "blst::scalar::AffinePoint::compress_BE",
-      "owner": "blst/scalar/curve/point.h"
-    },
-    {
-      "symbol": "blst::scalar::AffinePoint::ctime_replace_if",
-      "owner": "blst/scalar/curve/point.h"
-    },
-    {
-      "symbol": "blst::scalar::AffinePoint::ctime_select",
       "owner": "blst/scalar/curve/point.h"
     },
     {
@@ -643,18 +995,6 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::cneg",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::compress",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::compress_BE",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::conjugate",
       "owner": "blst/scalar/fields/Fp12.h"
     },
@@ -695,18 +1035,6 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::dadd",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::deserialize",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::deserialize_BE",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::equal",
       "owner": "blst/scalar/fields/Fp12.h"
     },
@@ -723,15 +1051,7 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::from_affine",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::from_bendian",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::generator",
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
@@ -759,19 +1079,11 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::in_subgroup",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::inverse",
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
       "symbol": "blst::scalar::Fp12::is_cyclotomic",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::is_inf",
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
@@ -799,10 +1111,6 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::on_curve",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::one",
       "owner": "blst/scalar/fields/Fp12.h"
     },
@@ -819,14 +1127,6 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::serialize",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::serialize_BE",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::sqr",
       "owner": "blst/scalar/fields/Fp12.h"
     },
@@ -839,19 +1139,7 @@
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
-      "symbol": "blst::scalar::Fp12::to_Jacobian",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
       "symbol": "blst::scalar::Fp12::to_bendian",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::uncompress",
-      "owner": "blst/scalar/fields/Fp12.h"
-    },
-    {
-      "symbol": "blst::scalar::Fp12::uncompress_BE",
       "owner": "blst/scalar/fields/Fp12.h"
     },
     {
@@ -1375,6 +1663,10 @@
       "owner": "blst/scalar/curve/point.h"
     },
     {
+      "symbol": "blst::scalar::Point::Point<Field>",
+      "owner": "blst/scalar/curve/point.h"
+    },
+    {
       "symbol": "blst::scalar::Point::add",
       "owner": "blst/scalar/curve/point.h"
     },
@@ -1545,6 +1837,106 @@
     {
       "symbol": "blst::scalar::Pointxyzz::to_Jacobian",
       "owner": "blst/scalar/curve/point.h"
+    },
+    {
+      "symbol": "blst::sk_add_n_check",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::sk_check",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::sk_inverse",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::sk_mul_n_check",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::sk_sub_n_check",
+      "owner": "blst/fields/Fr.h"
+    },
+    {
+      "symbol": "blst::times_minus_z",
+      "owner": "blst/curve/point.h"
+    },
+    {
+      "symbol": "blst::update",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_multipair",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_multipair_avx",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_multipair_impl",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_multipair_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::update_scalar",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::validate_middle_product_b_shape",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "blst::validate_middle_product_output_shape",
+      "owner": "blst/fft/middle_product.h"
+    },
+    {
+      "symbol": "fft",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_butterflies",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_forward_truncated_prefix",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_inverse_truncated_range",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_log2_size",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_scale",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "fft_with_forward_roots",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "make_fft_inverse_truncated_range_plan",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "make_fft_truncated_forward_plan",
+      "owner": "blst/fft/ctFft.h"
+    },
+    {
+      "symbol": "poly_mult_fft",
+      "owner": "blst/fft/ctFft.h"
     }
   ]
 }

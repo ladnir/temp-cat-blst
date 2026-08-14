@@ -448,6 +448,11 @@ mod tests {
     use super::*;
     use core::slice;
 
+    #[test]
+    fn print_bytes_accepts_empty_input() {
+        super::print_bytes(&[], "category-blst-fuzz");
+    }
+
     fn assert_owned_dst(pairing: &Pairing, expected: &[u8]) {
         let native_dst = unsafe { blst_pairing_get_dst(pairing.const_ctx()) };
         assert_eq!(native_dst, pairing.dst_storage());

@@ -82,6 +82,7 @@ function(blst_add_fuzz_target target source max_len timeout_seconds)
             -runs=0
             -max_len=${max_len}
             -timeout=${replay_timeout_seconds}
+            -rss_limit_mb=2048
             ${PROJECT_SOURCE_DIR}/fuzz/corpus/${target})
     set_tests_properties(${target}_replay PROPERTIES
         LABELS "fuzz;phase1;replay"

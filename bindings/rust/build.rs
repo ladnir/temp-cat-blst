@@ -28,6 +28,9 @@ fn main() {
         "CMAKE_TOOLCHAIN_FILE",
         "CC",
         "CXX",
+        "CFLAGS",
+        "CXXFLAGS",
+        "BLST_FUZZ_NATIVE_SANITIZER",
         "CARGO_ENCODED_RUSTFLAGS",
     ] {
         println!("cargo:rerun-if-env-changed={name}");
@@ -191,6 +194,7 @@ fn main() {
 
     let lib_dir = built_library_dir(&build_dir, &target_env, build_type);
     emit_native_link(&lib_dir, &target_env, &target_os);
+    emit_fuzz_sanitizer_runtime(&target_env, &target_os);
     emit_metadata(&blst_base_dir, &build_dir.join("blst"));
 }
 
@@ -442,6 +446,24 @@ fn emit_native_link(lib_dir: &Path, target_env: &str, target_os: &str) {
     }
 }
 
+fn emit_fuzz_sanitizer_runtime(target_env: &str, target_os: &str) {
+    let Ok(sanitizer) = env::var("BLST_FUZZ_NATIVE_SANITIZER") else {
+        return;
+    };
+    match sanitizer.as_str() {
+        "address" => {}
+        "undefined" if target_env != "msvc" && target_os == "linux" => {
+            println!("cargo:rustc-link-lib=dylib=ubsan");
+        }
+        "undefined" => panic!(
+            "BLST_FUZZ_NATIVE_SANITIZER=undefined is supported only on Linux"
+        ),
+        _ => panic!(
+            "BLST_FUZZ_NATIVE_SANITIZER must be address or undefined"
+        ),
+    }
+}
+
 fn emit_metadata(blst_base_dir: &Path, config_include: &Path) {
     println!(
         "cargo:BINDINGS={}",
@@ -491,6 +513,7 @@ fn link_prebuilt(
         target_env,
         target_os,
     );
+    emit_fuzz_sanitizer_runtime(target_env, target_os);
     emit_metadata(blst_base_dir, config_include);
 }
 

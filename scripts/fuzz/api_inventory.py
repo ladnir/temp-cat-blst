@@ -5,10 +5,10 @@
 """Generate and validate the symbol-level fuzz API ledger.
 
 C declarations are parsed directly from their reviewed headers. Native C++
-methods and safe Rust functions are consumed from Clang AST JSON and rustdoc
-JSON, respectively. The generator does not infer mathematical validity from a
-signature. It assigns a conservative campaign and domain description that a
-reviewer must accept in the checked-in ledger.
+methods and free functions come from Clang AST output. Safe Rust functions
+come from rustdoc JSON. The generator does not infer mathematical validity
+from a signature. It assigns a conservative campaign and domain description
+that a reviewer must accept in the checked-in ledger.
 """
 
 from __future__ import annotations
@@ -114,10 +114,23 @@ def extract_cpp_symbols(
     ast_path: Path,
     owners: Iterable[str],
     public_types: dict[str, str],
+    forced_qualified: str | None = None,
+    forced_owner: str | None = None,
 ) -> list[ApiSymbol]:
     if ast_path.suffix == ".txt":
         return extract_cpp_symbols_from_text(root, ast_path, public_types)
-    ast = json.loads(ast_path.read_text(encoding="utf-8"))
+    text = ast_path.read_text(encoding="utf-8")
+    decoder = json.JSONDecoder()
+    ast_roots: list[dict[str, Any]] = []
+    offset = 0
+    while offset < len(text):
+        while offset < len(text) and text[offset].isspace():
+            offset += 1
+        if offset == len(text):
+            break
+        ast, offset = decoder.raw_decode(text, offset)
+        if isinstance(ast, dict):
+            ast_roots.append(ast)
     owner_set = {normalize_path(owner, root) for owner in owners}
     result: set[ApiSymbol] = set()
 
@@ -129,16 +142,36 @@ def extract_cpp_symbols(
     ) -> None:
         kind = node.get("kind", "")
         name = node.get("name")
-        current_file = ast_location_file(node, inherited_file)
+        current_file = (
+            forced_owner
+            if forced_qualified is not None
+            else ast_location_file(node, inherited_file)
+        )
         next_scope = scope
 
         if kind == "NamespaceDecl" and name:
             next_scope = scope + (str(name),)
-        elif kind in {"CXXRecordDecl", "ClassTemplateDecl"} and name:
-            next_scope = scope + (str(name),)
+        elif (
+            kind in {"CXXRecordDecl", "ClassTemplateDecl"}
+            and name
+            and not node.get("isImplicit", False)
+        ):
+            # Clang emits an injected-class-name record below many template
+            # declarations without consistently marking it implicit. It is
+            # the same class scope, not a nested public type.
+            next_scope = (
+                scope
+                if scope and scope[-1] == str(name)
+                else scope + (str(name),)
+            )
 
         if kind in {"FunctionDecl", "CXXMethodDecl", "CXXConstructorDecl"}:
-            if name and access == "public" and current_file:
+            if (
+                name
+                and access == "public"
+                and current_file
+                and not node.get("isImplicit", False)
+            ):
                 owner = normalize_path(current_file, root)
                 if owner in owner_set:
                     qualified = "::".join(scope + (str(name),))
@@ -155,7 +188,102 @@ def extract_cpp_symbols(
                 continue
             visit(child, next_scope, current_file, child_access)
 
-    visit(ast, tuple(), None)
+    if forced_qualified is None:
+        for ast in ast_roots:
+            visit(ast, tuple(), None)
+    else:
+        components = tuple(forced_qualified.split("::"))
+        expected_name = components[-1]
+        prefix = components[:-1]
+        for ast in ast_roots:
+            if ast.get("name") != expected_name:
+                continue
+            visit(ast, prefix, forced_owner)
+    return sorted(result)
+
+
+def extract_cpp_symbols_from_directory(
+    root: Path,
+    ast_directory: Path,
+    owners: Iterable[str],
+    public_types: dict[str, str],
+) -> list[ApiSymbol]:
+    result: set[ApiSymbol] = set()
+    ast_paths = sorted(ast_directory.glob("*.json"))
+    declared_types = list(public_types.items())
+    if len(ast_paths) != len(declared_types):
+        raise ValueError(
+            "C++ AST inventory count does not match declared public types: "
+            f"{len(ast_paths)} != {len(declared_types)}"
+        )
+    for ast_path, (qualified, owner) in zip(ast_paths, declared_types):
+        result.update(
+            extract_cpp_symbols(
+                root,
+                ast_path,
+                owners,
+                public_types,
+                forced_qualified=qualified,
+                forced_owner=owner,
+            )
+        )
+    return sorted(result)
+
+
+def extract_cpp_free_symbols_from_text(
+    root: Path,
+    ast_path: Path,
+    owners: Iterable[str],
+) -> list[ApiSymbol]:
+    owner_set = {normalize_path(owner, root) for owner in owners}
+    sections = re.split(
+        r"(?m)^Dumping ([A-Za-z_][A-Za-z0-9_:]*):\s*$",
+        ast_path.read_text(encoding="utf-8"),
+    )
+    result: set[ApiSymbol] = set()
+    for index in range(1, len(sections), 2):
+        qualified = sections[index]
+        body = sections[index + 1]
+        lines = [line for line in body.splitlines() if line.strip()]
+        if not lines:
+            continue
+        declaration = lines[0]
+        is_function = declaration.startswith(
+            ("FunctionDecl ", "FunctionTemplateDecl ")
+        ) or (
+            declaration.startswith("UsingShadowDecl ")
+            and re.search(r"\bFunction(?:Template)?\b", declaration)
+        )
+        if not is_function:
+            continue
+        components = qualified.split("::")
+        if not (
+            len(components) == 2
+            and components[0] == "blst"
+            or len(components) == 3
+            and components[:2] == ["blst", "fr_interpolation"]
+        ):
+            continue
+        location = re.search(r"(?P<path>(?:\./|/)[^<>, ]+\.h):\d+", body)
+        if not location:
+            continue
+        owner = normalize_path(location.group("path"), root)
+        if owner in owner_set:
+            result.add(ApiSymbol("cpp", qualified, owner))
+    return sorted(result)
+
+
+def extract_cpp_global_functions(
+    root: Path,
+    functions: dict[str, str],
+) -> list[ApiSymbol]:
+    result: list[ApiSymbol] = []
+    for name, owner in functions.items():
+        owner_path = root / owner
+        text = owner_path.read_text(encoding="utf-8")
+        if not re.search(rf"\b{re.escape(name)}\s*\(", text):
+            raise ValueError(f"configured global C++ function is absent: {name}")
+        result.append(ApiSymbol("cpp", name, owner))
     return sorted(result)
 
 
@@ -404,6 +532,8 @@ def classification_for(api: ApiSymbol, campaign: str) -> str:
     name = api.symbol.lower()
     if api.surface == "rust_raw":
         return "indirect"
+    if api.surface == "rust_safe" and name.endswith("::print_bytes"):
+        return "regression_only"
     if api.surface == "cpp":
         unique_methods = (
             "deserialize_unchecked",
@@ -411,6 +541,8 @@ def classification_for(api: ApiSymbol, campaign: str) -> str:
             "dadd_affine",
             "fft_forward_truncated_prefix",
             "fft_inverse_truncated_range",
+            "make_fft_truncated_forward_plan",
+            "make_fft_inverse_truncated_range_plan",
         )
         return "constructed" if any(token in name for token in unique_methods) else "indirect"
     if any(token in name for token in ("scratch_sizeof", "scratch_len")):
@@ -632,13 +764,22 @@ def collect_symbols(root: Path, require_generated: bool) -> list[ApiSymbol]:
 
     cpp_ast = root / config["generated"]["cpp_ast"]
     rustdoc = root / config["generated"]["rustdoc"]
-    if require_generated and not cpp_ast.is_file():
+    if require_generated and not (cpp_ast.is_file() or cpp_ast.is_dir()):
         raise ValueError(f"missing required Clang AST inventory: {cpp_ast}")
     if require_generated and not rustdoc.is_file():
         raise ValueError(f"missing required rustdoc inventory: {rustdoc}")
     cpp_snapshot = root / config["snapshots"]["cpp"]
     rust_snapshot = root / config["snapshots"]["rust_safe"]
-    if cpp_ast.is_file():
+    if cpp_ast.is_dir():
+        symbols.extend(
+            extract_cpp_symbols_from_directory(
+                root,
+                cpp_ast,
+                config["cpp_owners"],
+                config["cpp_public_types"],
+            )
+        )
+    elif cpp_ast.is_file():
         symbols.extend(
             extract_cpp_symbols(
                 root,
@@ -649,6 +790,23 @@ def collect_symbols(root: Path, require_generated: bool) -> list[ApiSymbol]:
         )
     elif cpp_snapshot.is_file():
         symbols.extend(read_snapshot(cpp_snapshot, "cpp"))
+    cpp_free_asts = [root / path for path in config["generated"]["cpp_free_ast"]]
+    if require_generated:
+        missing = [path for path in cpp_free_asts if not path.is_file()]
+        if missing:
+            raise ValueError(f"missing required C++ free-function AST: {missing[0]}")
+    for ast_path in cpp_free_asts:
+        if ast_path.is_file():
+            symbols.extend(
+                extract_cpp_free_symbols_from_text(
+                    root,
+                    ast_path,
+                    config["cpp_free_owners"],
+                )
+            )
+    symbols.extend(
+        extract_cpp_global_functions(root, config["cpp_global_functions"])
+    )
     if rustdoc.is_file():
         symbols.extend(
             extract_rust_symbols(

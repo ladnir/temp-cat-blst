@@ -3,6 +3,8 @@
 
 #![no_main]
 
+mod api_coverage;
+
 use blst::{min_pk, min_sig, BLST_ERROR};
 use libfuzzer_sys::fuzz_target;
 
@@ -66,6 +68,7 @@ fn exercise_min_sig(data: &[u8]) {
 }
 
 fuzz_target!(|data: &[u8]| {
+    api_coverage::exercise_decode(data);
     exercise_min_pk(data);
     exercise_min_sig(data);
 

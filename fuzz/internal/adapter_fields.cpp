@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "fuzz/internal/adapter_common.h"
+#include "blst/scalar/curve/GT.h"
 
 #include <algorithm>
 
@@ -403,6 +404,26 @@ namespace catblst::fuzz::adapter
             ::blst_gt_mult(&alias, &alias, scalar_pointer, nbits);
             require(::blst_gt_is_equal(&alias, &result));
         }
+
+        void exercise_unique_native_fields()
+        {
+            using blst::scalar::GT;
+            using detail::require;
+
+            const GT identity = GT::identity();
+            const GT generator = GT::generator();
+            GT result{};
+            // FUZZ_COVER: blst::scalar::GT::dadd
+            GT::dadd(result, identity, generator);
+            require(GT::equal(result, generator));
+
+            std::array<unsigned char, 12 * 48> encoded{};
+            GT::serialize(encoded.data(), generator);
+            GT decoded = identity;
+            // FUZZ_COVER: blst::scalar::GT::deserialize_unchecked
+            require(GT::deserialize_unchecked(decoded, encoded.data()));
+            require(GT::equal(decoded, generator));
+        }
     }
 
     void run_fields_case(std::span<const std::byte> input)
@@ -436,5 +457,6 @@ namespace catblst::fuzz::adapter
         exercise_fp(fp_a, fp_b, shift);
         exercise_fp2(fp2_a, fp2_b, shift);
         exercise_fp12_and_gt(fp12_a, fp12_b, scalar, nbits, frobenius);
+        exercise_unique_native_fields();
     }
 }
