@@ -50,25 +50,28 @@ split into these reviewable commits:
   campaigns;
 - `ad472e46`: portable/native AVX profiles and pinned safe Rust targets;
 - `486cf3bf`: bounded runners, CI policy, approval gates, and source coverage;
-  and
-- `58f078b8`: independent per-target LLVM coverage reports.
+- `58f078b8`: independent per-target LLVM coverage reports;
+- `9cd198a1`: complete native C++ and safe Rust inventory enforcement, Rust
+  sanitizer replay, named coverage gates, and discovery-corpus isolation.
 
-The ledger contains 1,228 classified rows: 342 C declarations, 386 reviewed
-native C++ methods, 342 raw Rust FFI mappings, and 158 safe Rust functions or
-methods. Structural checks reject missing classifications, direct library
-calls outside the adapter, and unsafe/raw FFI use in safe Rust targets.
+The ledger contains 1,326 classified rows: 342 C declarations, 484 reviewed
+native C++ methods or free functions, 342 raw Rust FFI mappings, and 158 safe
+Rust functions or methods. Structural checks reject missing classifications,
+nonexecuted direct C rows, nonexecuted unique C++ rows, direct library calls
+outside the adapter, and incomplete safe Rust ownership mappings.
 
 All nine scalar campaigns replay their retained corpora under RelWithDebInfo
 ASan/UBSan and Debug assertions. The independent modulus oracle and all domain
 factory tests pass. Portable AVX Debug replay passes its retained corpus. Both
-safe Rust targets compile with the pinned nightly toolchain. LLVM source
-coverage produces one profile, text section, and HTML report per scalar
-campaign; no percentage gate applies.
+safe Rust targets replay with the pinned nightly toolchain and cargo-fuzz.
+LLVM source coverage produces one profile, text section, and HTML report per
+scalar campaign. Named success, rejection, boundary, aliasing, and round-trip
+paths have nonzero retained-corpus coverage; no percentage gate applies.
 
 No discovery campaign, native AVX run, Apple replay, or benchmark has run.
-`cargo-fuzz` is not installed locally, so Rust discovery also remains pending.
-Long discovery, native AVX on Peach, and Apple release-candidate replay retain
-their explicit approval gates.
+Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan and replays
+the native C/C++ boundary under UBSan. Long discovery, native AVX on Peach, and
+Apple release-candidate replay retain their explicit approval gates.
 
 ## Phase 0: inventory and enforce preconditions
 
@@ -328,7 +331,9 @@ The pinned `cargo-fuzz` package provides two targets:
 Raw Rust FFI remains `indirect` through C campaigns. Safe Rust targets slice
 bounds, ownership, panic freedom, practical allocation-failure translation,
 and agreement with C. Native C/C++ code reached through Rust uses the same
-sanitizer profile.
+sanitizer profile. `cargo-fuzz` 0.13.2 has no Rust UBSan mode. The UBSan replay
+therefore leaves safe Rust unsanitized and instruments the portable native
+C/C++ dependency, while the ASan replay instruments both sides.
 
 ## Phase 5: execution and closure
 
@@ -364,7 +369,8 @@ defect receives:
 4. a retained seed when the seed preserves material coverage.
 
 Crash artifacts remain under `out/` until triage. CI never modifies the
-checked-in corpus.
+checked-in corpus. Discovery copies retained seeds into a per-build corpus
+under `out/`; only reviewed minimized seeds are promoted into the repository.
 
 ### Coverage and automation
 
@@ -373,7 +379,8 @@ comparable only for identical compiler and build profiles.
 
 LLVM source coverage is descriptive. It must show each named success,
 rejection, boundary, aliasing, and round-trip path. The initial program has no
-percentage gate.
+percentage gate. `fuzz/COVERAGE_PATHS.csv` owns those path names, and coverage
+replay fails when any named marker has zero executions.
 
 Pull requests run structural gates and deterministic corpus replay only. Long
 discovery is manual. Peach AVX is manual. Apple Silicon performs

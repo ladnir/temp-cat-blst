@@ -62,7 +62,8 @@ Phase 12 is the first platform milestone, not the end of automated work.
 to close them.
 
 The API-complete fuzz infrastructure is implemented through Packet 19G and
-`FUZZING_PLAN.md`. Deterministic scalar and portable-AVX Debug corpus replay is
+`FUZZING_PLAN.md`; `FUZZ_API_LEDGER.csv` is its symbol-level scope authority.
+Deterministic scalar, safe Rust, and portable-AVX Debug corpus replay is
 complete. Long discovery, native AVX fuzzing, and Apple release-candidate
 replay remain separate approval-gated evidence.
 

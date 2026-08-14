@@ -255,8 +255,9 @@ outside the production claim.
 The controlling design is recorded at
 `b8874839ba3fc9f98891695bf509c06137446cb2`. Phase 0 is implemented through
 `8c92bfdd0190ac383a28ef24ceed855eafd853bd`. Its generated ledger classifies
-1,228 supported API rows: 342 C declarations, 386 reviewed native C++ methods,
-342 raw Rust FFI mappings, and 158 safe Rust functions or methods. Private
+1,326 supported API rows: 342 C declarations, 484 reviewed native C++ methods
+or free functions, 342 raw Rust FFI mappings, and 158 safe Rust functions or
+methods. Private
 domain carriers, reviewed refinements, typed call frames, and structural gates
 prevent a campaign from silently violating a narrow arithmetic contract.
 
@@ -270,9 +271,9 @@ domain-factory, call-frame, and seed-decoding regressions pass.
 
 Commit `ad472e4639e8f61691a70aded9e61e6c5962bd30` adds the bounded AVX profile
 and two safe Rust targets. Portable AVX Debug replay passes its retained
-corpus. The Rust targets compile with pinned nightly `2026-01-15`; local Rust
-discovery is pending because `cargo-fuzz` is not installed. Native AVX remains
-manual and was not run.
+corpus. Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan
+and instruments their native C/C++ dependency under a separate UBSan replay.
+Native AVX remains manual and was not run.
 
 Commit `486cf3bf81d6dab958fc9d29130d92a9bd3bc6b8` adds sequential runners,
 resource limits, approval gates, deterministic CI replay, and manual workflow
@@ -280,6 +281,17 @@ modes. Commit `58f078b871c6a64b0f06d3574af5c57ce467d3da` emits independent LLVM
 profiles and reports for all nine scalar binaries, which avoids invalid
 cross-binary profile merging. Structural, workflow-policy, shell-syntax, and
 workflow-lint checks pass.
+
+Commit `9cd198a1136e765e5c3e3b5d70d2e323f015d716` closes the foundation
+audit gaps. Clang now inventories native free functions as well as methods.
+The structural gate binds every direct C row, unique C++ row, and safe Rust
+row to executable evidence. Named success, rejection, boundary, aliasing, and
+round-trip paths all execute under LLVM coverage. Manual discovery uses a
+working corpus under `out/`, so automation cannot modify checked-in seeds.
+The follow-up passes 14/14 scalar Debug tests, 10/10 focused
+RelWithDebInfo tests, and the portable-AVX Debug replay. Rust ASan replay
+reports 312 decode edges and 931 state edges; the native-UBSan replay reports
+105 and 485 edges. These counts are descriptive and profile-specific.
 
 Three observed mismatches were harness defects: MSM tile interpretation,
 Debug replay time limits, and double delivery of encoded corpus seeds. Each

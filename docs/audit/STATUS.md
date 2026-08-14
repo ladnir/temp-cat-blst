@@ -12,17 +12,20 @@ focused friendly-membership and identity-MSM cases. The dense nonidentity
 G1+G2 MSM loop measures 3.731 seconds before the sentinel observations and
 3.727 seconds after over 1,000 repetitions. Fuzzing is the current audit
 program, not unfinished finding remediation. Phases 0 through 5 are implemented
-on `codex/fuzzing`. The generated ledger classifies 342 C declarations, 386
-reviewed native C++ methods, 342 raw Rust FFI mappings, and 158 safe Rust
-functions or methods. Structural gates, private domain carriers, reviewed
-refinements, and typed call frames enforce documented preconditions.
+on `codex/fuzzing`. The generated ledger classifies 342 C declarations, 484
+reviewed native C++ methods or free functions, 342 raw Rust FFI mappings, and
+158 safe Rust functions or methods. Structural gates bind direct C, unique
+C++, and safe Rust rows to executable evidence. Private domain carriers,
+reviewed refinements, and typed call frames enforce documented preconditions.
 
 All nine scalar campaigns replay retained corpora under RelWithDebInfo
 ASan/UBSan and Debug assertions. Portable AVX Debug replay passes. Both pinned
-safe Rust targets compile, and LLVM coverage emits an independent report for
-each scalar campaign. No confirmed library finding arose during baseline
-replay. No long discovery, native AVX fuzz run, Apple replay, or benchmark has
-run; those remain explicit later evidence packets.
+safe Rust targets replay under ASan, and their portable native dependency
+replays under UBSan. LLVM coverage emits an independent report for each scalar
+campaign and requires nonzero execution of named success, rejection, boundary,
+aliasing, and round-trip paths. No confirmed library finding arose during
+baseline replay. No long discovery, native AVX fuzz run, Apple replay, or
+benchmark has run; those remain explicit later evidence packets.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
