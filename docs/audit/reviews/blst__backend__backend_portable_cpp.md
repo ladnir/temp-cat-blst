@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/backend/backend_portable.cpp` |
 | Roadmap phase / queue | Phase 13, portable-backend trust chain |
-| Reviewed commit | `2f59883caf67191aae95abb905598f405f8139e8` |
+| Reviewed commit | `78bdcdc79f38e2d8509a2c6c22b755933780fac0` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
@@ -99,6 +99,8 @@ structure did not materially change.
 - `AUD-036` - validated: dead assignments and broad `optnone` were removed or
   narrowed before this complete review.
 - `AUD-053` - validated: all three lost-borrow expressions repaired.
+- `AUD-398` - validated: GCC and Clang apply hidden visibility to the internal
+  portable SHA provider.
 - Adjacent low-risk cleanup: dead secret printer removed and contracts corrected.
 
 ## Validation
@@ -145,3 +147,12 @@ adds no branch or wrapper to arithmetic callers.
 
 Forced fallback tests pass the `abc` and deterministic two-block known-answer
 vectors. `AUD-375` is validated for the portable provider.
+
+## GCC visibility follow-up
+
+At `78bdcdc7`, the existing hidden attribute moves inside the C-linkage
+declaration. Before the repair, GCC 15.2 warned and emitted
+`blst_sha256_block_data_order_c` as `GLOBAL DEFAULT`. Strict optimized GCC 15.2
+and Clang 21 objects now compile without an attribute warning and report the
+provider as `GLOBAL HIDDEN`. The compression body and dispatch are unchanged;
+no runtime test or benchmark was required for this declaration-only repair.

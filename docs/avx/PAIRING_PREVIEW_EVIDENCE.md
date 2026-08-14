@@ -152,6 +152,24 @@ accepted source hashes are authoritative in `proof/avx/CORRESPONDENCE.csv`.
 
 ## Residual gates
 
+### Current exact-hash reacceptance
+
+Peach Clang 21.1.8 builds source commit `4bb0c45a` in native AVX-512/IFMA
+Release mode with two workers. All 79 AVX tests and the five MatrixNoK audit
+gates pass. The accepted ledger validates 21 rows and 61 source hashes.
+
+The selected Miller object reserves `0x1f40` bytes directly. Saved registers
+and alignment retain the historical approximately 8,128-byte frame. The
+optimized probe exposes no selected-vector wrapper or conversion symbol, and
+the AVX C API object exposes no dynamic-initialization guard. No benchmark ran
+because this reacceptance changes documentation, names, and provenance only.
+
+Peach GCC 15.2 independently passes the same 79-test native suite. The later
+`AUD-399` compiler-policy repair changes no selected arithmetic: its optimized
+MatrixNoK probe is byte-identical before and after the change. GCC and Clang
+strictly compile the repaired AVX C API translation unit with unknown pragmas
+promoted to errors.
+
 - Formal P4 is accepted through proof commit `4dbb3cd`. `AVX-P4-001` proves
   the exact direct/prepared doubling and mixed-addition geometry,
   literal sparse Fp12 line multiplication, its 72-product and 2880-unit

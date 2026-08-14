@@ -1217,3 +1217,28 @@ next consolidated Peach run because no arithmetic body changed.
 The authoritative manifest now contains 288 complete, 184 in-review, and 170
 pending files across 832 tracked paths. Experimental, frozen, excluded, and
 catalogued scope is unchanged.
+
+Peach Clang 21.1.8 natively reaccepts the exact selected AVX closure sources
+from `4bb0c45a`. A two-worker Release build passes all 79 `Avx*.*` tests. The
+five direct MatrixNoK audit gates pass, including 21 correspondence rows and 61
+mapped hashes. Optimized inspection finds no selected-vector wrapper or
+conversion symbol and no AVX C API dynamic-initialization guard. Miller retains
+its approximately 8,128-byte frame; GT GLV4 and G2 GLS remain below their
+recorded stack caps. The frozen BTx/BTE dependency emits its existing ignored
+`nodiscard` warning while building the consolidated test executable. No
+benchmark, sanitizer, CUDA, or portable-AVX Release run occurred.
+
+The matching GCC 15.2 native Release build also passes all 79 AVX tests. It
+exposed two low-severity compiler-contract defects, now validated as
+`AUD-398` and `AUD-399` at `78bdcdc7`. GCC and Clang strict optimized probes
+emit the portable SHA provider as `GLOBAL HIDDEN`. Both compilers compile the
+full AVX C API translation unit with unknown pragmas promoted to errors. GCC's
+optimized MatrixNoK probe is byte-identical across the unroll-policy repair,
+so no benchmark or broader post-repair test sweep was warranted.
+
+The evidence refresh also exposed `AUD-400`: the correspondence validator
+accepted a malformed quoted field that merged later physical CSV records. At
+`360f2ffc`, the gate now requires the exact header, one record per physical
+line, and complete field counts before checking hashes. The repaired ledger
+passes all 21 rows and 61 hashes; the malformed in-memory reproduction fails
+with the intended structural diagnostic.

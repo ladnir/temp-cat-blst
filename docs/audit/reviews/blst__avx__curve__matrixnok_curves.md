@@ -46,14 +46,17 @@ The nonzero-a4 schedule remains differential-only.
 Commit `4bb0c45a` changes names, contracts, and provenance only. The focused
 portable-Debug executable passes all 43 selected curve, GT, and pairing tests.
 The dispatch and 61-hash correspondence validators pass after rebinding.
-Historical native evidence remains applicable to the unchanged arithmetic,
-but the exact documentation-bearing hashes await the next consolidated native
-reexecution. No benchmark ran.
+Peach Clang 21.1.8 then builds the exact `4bb0c45a` owners in native Release.
+All 79 AVX tests pass, including complete-add, nonzero-a4, GLV/GLS, point,
+MSM, GT, and pairing differentials. The optimized current-hash probe contains
+no selected-vector conversion or wrapper symbol. GCC 15.2 also passes all 79
+tests. Its optimized probe is byte-identical before and after the warning-only
+`AUD-399` compiler-policy repair. No benchmark ran.
 
 ## Findings and residual risk
 
 `AUD-215`, `AUD-218`, `AUD-241`, `AUD-392`, `AUD-393`, and `AUD-394`.
 
-Native compiler/ISA lowering, sanitizer/fuzz coverage, and statistical leakage
-remain milestone evidence. These gaps do not reopen the completed source
-review.
+Compiler and IFMA correctness remain the common P0 boundary. Sanitizer/fuzz
+coverage and statistical leakage remain milestone evidence. These gaps do not
+reopen the completed source review.

@@ -45,12 +45,17 @@ reciprocal and compiler/ISA lowering remain differential evidence boundaries.
 The dead generic `pairing` helper was deleted. Tests and the historical
 comparison benchmark now compose `MillerEngine` and final exponentiation
 directly. The benchmark target compiles but was not executed. All 43 focused
-portable-Debug tests and both AVX validators pass. No arithmetic body changed.
+portable-Debug tests and both AVX validators pass. Peach Clang 21.1.8 native
+Release passes all 79 AVX tests and all five direct MatrixNoK audit gates at
+the exact `4bb0c45a` source hashes. The selected Miller object contains no
+selected-vector conversion or wrapper dependency. GCC 15.2 independently
+passes all 79 AVX tests. No arithmetic body changed.
 
 ## Findings and residual risk
 
 `AUD-220`, `AUD-233`, `AUD-241`, `AUD-392`, `AUD-394`, and `AUD-397`.
 
-The historical 8,128-byte native Miller frame remains the current evidence.
-Exact-hash native reexecution, sanitizer/fuzz coverage, and compiler/IFMA
-lowering remain milestone evidence rather than incomplete source review.
+The current Miller prologue reserves `0x1f40` bytes. Including saved registers
+and alignment, this reaccepts the historical approximately 8,128-byte frame.
+Sanitizer/fuzz coverage and compiler/IFMA correctness remain milestone evidence
+rather than incomplete source review.

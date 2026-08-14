@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/common/defines.h` |
 | Roadmap phase / queue | Phase 13, first configuration/representation packet |
-| Reviewed commit | `80ae0f9a23da1c30415498241e204297e15157af` |
+| Reviewed commit | `78bdcdc79f38e2d8509a2c6c22b755933780fac0` |
 | Reviewer | Codex |
 | Date | 2026-08-02 |
 | Disposition | `in_scope_production` |
@@ -187,7 +187,7 @@ selection was separately validated by `AUD-037`.
 
 ## Findings
 
-`AUD-043`, `AUD-044`, `AUD-045`, `AUD-046`, and `AUD-047` - validated.
+`AUD-043`, `AUD-044`, `AUD-045`, `AUD-046`, `AUD-047`, and `AUD-399` - validated.
 
 ## Validation
 
@@ -229,3 +229,14 @@ completion of the common definitions.
 UFp2 now require their exact sizes, standard layout, trivial copyability, and
 leading array offset at compile time. MSVC Release compilation passes. The
 finding remains fixed pending compilation by the supported Apple toolchain.
+
+## GCC unroll-policy follow-up
+
+`AUD-399` separates the compiler policies at `78bdcdc7`. Clang retains its
+generic unroll directive. GCC receives no directive because it warned and
+ignored the generic spelling. Peach GCC 15.2 compiles the complete AVX C API
+translation unit with unknown pragmas promoted to errors. The optimized
+MatrixNoK probe object is byte-identical before and after the change, with hash
+`a126a4da3d67bad819055a5d033ac22c27f4595bd4dc0403649ebe59743061ca`.
+Representative change-base and field-multiplication kernels remain fully
+unrolled; the latter contains only its stack-canary branch. No benchmark ran.

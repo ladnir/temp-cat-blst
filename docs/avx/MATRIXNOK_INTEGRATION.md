@@ -79,6 +79,23 @@ Pending permission-gated evidence:
 ledger. No CUDA, BTx/BTE, benchmark, portable-AVX Release, or broad build
 belongs to this packet.
 
+The consolidated exact-hash reacceptance at source commit `4bb0c45a` uses
+Peach's Ryzen 9 7950X and Clang 21.1.8. A native Release build with two workers
+passes all 79 `Avx*.*` tests. This includes the selected curve, scalar
+multiplication, MSM, GT, pairing, point, and C-boundary suites. The five direct
+MatrixNoK audit scripts pass, including all 21 correspondence rows and 61
+mapped source hashes. The optimized current-hash probe contains no `_vv`
+wrapper, native-conversion symbol, or dynamic-initialization guard. Miller
+retains its approximately 8,128-byte frame. No benchmark ran because no
+arithmetic body changed.
+
+GCC 15.2 independently passes the same 79-test native suite. That build exposed
+the warning-only `AUD-399` macro-policy defect. At repair commit `78bdcdc7`,
+GCC compiles the complete AVX C API with unknown pragmas promoted to errors.
+The optimized MatrixNoK probe remains byte-identical, with SHA-256
+`a126a4da3d67bad819055a5d033ac22c27f4595bd4dc0403649ebe59743061ca`.
+The repair therefore requires no benchmark or repeated broad test sweep.
+
 ## Lean integration-gap audit
 
 Production selection does not turn the existing proof into a blanket proof of

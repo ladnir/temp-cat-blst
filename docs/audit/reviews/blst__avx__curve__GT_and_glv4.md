@@ -51,8 +51,13 @@ observation bridges remain external.
 The new AVX regression proves that unchecked decoding accepts a canonical
 non-GT Fp12 value, membership rejects it, and checked decoding is failure
 atomic. All 43 focused portable-Debug tests pass. The selected dispatch and
-correspondence validators pass. Commit `4bb0c45a` changes no exponentiation,
-Miller, or table arithmetic, so no benchmark ran.
+correspondence validators pass. Peach Clang 21.1.8 native Release passes all
+79 AVX tests against the exact `4bb0c45a` owners. The optimized probe contains
+no selected-vector conversion or wrapper symbol; its GT CT GLV4 frame is
+32,184 bytes, below the retained 54,144-byte cap. Commit `4bb0c45a` changes no
+exponentiation, Miller, or table arithmetic. GCC 15.2 independently passes the
+same 79-test native suite. Its post-`AUD-399` optimized MatrixNoK probe is
+byte-identical to the tested object, so no benchmark or repeated suite ran.
 
 ## Findings and residual risk
 
@@ -62,4 +67,5 @@ Miller, or table arithmetic, so no benchmark ran.
 The unchecked decoder remains intentionally easy to misuse because API
 compatibility precludes a distinct type. Precise documentation and negative
 tests are the selected control. Native compiler/ISA, sanitizer/fuzz, and
-statistical leakage evidence remain milestone gates.
+statistical leakage evidence remain milestone gates. Native exact-hash
+execution is complete.
