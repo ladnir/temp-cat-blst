@@ -1270,3 +1270,10 @@ benchmark, sanitizer, or CI run accompanied this triage.
 The authoritative manifest now contains 295 complete, 177 in-review, and 170
 pending files across 832 tracked paths. Experimental, frozen, excluded, and
 catalogued scope is unchanged.
+
+Peach then closes the final `ctFft.h` file-review gate without rebuilding. The
+selected native AVX-512/IFMA test binary contains a byte-identical `ctFft.h`
+source hash and passes all 12 `FftCore.*:FftApi.*:Timer.*` tests in 3 ms. No
+benchmark or broad test ran. The authoritative manifest now contains 296
+complete, 176 in-review, and 170 pending files. FFT sanitizer and differential-
+fuzz campaigns remain Phase 19 release gates.

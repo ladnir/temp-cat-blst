@@ -5,6 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Path | `blst/fft/ctFft.h` |
+| Review state | complete |
 | Roadmap phase / queue | Phase 17, core FFT owner after middle-product audit |
 | Reviewed commit | `9d1e2bd60e610e88b44c1be36daea7be793898c0` |
 | Reviewer | Codex audit team |
@@ -185,7 +186,11 @@ and performance evidence before inclusion.
 - Hosted supported run `31665323681` passes the scalar/assembly FFT surface on
   Linux, Windows, and Apple Silicon. Portable AVX Debug run `31664863148`
   passes the selected-vector FFT tests. No benchmark, CUDA, sanitizer, native
-  AVX-512, or differential fuzz campaign was performed for this closure.
+  AVX-512, or differential fuzz campaign was performed for that packet.
+- Peach's selected native AVX-512/IFMA binary passes all 12
+  `FftCore.*:FftApi.*:Timer.*` tests. Its `ctFft.h` SHA-256 is
+  `ff6509e1017181fcd601595a67998dd955739c85f760a7d3918b777733e73e92`,
+  identical to the local reviewed source. No rebuild or benchmark ran.
 
 ## Automated evidence
 
@@ -204,8 +209,7 @@ narrow precondition rather than an O(n) runtime check. Hot Release templates
 likewise do not validate plan internals or overlap. Public C/Rust adapters
 validate their exposed shapes. The generic names remain in the global namespace
 for compatibility with frozen BTx/BTE callers; namespace cleanup is deferred
-until that integration can move without editing frozen code. Final manifest
-closure awaits selected native-AVX execution of
-`FftCore.*:FftApi.*:Timer.*`. Sanitizer and differential-fuzz campaigns remain
-Phase 19 release gates and do not require reopening this source review unless
-they find a defect.
+until that integration can move without editing frozen code. Selected native-
+AVX execution passes 12/12 focused tests, so the file review is complete.
+Sanitizer and differential-fuzz campaigns remain Phase 19 release gates and do
+not require reopening this source review unless they find a defect.
