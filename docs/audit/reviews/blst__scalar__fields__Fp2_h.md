@@ -10,6 +10,7 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
+| Review state | complete |
 | Subsystem | scalar quadratic extension field |
 | Profiles | scalar, C, C++, Rust; experimental CUDA definitions are not release evidence |
 | Generation/provenance | Hand-maintained C++ refactor with upstream BLST `src/fp12_tower.c`, `src/exp.c`, and `src/sqrt.c` lineage |
@@ -168,9 +169,10 @@ may overwrite the input. The unused generic macro from `AUD-087` was removed.
 The focused zero-bit regression and strict MSVC test-unit compilation pass.
 
 Supported C++ and Rust execution on Apple, Linux, and Windows is green in run
-`31665323681`. The file remains in review because the later static assembly
-layout assertions at `a29895f` have not compiled on supported Apple Silicon.
-Broader sanitizer evidence remains a phase gate.
+`31665323681`. The later static assembly layout assertions at `a29895f`
+compile under supported Apple Silicon job `94666845914` in run `31767696988`.
+The file review is complete. Broader sanitizer evidence remains a Phase 19
+gate.
 
 ## Generated-addition-chain follow-up
 
@@ -201,5 +203,6 @@ At `a29895f`, Fp2 is required at compile time to remain a contiguous 96-byte
 standard-layout, trivially copyable pair of Fp components. Independent byte
 equations now cover Montgomery multiplication and squaring, exact aliases, and
 the unreduced 382x outputs for selected, generic, and ADX providers. This closes
-the prior local arithmetic-oracle gap. `AUD-371` remains fixed pending the
-supported Apple compile; sanitizer evidence remains a later milestone gate.
+the prior local arithmetic-oracle gap. Apple Silicon job `94666845914` compiles
+the layout assertions and validates `AUD-371`; sanitizer evidence remains a
+later milestone gate.

@@ -306,7 +306,7 @@ Montgomery arithmetic. It covers sparse 256-bit asymmetry, 384-bit arithmetic,
 REDC, from-Montgomery, Fp2, 382x intermediates, exact aliases, and repeated
 squares. Focused MSVC x86-64 Release execution passes 15/15 audit tests plus
 11/11 retained interface tests. `AUD-370` is validated. `AUD-369` and
-`AUD-371` remain fixed pending supported Apple ARM64 evidence. No benchmark,
+`AUD-371` initially remained fixed pending supported Apple ARM64 evidence. No benchmark,
 full build, sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.
 
 Batch D inversion and residue-test remediation is implemented at `83c11ba`.
@@ -320,7 +320,7 @@ forced-generic x86 inverse providers. A separate Euler-criterion oracle
 validates zero, residue, and nonresidue behavior. Focused MSVC x86-64 Release
 execution passes 8/8 new and retained tests. The CHERI residue-test scratch is
 now confined to 256 bytes; the ordinary Apple projection is unchanged.
-`AUD-372` is validated. `AUD-373` awaits supported Apple execution, and
+`AUD-372` is validated. `AUD-373` initially awaited supported Apple execution, and
 `AUD-374` awaits experimental CHERI target evidence. Batch E is next.
 
 Batch E SHA remediation is implemented at `2f59883`. The x86 public entry now
@@ -374,3 +374,12 @@ experimental assembly artifacts and reset four reviewed support overrides.
 Commit `a9ceb362` preserves every nonempty existing field and applies defaults
 only to new paths. The authoritative classifications were restored, and two
 successive regeneration runs are byte-identical.
+
+## Supported Apple arithmetic closure
+
+Supported Apple Silicon scalar-assembly job `94666845914` in run
+`31767696988` closes the remaining Batch C and D gates. It configures and
+builds revision `5d781740`, compiles every field-layout assertion, and passes
+the complete CTest graph with the selected ARM64 Montgomery, inverse, and Euler
+oracles. `AUD-369`, `AUD-371`, and `AUD-373` are validated. Non-Apple ARM64 and
+CHERI remain experimental targets rather than supported-platform gaps.

@@ -333,10 +333,17 @@ documentation-only `AUD-198`, `AUD-204`, `AUD-205`, and `AUD-207` repairs.
 complete. Their broader sanitizer, oracle, and fuzz work remains Phase 19
 release evidence.
 
-`Fp.h`, `Fp2.h`, and `Fr.h` remain in review for a narrower reason. Commits
-`a29895f` and `83c11ba` postdate the green hosted run, so the new assembly-
-layout assertions and independent arithmetic oracles still require Apple
-execution. No build or runtime job was performed during this reconciliation.
+At that reconciliation point, `Fp.h`, `Fp2.h`, and `Fr.h` remained in review
+for a narrower reason. Commits `a29895f` and `83c11ba` postdated the green
+hosted run, so the new assembly-layout assertions and independent arithmetic
+oracles still required Apple execution. No build or runtime job was performed
+during that reconciliation.
+
+Supported Apple Silicon scalar-assembly job `94666845914` in run
+`31767696988` later compiles every field-layout assertion and passes all 465
+CTest cases, including the selected ARM64 Montgomery, inverse, and Euler
+oracles. `Fp.h`, `Fp2.h`, and `Fr.h` are complete file reviews. Sanitizer and
+fuzz campaigns remain Phase 19 release gates.
 
 Final review also completed the `blst_byte`/`blst_limb_t` migration in retained
 BTx/TRX boundary sources and public-header tests. BTx/TRX behavior was not

@@ -10,6 +10,7 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
+| Review state | complete |
 | Subsystem | Raw scalar assembly declarations and provider availability |
 | Profiles | x86-64 ADX, x86-64 q, combined portable x86-64, Apple/AArch64 scalar |
 | Generation/provenance | Locally composed declaration header with upstream BLST `src/vect.h` lineage |
@@ -159,10 +160,10 @@ estimate domain. The raw positive-length prefetch symbol is
 `vec_prefetch_asm`; the selected wrapper handles zero before assembly.
 
 The exact MSVC object exports the new symbol and omits the obsolete raw name.
-Independent x86-64 arithmetic tests pass 6/6. Apple ARM64 execution remains
-required for the changed shared ARM prefetch owner. Non-Apple ARM64 and CHERI
-remain experimental, and CUDA is outside this review. The manifest row remains
-`in_review` until the generated assembly packet receives that evidence.
+Independent x86-64 arithmetic tests pass 6/6. Supported Apple Silicon
+scalar-assembly job `94666845914` in run `31767696988` compiles and tests the
+shared ARM owner. Non-Apple ARM64 and CHERI remain experimental, and CUDA is
+outside this review.
 
 ## Batch C Montgomery boundary follow-up
 
@@ -173,8 +174,8 @@ repeated-square count, Fp2 component order, 382x output shape, and timing
 scope. These comments add no executable code.
 
 The independent byte oracle passes for the selected, forced-generic, and
-direct ADX providers on MSVC x86-64. `AUD-370` is validated. The header remains
-in review with `AUD-369` and `AUD-371` pending supported Apple ARM64 evidence.
+direct ADX providers on MSVC x86-64. `AUD-370` is validated. Supported Apple
+job `94666845914` validates `AUD-369` and `AUD-371` for the ARM64 provider.
 
 ## Batch D inverse boundary follow-up
 
@@ -186,8 +187,9 @@ reduced input and odd prime modulus and includes zero among quadratic residues.
 
 These declaration changes add no instructions. Independent byte-arithmetic
 and Euler-criterion oracles pass for selected, portable, direct ADX, and
-forced-generic x86 providers. `AUD-372` is validated. Apple execution of the
-new oracle remains the production evidence gap recorded by `AUD-373`.
+forced-generic x86 providers. `AUD-372` is validated. Supported Apple job
+`94666845914` passes the selected inverse and Euler oracles and validates
+`AUD-373`.
 
 ## Batch E SHA boundary follow-up
 

@@ -10,6 +10,7 @@
 | Reviewer | Codex |
 | Date | 2026-08-02 |
 | Disposition | `in_scope_production` |
+| Review state | complete |
 | Subsystem | common representation, compiler, assertion, and sizing contracts |
 | Profiles | scalar, AVX-512, native C++ internals; C and Rust through compiled ABI |
 | Generation/provenance | Locally composed C++ header with declared lineage from upstream BLST `src/vect.h` |
@@ -227,8 +228,9 @@ completion of the common definitions.
 
 `AUD-371` pins the double-width assembly shapes at `a29895f`. UFr, UFp, and
 UFp2 now require their exact sizes, standard layout, trivial copyability, and
-leading array offset at compile time. MSVC Release compilation passes. The
-finding remains fixed pending compilation by the supported Apple toolchain.
+leading array offset at compile time. MSVC Release compilation passes.
+Supported Apple Silicon scalar-assembly job `94666845914` in run `31767696988`
+compiles the same assertions and validates `AUD-371`.
 
 ## GCC unroll-policy follow-up
 

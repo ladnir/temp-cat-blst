@@ -4,7 +4,7 @@
 | --- | --- |
 | Disposition | in-scope production |
 | Profiles | scalar, C, C++, Rust |
-| Review state | in review |
+| Review state | complete |
 | Exact review baseline | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
 | Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6`, `1e286e2` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/exports.c`, `src/recip.c`, and `src/vect.c`; no one-to-one file |
@@ -36,8 +36,9 @@ alignment branches are removed.
 boundary behavior, and supported native C++/Rust run `31665323681` cover the
 zero-copy public/internal representation on Apple Silicon, Linux, and Windows.
 The later assembly-layout and independent-oracle additions at `a29895f` and
-`83c11ba` still require Apple execution. Broad sanitizer evidence remains a
-phase gate.
+`83c11ba` compile and pass under supported Apple Silicon job `94666845914` in
+run `31767696988`. The file review is complete. Broad sanitizer evidence
+remains a Phase 19 gate.
 
 ## Wave 2 exact-contract follow-up
 
@@ -64,12 +65,12 @@ private bound without adding Release instructions.
 At `a29895f`, Fr is required at compile time to remain a 32-byte standard-layout,
 trivially copyable object whose limb array starts at offset zero. The independent
 Montgomery oracle covers reduced operands, the sparse full-width second operand,
-REDC, from-Montgomery, and exact aliases. `AUD-371` remains fixed pending the
-supported Apple compile.
+REDC, from-Montgomery, and exact aliases. Apple Silicon job `94666845914`
+compiles the layout assertions and validates `AUD-371`.
 
 ## Batch D inverse follow-up
 
 At `83c11ba`, the private bound comment records both `temp * inp = R^2` and
 `temp < 2rR`. The existing direct REDC plus `to_mont` pipeline is unchanged.
 Independent selected and portable x86 oracles validate zero, the bound, and
-the congruence. Apple execution remains pending under `AUD-373`.
+the congruence. Supported Apple execution passes under `AUD-373`.

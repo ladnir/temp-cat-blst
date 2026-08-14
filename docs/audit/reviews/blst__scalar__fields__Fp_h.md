@@ -4,7 +4,7 @@
 | --- | --- |
 | Disposition | in-scope production |
 | Profiles | scalar, C, C++, Rust |
-| Review state | in review |
+| Review state | complete |
 | Exact review baseline | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
 | Remediation commits | `7c0e399`, `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/consts.h`, `src/recip.c`, and addition-chain headers; no one-to-one file |
@@ -36,7 +36,9 @@ focused boundary behavior, and the retained Rust field test cover the repaired
 ABI and square-root publication contract. Supported run `31665323681` passes
 the containing revision on Apple Silicon, Linux, and Windows. The later
 assembly-layout and independent-oracle additions at `a29895f` and `83c11ba`
-still require Apple execution. Broad sanitizer evidence remains a phase gate.
+compile and pass under supported Apple Silicon job `94666845914` in run
+`31767696988`. The file review is complete. Broad sanitizer evidence remains a
+Phase 19 gate.
 
 ## Generated-addition-chain follow-up
 
@@ -72,13 +74,13 @@ variable-time rather than promoted to a stronger contract.
 At `a29895f`, Fp is required at compile time to remain a 48-byte standard-layout,
 trivially copyable object whose limb array starts at offset zero. The independent
 Montgomery oracle covers multiplication, squaring, REDC, from-Montgomery,
-exact aliases, and the optimized repeated-square path. `AUD-371` remains fixed
-pending the supported Apple compile.
+exact aliases, and the optimized repeated-square path. Apple Silicon job
+`94666845914` compiles the layout assertions and validates `AUD-371`.
 
 ## Batch D inverse follow-up
 
 At `83c11ba`, the reciprocal commentary now describes how the bounded
 double-width `R^2` almost-inverse is normalized to a canonical Montgomery Fp
 value. Selected, portable, ADX, and generic x86 providers satisfy that exact
-relation. No Fp instruction or public contract changed. Apple execution of the
-new independent oracle remains pending under `AUD-373`.
+relation. No Fp instruction or public contract changed. The independent oracle
+passes on supported Apple Silicon under `AUD-373`.

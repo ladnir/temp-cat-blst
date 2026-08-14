@@ -1135,7 +1135,7 @@ domain, alias, and timing contracts are now explicit. Independent byte and
 Euler oracles pass for all selected, portable, ADX, and forced-generic x86
 providers plus the retained interface cases. CHERI residue-test scratch is
 confined to 256 bytes without changing the supported Apple instruction
-projection. `AUD-372` is validated; `AUD-373` awaits Apple execution and
+projection. `AUD-372` was validated; `AUD-373` initially awaited Apple execution and
 `AUD-374` awaits experimental CHERI target evidence. Batch E SHA-256 is next.
 
 Assembly trust-chain Batch E is implemented at `2f59883`. x86 SHA compression
@@ -1260,7 +1260,8 @@ their implementations. `Fp12.h` and `Fp12.cpp` are therefore complete file
 reviews. The visible native `Fp4` name remains fixed two-`Fp2` scratch storage,
 not a C or Rust API or a promised general Fp4 algebra.
 
-`Fp.h`, `Fp2.h`, and `Fr.h` remain in review. Their source reviews are complete,
+At that evidence-triage point, `Fp.h`, `Fp2.h`, and `Fr.h` remained in review.
+Their source reviews were complete,
 but `a29895f` and `83c11ba` postdate the green hosted run. The static assembly
 layout assertions and independent Montgomery/inversion oracles still require
 supported Apple execution. `ctFft.h` also remains in review until the selected
@@ -1277,3 +1278,19 @@ source hash and passes all 12 `FftCore.*:FftApi.*:Timer.*` tests in 3 ms. No
 benchmark or broad test ran. The authoritative manifest now contains 296
 complete, 176 in-review, and 170 pending files. FFT sanitizer and differential-
 fuzz campaigns remain Phase 19 release gates.
+
+Supported Apple Silicon scalar-assembly job `94666845914` in build run
+`31767696988` then closes the post-hosted assembly evidence at revision
+`5d781740`. The arm64 runner configures and builds the product and passes the
+complete CTest graph. This compiles every Fr/Fp/Fp2/widened layout assertion
+and executes the selected ARM64 Montgomery, almost-inverse, and Euler oracles.
+`AUD-369`, `AUD-371`, and `AUD-373` are validated. The field owners, supported
+ARM generator owners, shared assembly declaration owner, and foundational
+layout owner are complete file reviews. Non-Apple ARM64 and CHERI remain
+experimental without weakening Apple support. No benchmark or additional
+local build ran.
+
+The Apple job reports 465/465 tests passed in 6.98 seconds. The complete
+supported build run concludes successfully. The authoritative manifest now
+contains 315 complete, 157 in-review, and 170 pending files across 832 tracked
+paths. Experimental, frozen, excluded, and catalogued scope is unchanged.

@@ -220,8 +220,8 @@ Eleven retained Montgomery interface tests also pass after their invalid input
 generators were corrected. Compile-time assertions pin all six assembly-visible
 field shapes. No generated assembly or production arithmetic changed.
 
-`AUD-370` is validated. `AUD-369` and `AUD-371` are fixed pending supported
-Apple ARM64 execution and compilation. No full build, benchmark, sanitizer,
+`AUD-370` was validated. `AUD-369` and `AUD-371` initially remained fixed
+pending supported Apple ARM64 execution and compilation. No full build, benchmark, sanitizer,
 CUDA, portable-AVX Release, or BTx/BTE work ran.
 
 ## Batch D inventory and findings
@@ -269,11 +269,22 @@ verification reproduces all 100 checked outputs. The CHERI translator fixture
 passes. Preprocessing the supported Apple ARM64 path before and after the
 change produces identical ordinary instructions.
 
-`AUD-372` is validated. `AUD-373` remains fixed pending supported Apple
-execution of the independent oracle. `AUD-374` remains fixed because CHERI is
-experimental and no Morello toolchain is available. No benchmark, broad test
-sweep, sanitizer, CUDA, portable-AVX Release, or source change under BTx/BTE
-ran. Batch E, SHA-256, is next.
+`AUD-372` and `AUD-373` are validated. Supported Apple Silicon scalar-assembly
+job `94666845914` in run `31767696988` compiles the selected ARM owners and
+passes the complete CTest graph, including the independent inverse and Euler
+oracles. The Apple job reports 465/465 tests passed in 6.98 seconds.
+`AUD-374` remains fixed because CHERI is experimental and no Morello
+toolchain is available. No benchmark, sanitizer, CUDA, portable-AVX Release,
+or source change under BTx/BTE ran. Batch E, SHA-256, is next.
+
+## Supported Apple closure
+
+The same Apple job closes Batch C. It compiles the Fr, Fp, Fp2, and widened
+layout assertions and executes the selected ARM64 Montgomery byte oracles.
+`AUD-369`, `AUD-371`, and `AUD-373` are validated. All handwritten assembly
+owners for supported x86-64 and Apple ARM64 are complete file reviews.
+Non-Apple ARM64 and CHERI remain experimental and require explicit target
+promotion; their absence does not weaken the supported-platform conclusion.
 
 ## Batch E inventory and findings
 
