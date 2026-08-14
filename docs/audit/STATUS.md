@@ -32,7 +32,10 @@ without a crash, timeout, sanitizer finding, or library mismatch. No long
 discovery, Apple replay, or benchmark has run. Edge-preserving set-cover
 minimization promotes 70 content-addressed seeds totaling 2,012 bytes. The
 retained corpora preserve every discovered edge and replay successfully under
-the same sanitizer profile.
+the same sanitizer profile. A second sequential Peach pilot completes 1,143
+field executions and 1,595 group executions without a finding. Its 38 promoted
+seeds preserve all 2,552 field edges and 1,988 group edges; focused local
+sanitized replay passes 2/2.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM

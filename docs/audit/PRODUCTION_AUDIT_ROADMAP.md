@@ -69,7 +69,9 @@ corpus under ASan and UBSan at source commit `23e8b2cc`. Long discovery and
 Apple release-candidate replay remain separate approval-gated evidence. A
 later 60-second-per-target Peach pilot completes the scalar `decode` and
 `bytes` campaigns without a crash or sanitizer finding. Edge-preserving
-set-cover minimization promotes 70 new retained seeds.
+set-cover minimization promotes 70 new retained seeds. The same bounded Peach
+pilot then completes `fields` and `groups` without a finding and promotes 38
+edge-preserving seeds.
 
 ## Current work volume
 

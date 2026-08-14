@@ -79,7 +79,10 @@ executions without a crash or sanitizer finding. Edge-preserving set-cover
 minimization promotes 44 decode seeds and 26 byte-conversion seeds. The
 retained corpus preserves all 1,531 and 741 discovered edges while keeping
 2,358 and 1,336 features. Long discovery and Apple release-candidate replay
-retain their explicit approval gates.
+retain their explicit approval gates. A second Peach pilot runs `fields` and
+`groups` for 60 seconds each. They complete 1,143 and 1,595 executions without
+a crash or sanitizer finding. Edge-preserving minimization promotes 19 seeds
+per target and preserves all 2,552 and 1,988 discovered edges.
 
 ## Phase 0: inventory and enforce preconditions
 

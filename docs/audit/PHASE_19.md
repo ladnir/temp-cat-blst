@@ -329,3 +329,18 @@ a seed happens to resemble text. A narrow `.gitattributes` rule now disables
 text transforms under `fuzz/corpus`; all 70 committed blobs match their SHA-1
 filenames after restaging. This was a corpus-packaging defect, not a CatBLST
 finding.
+
+The next sequential Peach pilot covers `fields` and `groups` at source commit
+`23e8b2cc` under Clang 21.1.8 RelWithDebInfo, ASan, and UBSan. `fields`
+completes 1,143 executions with 2,552 edges and 5,774 features. `groups`
+completes 1,595 executions with 1,988 edges and 3,825 features. Their lower
+execution rates reflect the field and direct-multiplication oracles. Neither
+target crashes, times out, reports a sanitizer finding, or produces an
+artifact beyond `discovery.log`.
+
+Edge-preserving set-cover minimization promotes 19 seeds for each target. The
+retained field corpus preserves all 2,552 edges and 4,398 features. The
+retained group corpus preserves all 1,988 edges and 2,814 features. The 38
+additions total 1,037 bytes, obey both input bounds, use content-derived names,
+and replay successfully under the Peach sanitizer profile. Focused local
+sanitized replay also passes 2/2 without rebuilding product sources.
