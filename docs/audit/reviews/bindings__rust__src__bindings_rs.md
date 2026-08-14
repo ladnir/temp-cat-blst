@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/rust/src/bindings.rs`; `build/generate-rust-bindings.sh`; `build/bindings_trim.pl` |
 | Roadmap phase / queue | Phase 18 generated-Rust audit |
-| Reviewed commit | `16e5b4926e56821989a73e67ffc2e33832ffc262` |
+| Reviewed commit | `daa4eb3005fa4c2fef68fd23a84c34dd2518df7d` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | generated production plus owning generators |
@@ -77,3 +77,7 @@ At `16e5b49`, the audited complete-add exact-alias wording was added to the C
 owner and regenerated through the same pinned pipeline. The artifact remains
 byte-exact and declaration parity remains 253/253; no declaration, type, ABI,
 or runtime code changed.
+
+At `daa4eb30`, the four explicit pairing-check declarations inherit the
+clarified complete-membership wording from the C owner. Declaration parity
+remains 253/253; no signature, type, layout, ABI, or runtime code changed.

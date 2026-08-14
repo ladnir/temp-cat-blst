@@ -208,8 +208,8 @@ opened high-severity `AUD-091`: automatic 256-bit AVX Pippenger had applied a
 canonical-scalar, subgroup-only GLV/GLS split under a general MSM contract.
 The subgroup-only API recalibration resolves that caller defect.
 
-The cross-language group-domain contract audit now accounts for all 241
-relevant public C symbols in 52 disjoint machine-checked families and traces the
+The cross-language group-domain contract audit now accounts for all 243
+relevant public C symbols in 53 disjoint machine-checked families and traces the
 native C++ and safe/raw Rust surfaces. It records actual Release validation
 separately from Debug assertions and mathematical preconditions. `AUD-092`
 through `AUD-100` capture GT/Fp12 naming, complete subgroup predicates,
@@ -222,6 +222,17 @@ instead of overflowing fixed storage. Focused scalar Release C/C++ and Rust
 tests pass. The stale uppercase-coordinate test references were repaired, and
 the current native AVX boundary target executes 5/5 on Peach. No sanitizer
 sweep, portable-AVX Release build, or full suite ran.
+
+`AUD-097` is now validated at `daa4eb30`. CatBLST retains the
+upstream-compatible validate-once-PK pairing policy: ordinary aggregation
+checks the non-infinite signature and assumes each PK was validated earlier;
+explicit flags request complete curve-plus-subgroup checks. False flags
+transfer the subgroup precondition instead of widening the supported domain.
+Raw Miller and AVX pairing remain subgroup-only expert operations, and the AVX
+boolean does not report validation. Focused scalar Release tests reject
+on-curve non-subgroup and off-curve G1/G2 operands in both orientations without
+mutating the context. No arithmetic, benchmark, broad suite, CUDA, or BTx work
+was included.
 
 ## Main program phases
 

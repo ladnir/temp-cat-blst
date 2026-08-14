@@ -450,6 +450,23 @@ for the low-level accumulator accessor.
 No benchmark, broad suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
 or portable-AVX Release build is part of this packet.
 
+### Pairing validation-policy closure
+
+Commit `daa4eb30` closes `AUD-097` without changing arithmetic or adding an API
+family. Ordinary aggregation retains the validate-once-PK policy: it rejects
+an infinite PK, assumes prior PK subgroup validation, and performs a complete
+curve-plus-subgroup check on each non-infinite signature contribution. The
+`chk_n` flags request those complete checks independently. A false flag
+transfers the subgroup precondition to the caller and does not widen the
+supported domain.
+
+Raw Miller helpers and `blst_avx_pairing` remain subgroup-only expert paths.
+The AVX boolean reports null inputs or unavailable backend support, not point
+validation. Safe Rust now states the same raw subgroup precondition. Focused
+scalar Release tests construct both on-curve non-subgroup and off-curve G1/G2
+operands. Requested checks reject all cases in both orientations without
+context mutation, and ordinary aggregation rejects invalid signatures.
+
 ## Checked GT deserialization follow-up
 
 The deferred `AUD-085` design is now implemented for the native scalar and

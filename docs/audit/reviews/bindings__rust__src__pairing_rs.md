@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/rust/src/pairing.rs` |
 | Roadmap phase / queue | Phase 15 aggregate packet with prior Phase 2/5 repairs |
-| Reviewed commit | `091dfb2cae096ee8ed801036e98827b3253b2e84` |
+| Reviewed commit | `daa4eb3005fa4c2fef68fd23a84c34dd2518df7d` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-05 |
 | Disposition | in-scope production |
@@ -42,9 +42,11 @@ capacity reuse/growth, moving across threads, committed merge, typed pairing
 orientation, explicit missing signature, scalar boundary lengths, empty Miller
 identity, and uniqueness results. Earlier native/portable Phase 2 tests validate
 the owned-DST and scalar-length repairs; Phase 5 covers the uniqueness ABI.
-`AUD-001`, `AUD-002`, `AUD-011`, `AUD-152`, `AUD-155`, and `AUD-159` are
+`AUD-001`, `AUD-002`, `AUD-011`, `AUD-097`, `AUD-152`, `AUD-155`, and `AUD-159` are
 validated. Broader feature combinations, sanitizer/fuzz evidence, and Apple and
 native AVX-512 execution remain milestone work.
 
 Complete Phase 15 file review at implementation commit
-`091dfb2cae096ee8ed801036e98827b3253b2e84`.
+`daa4eb3005fa4c2fef68fd23a84c34dd2518df7d`. The final pairing-policy
+addendum defines a false validation flag as a transferred subgroup
+precondition and corrects raw aggregation from on-curve-only to subgroup-only.

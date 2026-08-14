@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Roadmap phase | Phase 18 expert AVX public surface |
-| Reviewed commit | `e6163cecba9a9f66a8e6ec7aed58cbf2f0ba1672` |
+| Reviewed commit | `daa4eb3005fa4c2fef68fd23a84c34dd2518df7d` |
 | Date | 2026-08-12 |
 | Disposition | in-scope production, complete |
 | Profiles | C99, C++, native/portable AVX-512; CUDA and frozen BTx/BTE excluded |
@@ -66,3 +66,10 @@ overlap returns `false` without changing output; entries allocate nothing and
 do not throw across C. Focused portable-Debug tests validate exact and partial
 overlap, failure atomicity, and one-point G1/G2 aliasing. `AUD-390` is
 validated; native, sanitizer, and fuzz evidence remain phase-wide gates.
+
+## Pairing result addendum
+
+At `daa4eb30`, `blst_avx_pairing` remains a subgroup-only expert operation.
+Its boolean reports null arguments or unavailable AVX support; it does not
+report curve or subgroup validation. No implementation or code generation
+changed. This closes the AVX declaration portion of `AUD-097`.

@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/blst_scalar.h` |
 | Roadmap phase / queue | Phase 18 public C/C++/Rust surface; Wave 1 Set B |
-| Reviewed commit | `16e5b49` |
+| Reviewed commit | `daa4eb30` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | in-scope production |
@@ -344,9 +344,10 @@ overlap dynamically without changing the surface or hot paths.
 
 Residual release evidence belongs to underlying implementations: sanitizer and
 fuzz expansion, Apple and other supported toolchains, native AVX-512 codegen,
-and full milestone matrices. The open pairing-policy decision `AUD-097` remains
-an explicit semantic policy item, not a missing declaration contract. These
-gaps do not prevent this header's exact file review from being complete.
+and full milestone matrices. The validate-once-PK pairing policy is closed by
+`AUD-097`; false explicit-check flags transfer the subgroup precondition rather
+than widening the operand domain. These gaps do not prevent this header's exact
+file review from being complete.
 
 ## Phase 14 field-contract follow-up
 

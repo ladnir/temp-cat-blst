@@ -32,7 +32,7 @@ decoder.
 ## Inventory control
 
 `GROUP_API_CONTRACTS.csv` classifies the public C symbols from
-`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 52 disjoint contract
+`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 53 disjoint contract
 families. Each row records:
 
 - mathematical input and output domains;
@@ -207,16 +207,25 @@ The default aggregate-verification functions are intentionally asymmetric:
 | --- | --- | --- | --- |
 | `blst_pairing_aggregate_pk_in_g*` | rejected | not checked | checked |
 | `blst_pairing_mul_n_aggregate_pk_in_g*` | rejected | not checked | checked |
-| `blst_pairing_chk_n_*` | rejected | caller flag | caller flag |
+| `blst_pairing_chk_n_*` | rejected | complete membership when requested | complete membership when requested |
 | `blst_core_verify_pk_in_g*` | rejected | checked | checked |
 | `blst_pairing_raw_aggregate` | not checked | not checked | not checked |
 | `blst_avx_pairing` | not checked | not checked | not checked |
 
 The default assumes public keys were validated once before aggregation, while
-checking the possibly aggregated signature contribution. That policy is not
-stated precisely in the public C comments. Weighted aggregation additionally
-reaches subgroup-only point multiplication, making prior subgroup validation a
-correctness precondition as well as a protocol-security precondition.
+checking the possibly aggregated signature contribution. CatBLST retains this
+upstream-compatible policy because repeated PK checks add avoidable work. A
+false explicit-check flag transfers the subgroup-point precondition to the
+caller; it does not opt the operand into an on-curve-only domain. Weighted
+aggregation additionally reaches subgroup-only point multiplication, making
+prior subgroup validation a correctness precondition and a protocol-security
+precondition.
+
+`blst_avx_pairing` and raw Miller helpers remain expert subgroup-only
+operations. Their result flags report boundary or backend availability, not
+mathematical validation. CatBLST adds no duplicate validated/raw pairing
+family: callers use the explicit check flags or the one-shot core verifier when
+validation is required at this boundary.
 
 The weighted C entry points use subgroup `mult_vartime`, reject `scalar ==
 nullptr` with nonzero `nbits`,
@@ -312,9 +321,9 @@ and is not merely a mathematical precondition.
 | `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | validated |
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
 | `AUD-096` | Inherited unsuffixed add remains the fast incomplete operation under explicit finite distinct/nonopposite preconditions; complete add-or-double remains available. | accepted |
-| `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
+| `AUD-097` | Pairing retains the validate-once-PK policy under explicit complete-membership and raw subgroup contracts. | validated |
 | `AUD-098` | Signing, weighted pairing, and AVX multiplication rely on explicit narrow subgroup/SK preconditions without Release validation. | validated |
-| `AUD-099` | GT is represented by unvalidated Fp12 storage while GT-only operations rely on hidden invariants. | needs decision |
+| `AUD-099` | GT is represented by Fp12 storage under explicit GT-operation preconditions and a separate MillerResult native type. | accepted risk |
 | `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
@@ -371,7 +380,7 @@ corruption in Release.
 - Both safe Rust variants pass compressed, uncompressed, `from_bytes`, and Serde
   decoding of those on-curve low-order fixtures and reject them through the
   complete individual validators.
-- The contract inventory validator passes with 241 public C symbols in 52
+- The contract inventory validator passes with 243 public C symbols in 53
   nonempty disjoint families. Structural checks find no unchecked MSM symbol
   and no legacy AVX Fp12-MSM symbol in retained source.
 - Focused scalar group multiplication passes 10/10 under local MSVC Debug and
