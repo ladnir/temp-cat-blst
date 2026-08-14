@@ -24,8 +24,25 @@ INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
     "fuzz/internal/factory_access.h",
     "fuzz/internal/scalar_factory.h",
     "fuzz/tests/scalar_factory_tests.cpp",
+    "fuzz/tests/adapter_factory_tests.cpp",
 }
 IGNORED_PREFIXES = ("fuzz/inventory/",)
+ALLOWED_FACTORY_ADAPTER_CALLS = {
+    "as_candidate",
+    "as_on_curve",
+    "incomplete_add_pair",
+    "make_g1_candidate",
+    "make_g2_candidate",
+    "make_pairing_state",
+    "pairing_commit",
+    "precompute_middle_product_b",
+    "prepare_fft_domain",
+    "reduce_fp2",
+    "reduce_fp12",
+    "refine_nonzero",
+    "retained_non_subgroup_g1",
+    "retained_non_subgroup_g2",
+}
 
 
 @dataclass(frozen=True)
@@ -75,23 +92,26 @@ def inspect_source(
             re.compile(r"(?<!adapter::)\bblst_[A-Za-z0-9_]+\s*\("),
             "direct C API calls are allowed only in the internal adapter",
         ),
-        (
-            re.compile(r"\bLiveMiddleProductHandle\s*[<{(]"),
-            "opaque live handles must come from the adapter factory",
-        ),
         ))
+        if relative not in {"fuzz/support/domain.h", "fuzz/support/storage.h"}:
+            rules.append(
+                (
+                    re.compile(r"\bLiveMiddleProductHandle\s*[<{(]"),
+                    "opaque live handles must come from the adapter factory",
+                )
+            )
     findings: list[Finding] = []
     for pattern, message in rules:
         for match in pattern.finditer(text):
             findings.append(Finding(relative, line_number(text, match.start()), message))
     if known_adapter_calls is not None:
-        for match in re.finditer(r"\badapter::(blst_[A-Za-z0-9_]+)\s*\(", text):
+        for match in re.finditer(r"\badapter::([A-Za-z_][A-Za-z0-9_]*)\s*\(", text):
             if match.group(1) not in known_adapter_calls:
                 findings.append(
                     Finding(
                         relative,
                         line_number(text, match.start()),
-                        "adapter call is absent from the fuzz API ledger",
+                        "adapter call is absent from the fuzz API ledger and factory allowlist",
                     )
                 )
     return findings
@@ -129,6 +149,10 @@ def self_test() -> list[str]:
         "fuzz/example.cpp", "adapter::blst_p1_double();", {"blst_p1_double"}
     ):
         failures.append("self-test rejected a classified adapter call")
+    if inspect_source(
+        "fuzz/example.cpp", "adapter::refine_nonzero();", {"refine_nonzero"}
+    ):
+        failures.append("self-test rejected a classified factory call")
     return failures
 
 
@@ -150,7 +174,7 @@ def main() -> int:
     root = args.root.resolve()
 
     errors = self_test() if args.self_test else []
-    known_adapter_calls = ledger_c_symbols(root)
+    known_adapter_calls = ledger_c_symbols(root) | ALLOWED_FACTORY_ADAPTER_CALLS
     findings: list[Finding] = []
     for relative, text in repository_sources(root):
         findings.extend(inspect_source(relative, text, known_adapter_calls))

@@ -23,6 +23,12 @@ namespace catblst::fuzz
         rejected_overlap,
     };
 
+    struct CallRanges final
+    {
+        std::span<std::byte> first;
+        std::span<std::byte> second;
+    };
+
     /**
      * Owns every byte range supplied to one C call.
      *
@@ -68,6 +74,52 @@ namespace catblst::fuzz
         {
             regions_.emplace_back(size);
             return regions_.back();
+        }
+
+        /**
+         * Builds two readable/writable ranges with the selected relationship.
+         *
+         * Exact aliasing requires equal nonzero sizes. Rejected overlap means
+         * a one-byte overlap and therefore requires two nonempty ranges. Short
+         * scratch treats the second requested size as the documented minimum.
+         */
+        [[nodiscard]] CallRanges two_ranges(
+            std::size_t first_size,
+            std::size_t second_size)
+        {
+            switch (shape_)
+            {
+            case StorageShape::disjoint:
+            case StorageShape::invalid_size:
+                return {add_region(first_size), add_region(second_size)};
+            case StorageShape::exact_alias:
+                if (first_size == 0 || first_size != second_size)
+                    return {};
+                {
+                    auto storage = add_region(first_size);
+                    return {storage, storage};
+                }
+            case StorageShape::null_zero_length:
+                return {};
+            case StorageShape::short_scratch:
+                return {
+                    add_region(first_size),
+                    add_region(second_size == 0 ? 0 : second_size - 1)};
+            case StorageShape::rejected_overlap:
+                if (first_size == 0 || second_size == 0)
+                    return {};
+                if (first_size >
+                    std::numeric_limits<std::size_t>::max() -
+                        (second_size - 1))
+                    return {};
+                {
+                    auto storage = add_region(first_size + second_size - 1);
+                    return {
+                        storage.first(first_size),
+                        storage.subspan(first_size - 1, second_size)};
+                }
+            }
+            return {};
         }
 
         [[nodiscard]] static bool byte_size(

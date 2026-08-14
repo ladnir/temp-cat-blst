@@ -33,5 +33,28 @@ int main()
         CallFrame::short_scratch().shape() != StorageShape::short_scratch ||
         CallFrame::rejected_overlap().shape() != StorageShape::rejected_overlap)
         return 4;
+
+    auto disjoint_frame = CallFrame::disjoint();
+    auto disjoint = disjoint_frame.two_ranges(8, 8);
+    if (disjoint.first.data() == disjoint.second.data())
+        return 5;
+    auto alias_frame = CallFrame::exact_alias();
+    auto aliased = alias_frame.two_ranges(8, 8);
+    auto bad_alias_frame = CallFrame::exact_alias();
+    if (aliased.first.data() != aliased.second.data() ||
+        !bad_alias_frame.two_ranges(8, 7).first.empty())
+        return 6;
+    auto null_frame = CallFrame::null_zero_length();
+    auto null_zero = null_frame.two_ranges(0, 0);
+    if (null_zero.first.data() != nullptr || null_zero.second.data() != nullptr)
+        return 7;
+    auto short_frame = CallFrame::short_scratch();
+    auto short_scratch = short_frame.two_ranges(8, 8);
+    if (short_scratch.first.size() != 8 || short_scratch.second.size() != 7)
+        return 8;
+    auto overlap_frame = CallFrame::rejected_overlap();
+    auto overlap = overlap_frame.two_ranges(8, 8);
+    if (overlap.second.data() != overlap.first.data() + 7)
+        return 9;
     return 0;
 }
