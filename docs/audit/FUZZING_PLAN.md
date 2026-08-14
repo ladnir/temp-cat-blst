@@ -382,6 +382,8 @@ under `out/`; only reviewed minimized seeds are promoted into the repository.
 The first promotion uses edge-preserving set-cover minimization. Feature-only
 seeds require a separate justification when they would materially enlarge the
 checked-in corpus.
+Corpus files are byte-exact inputs. `.gitattributes` disables text and
+line-ending transforms throughout `fuzz/corpus`.
 
 ### Coverage and automation
 
