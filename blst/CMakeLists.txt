@@ -161,6 +161,7 @@ else()
 endif()
 
 add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
+add_library(category_blst::blst ALIAS blst_static)
 set_target_properties(blst_static PROPERTIES
     OUTPUT_NAME blst
     POSITION_INDEPENDENT_CODE ON)

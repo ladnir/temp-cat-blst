@@ -1,6 +1,6 @@
 # CMakeLists.txt
 cmake_minimum_required(VERSION 3.27)
-project(blst LANGUAGES C CXX)
+project(blst VERSION 1.0.0 LANGUAGES C CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)
 option(BLST_PORTABLE     "Include generic arithmetic assembly fallbacks and runtime CPU dispatch" ON)

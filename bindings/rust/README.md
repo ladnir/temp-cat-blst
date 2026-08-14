@@ -1,9 +1,13 @@
-# blst [![Crates.io](https://img.shields.io/crates/v/blst.svg)](https://crates.io/crates/blst)
+# category-blst Rust binding
 
-The `blst` crate provides a rust interface to the blst BLS12-381 signature library.
+The `blst` crate provides category-blst's Rust interface. The package and crate
+names remain `blst` for compatibility with existing source-tree consumers.
 
 ## Build
-[bindgen](https://github.com/rust-lang/rust-bindgen) is used to generate FFI bindings from the C headers under `bindings/`. Then [build.rs](https://github.com/supranational/blst/blob/master/bindings/rust/build.rs) invokes CMake to build the native blst library inside Cargo's target area and links the resulting static library into the crate. On Linux it is still possible to choose the compiler by setting `CC` and `CXX`.
+[bindgen](https://github.com/rust-lang/rust-bindgen) generates FFI bindings from
+the C headers under `bindings/`. The local [build.rs](build.rs) then invokes
+CMake inside Cargo's target area and links the resulting static library. On
+Linux, set `CC` and `CXX` to select the C and C++ compilers.
 
 Everything can be built and run with the typical cargo commands:
 

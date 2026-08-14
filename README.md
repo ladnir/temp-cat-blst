@@ -14,6 +14,8 @@ signature operations, together with FFT, multi-scalar multiplication, and
 middle-product facilities. C, native C++, and Rust are the supported language
 surfaces.
 
+The current source release is **1.0.0**.
+
 ## Backends and platforms
 
 | Backend | Status | Intended use |
@@ -83,6 +85,23 @@ cmake -S . -B out/build/release -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DBLST_BENCHMARK=OFF
 cmake --build out/build/release --target blst_static
+```
+
+For an in-tree CMake consumer, add this repository as a subdirectory and link
+the namespaced target:
+
+```cmake
+set(BLST_TEST OFF CACHE BOOL "" FORCE)
+set(BLST_BENCHMARK OFF CACHE BOOL "" FORCE)
+add_subdirectory(path/to/category-blst category-blst-build EXCLUDE_FROM_ALL)
+target_link_libraries(my_target PRIVATE category_blst::blst)
+```
+
+The existing `blst_static` target remains available for BLST-compatible build
+trees. Rust consumers can use the binding directly from this checkout:
+
+```toml
+blst = { path = "path/to/category-blst/bindings/rust", default-features = false }
 ```
 
 To build and run the main test executable:

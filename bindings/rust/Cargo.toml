@@ -1,15 +1,15 @@
 [package]
 name = "blst"
-version = "0.3.15"
-authors = ["sean-sn <sean@supranational.net>"]
+version = "1.0.0"
+authors = ["Category Labs"]
 edition = "2018"
 rust-version = "1.78"
 license = "Apache-2.0"
-description = "Bindings for blst BLS12-381 library"
-repository = "https://github.com/supranational/blst"
+description = "Rust bindings for the category-blst BLS12-381 library"
+repository = "https://github.com/category-labs/category-blst"
 readme = "README.md"
 categories = ["cryptography"]
-keywords = ["crypto", "bls", "signature", "asm", "wasm"]
+keywords = ["cryptography", "bls12-381", "pairing", "avx512"]
 include = [
     "/build.rs",
     "/src/**",
