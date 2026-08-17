@@ -55,7 +55,7 @@ namespace catblst::fuzz::adapter
             ::blst_p1s_mult_pippenger(
                 &result, point_heads.data(), n, scalar_heads.data(), 8,
                 auto_scratch.data());
-            require(::blst_p1_is_equal(&result, &expected));
+            require(::blst_p1_is_equal(&result, &expected)); // FUZZ_PATH: msm.g1_pippenger_oracle
 
             constexpr std::size_t window = 8;
             auto window_scratch = scratch(

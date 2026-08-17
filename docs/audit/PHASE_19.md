@@ -381,3 +381,42 @@ input bytes. The standard local ASan/UBSan replay passes all 14 fuzz and
 infrastructure tests in 40.08 seconds. These results provide executed boundary
 and differential evidence; they do not prove arithmetic or constant-time
 properties.
+
+The first safe Rust discovery pilot runs both targets on Peach at source
+commit `8f75b465`. The pinned rustc nightly 1.94.0 toolchain uses LLVM 21.1.8,
+and `cargo-fuzz` is fixed at 0.13.2. GCC 15.2 builds the portable native
+dependency. Each target receives eight isolated workers for five minutes per
+worker. Decode completes 98,664 executions, and state completes 13,657
+executions. No worker reports a crash, timeout, assertion, sanitizer finding,
+or oracle mismatch.
+
+The working decode corpus contains 854 inputs and 9,800 bytes. The state corpus
+contains 80 inputs and 632 bytes. Mutation-disabled ASan replay passes 855 and
+81 runs, respectively. A separate native-dependency UBSan replay passes the
+same 934 inputs. Every discovered hash-derived filename matches its input
+bytes, and no non-log artifact exists.
+
+Edge-only set-cover minimization protects the exact four committed seed blobs.
+The input union also includes the pilot's Windows CRLF variants. Decode retains
+all 671 replayed ASan edges in 91 inputs and 609 bytes. State retains all 941
+replayed ASan edges in 8 inputs and 67 bytes. The promotion adds 89 decode
+seeds and 6 state seeds, totaling 613 bytes. Every addition is content-addressed
+and respects its target's input bound. Standard local replay passes 101 ASan
+runs and 101 native-dependency UBSan runs.
+
+The promotion review finds that the Rust corpus lacked the binary attribute
+already applied to the C/C++ corpus. Windows therefore checked out the four
+retained Rust seeds with CRLF, while Git stored LF blobs. The narrow
+`/bindings/rust/fuzz/corpus/** binary` rule now prevents transforms, textual
+diffs, and merges. The promoted packet protects the exact Git blobs and retains
+any distinct pilot behavior through content-addressed additions. This was a
+corpus-packaging defect, not a CatBLST defect, so it creates no `AUD-*` item.
+
+A local coverage-path gap audit adds one fuzz-only marker for each scalar
+target that previously lacked a named path: fields, protocol, pairing state,
+uniqueness, and MSM. The coverage configuration and structural self-tests
+pass. A fresh local Clang 18.1.3 RelWithDebInfo ASan/UBSan replay reaches all
+nine named paths with the committed 280-input corpus. The five new path counts
+are 41 for fields, 22 for protocol, 9 for pairing state, 19 for uniqueness, and
+19 for MSM. No crash, sanitizer diagnostic, assertion, or oracle mismatch
+occurs. No product source or hot path changes.

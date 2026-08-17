@@ -54,7 +54,7 @@ namespace catblst::fuzz::adapter
             }
             const std::array<blst_byte, 2> extra{0xfe, 0xed};
             require(::blst_uniq_insert(tree, extra.data(), extra.size()) ==
-                    BLST_UNIQ_CAPACITY_EXCEEDED);
+                    BLST_UNIQ_CAPACITY_EXCEEDED); // FUZZ_PATH: uniq.capacity_exceeded
         }
         catch (...)
         {

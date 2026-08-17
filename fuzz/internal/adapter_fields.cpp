@@ -79,7 +79,7 @@ namespace catblst::fuzz::adapter
             blst_fr intermediate{};
             ::blst_fr_add(&result, &a, &b);
             ::blst_fr_sub(&result, &result, &b);
-            require(object_equal(result, a));
+            require(object_equal(result, a)); // FUZZ_PATH: fields.fr_add_sub
             ::blst_fr_sub(&result, &a, &b);
             ::blst_fr_add(&result, &result, &b);
             require(object_equal(result, a));

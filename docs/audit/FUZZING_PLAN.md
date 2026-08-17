@@ -65,8 +65,12 @@ ASan/UBSan and Debug assertions. The independent modulus oracle and all domain
 factory tests pass. Portable AVX Debug replay passes its retained corpus. Both
 safe Rust targets replay with the pinned nightly toolchain and cargo-fuzz.
 LLVM source coverage produces one profile, text section, and HTML report per
-scalar campaign. Named success, rejection, boundary, aliasing, and round-trip
-paths have nonzero retained-corpus coverage; no percentage gate applies.
+scalar campaign. At foundation closure, the named success, rejection,
+boundary, aliasing, and round-trip paths had nonzero retained-corpus coverage.
+A later gap audit adds one named path for each previously unnamed scalar
+target. A local Clang 18.1.3 RelWithDebInfo ASan/UBSan coverage replay reaches
+all nine named paths with the committed 280-input corpus. No percentage gate
+applies.
 
 Pinned `cargo-fuzz` 0.13.2 replays both safe Rust targets under ASan and replays
 the native C/C++ boundary under UBSan. At source commit `23e8b2cc`, Peach
@@ -83,6 +87,24 @@ retain their explicit approval gates. A second Peach pilot runs `fields` and
 `groups` for 60 seconds each. They complete 1,143 and 1,595 executions without
 a crash or sanitizer finding. Edge-preserving minimization promotes 19 seeds
 per target and preserves all 2,552 and 1,988 discovered edges.
+
+At source commit `8f75b465`, a safe Rust pilot runs both targets on Peach with
+rustc nightly 1.94.0, LLVM 21.1.8, and `cargo-fuzz` 0.13.2. Each target uses
+eight workers for five minutes per worker. Decode completes 98,664 executions,
+and state completes 13,657 executions. The working corpora grow from two seeds
+each to 854 decode inputs and 80 state inputs. The two corpora total 10,432
+bytes. Mutation-disabled ASan replay passes 855 decode runs and 81 state runs.
+A separate replay passes the same inputs with the native dependency compiled
+under GCC 15.2 UBSan. No crash, timeout, assertion, sanitizer diagnostic, or
+oracle mismatch occurs. No discovered seed is promoted automatically.
+
+Edge-only set-cover minimization protects the exact four committed seed blobs
+and reviews the union with the pilot's working corpus. Decode retains all 671
+replayed ASan edges in 91 inputs and 609 bytes. State retains all 941 replayed
+ASan edges in 8 inputs and 67 bytes. The promotion adds 95 content-addressed
+seeds and 613 bytes. Standard local replay passes 101 ASan runs and 101
+native-dependency UBSan runs. The checked-in safe Rust corpus now contains 99
+inputs and 676 bytes.
 
 ## Phase 0: inventory and enforce preconditions
 

@@ -3,5 +3,10 @@ blst_fuzz_decode,success,valid G1 decode,fuzz/internal/adapter.cpp,decode.succes
 blst_fuzz_decode,rejection,rejected decode preserves output,fuzz/internal/adapter.cpp,decode.reject_atomic
 blst_fuzz_decode,roundtrip,canonical G1 decode round trip,fuzz/internal/adapter.cpp,decode.roundtrip
 blst_fuzz_bytes,boundary,independent scalar modulus boundary,fuzz/internal/adapter.cpp,bytes.modulus_boundary
+blst_fuzz_fields,roundtrip,Fr add and subtract round trip,fuzz/internal/adapter_fields.cpp,fields.fr_add_sub
 blst_fuzz_groups,aliasing,exact G1 multiplication alias,fuzz/internal/adapter_groups.cpp,groups.exact_alias
+blst_fuzz_protocol,success,one-shot sign and verify,fuzz/internal/adapter_protocol.cpp,protocol.sign_verify
+blst_fuzz_pairing_state,rejection,orientation mismatch preserves state,fuzz/internal/adapter_pairing.cpp,pairing.type_mismatch_atomic
+blst_fuzz_uniq,boundary,uniqueness capacity exhaustion,fuzz/internal/adapter_uniq.cpp,uniq.capacity_exceeded
 blst_fuzz_fft_middle,roundtrip,Fr FFT inverse round trip,fuzz/internal/adapter_fft_middle.cpp,fft.roundtrip
+blst_fuzz_msm,success,G1 Pippenger agrees with direct sum,fuzz/internal/adapter_msm.cpp,msm.g1_pippenger_oracle

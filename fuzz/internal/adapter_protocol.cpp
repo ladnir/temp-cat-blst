@@ -193,7 +193,8 @@ namespace catblst::fuzz::adapter
                     true,
                     detail::bytes(message), message.size(),
                     detail::bytes(dst), dst.size(),
-                    detail::bytes(aug), aug.size()) == BLST_SUCCESS);
+                    detail::bytes(aug), aug.size()) ==
+                BLST_SUCCESS); // FUZZ_PATH: protocol.sign_verify
         require(::blst_core_verify_pk_in_g2(
                     &pk_g2_affine,
                     &signature_g1_affine,

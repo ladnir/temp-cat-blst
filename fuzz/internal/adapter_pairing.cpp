@@ -207,6 +207,8 @@ namespace catblst::fuzz::adapter
         require(::blst_pairing_aggregate_pk_in_g2(
                     mismatch.get(), nullptr, nullptr,
                     nullptr, 0, nullptr, 0) == BLST_AGGR_TYPE_MISMATCH);
-        require(std::memcmp(before.data(), mismatch.storage.get(), mismatch.size) == 0);
+        const bool unchanged =
+            std::memcmp(before.data(), mismatch.storage.get(), mismatch.size) == 0;
+        require(unchanged); // FUZZ_PATH: pairing.type_mismatch_atomic
     }
 }

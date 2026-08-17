@@ -69,7 +69,14 @@ corpus under ASan and UBSan at source commit `23e8b2cc`. A complete scalar
 campaign then runs all nine targets for 15 minutes with 15 Peach workers. No
 library finding occurs. Sequential replay validates all 2,809 discovered
 inputs. Edge-preserving minimization promotes 145 additional seeds and leaves
-a 280-input corpus. Apple release-candidate replay and longer recurring
+a 280-input corpus. A later Peach pilot runs both safe Rust targets with eight
+workers for five minutes per target. It completes 112,321 executions without a
+finding. ASan and native-dependency UBSan replay all 934 discovered inputs.
+Edge-only minimization promotes 95 safe Rust seeds and preserves all 671 decode
+and 941 state ASan edges. The resulting 99-input corpus passes standard local
+ASan and native-dependency UBSan replay. A local Clang 18.1.3 RelWithDebInfo
+ASan/UBSan coverage replay reaches all nine named scalar paths with the
+committed 280-input corpus. Apple release-candidate replay and longer recurring
 discovery remain separate approval-gated evidence.
 
 ## Current work volume

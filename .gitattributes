@@ -11,3 +11,4 @@
 /build/mach-o/*.s text eol=lf
 /build/win64/*.asm text eol=lf
 /fuzz/corpus/** -text
+/bindings/rust/fuzz/corpus/** binary

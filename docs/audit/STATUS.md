@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-14
+Last updated: 2026-08-17
 
 The canonical finding register now has no `open`, `fixed`,
 `fix_in_progress`, or `needs_decision` entries. `AUD-016`, `AUD-030`,
@@ -22,7 +22,9 @@ All nine scalar campaigns replay retained corpora under RelWithDebInfo
 ASan/UBSan and Debug assertions. Portable AVX Debug replay passes. Both pinned
 safe Rust targets replay under ASan, and their portable native dependency
 replays under UBSan. LLVM coverage requires named success, rejection,
-boundary, aliasing, and round-trip paths. No confirmed library finding arose.
+boundary, aliasing, and round-trip paths. A local Clang 18.1.3 RelWithDebInfo
+ASan/UBSan replay reaches all nine named paths with the committed corpus. No
+confirmed library finding arose.
 
 At source commit `23e8b2cc`, Peach Clang 21.1.8 also passes the native
 AVX-512/IFMA corpus. A complete scalar discovery campaign then runs 15 workers
@@ -36,6 +38,16 @@ replayed edge and total 6,660 bytes. Standard local ASan/UBSan replay passes
 discovery counters but did not mix corpora or artifacts; the runner now gives
 each target a private working directory. Apple release-candidate replay and
 longer recurring discovery remain future evidence. No benchmark ran.
+
+At source commit `8f75b465`, a Peach safe Rust pilot runs both targets with
+eight workers for five minutes per worker. The pilot completes 112,321
+executions without a crash, timeout, assertion, sanitizer diagnostic, or oracle
+mismatch. Mutation-disabled ASan and native-dependency UBSan replays validate
+all 934 discovered inputs. Edge-only minimization promotes 95 seeds while
+preserving all 671 decode and 941 state ASan edges. The checked-in safe Rust
+corpus now contains 99 inputs and 676 bytes. Standard local replay passes 101
+ASan runs and 101 native-dependency UBSan runs. A narrow binary attribute
+prevents line-ending transforms in the Rust corpus.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
