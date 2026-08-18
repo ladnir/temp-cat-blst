@@ -3,7 +3,7 @@
 
 #![no_main]
 
-use blst::{min_pk, min_sig, BLST_ERROR};
+use blst::{blst_scalar, min_pk, min_sig, BLST_ERROR};
 use libfuzzer_sys::fuzz_target;
 
 fn derive_ikm(data: &[u8], domain: u8) -> [u8; 32] {
@@ -32,7 +32,8 @@ fn altered(data: &[u8], selector: u8) -> Vec<u8> {
 }
 
 macro_rules! exercise_variant {
-    ($variant:ident, $ikm_a:expr, $ikm_b:expr, $message_a:expr,
+    ($variant:ident, $ikm_a:expr, $ikm_b:expr, $weight_ikm_a:expr,
+     $weight_ikm_b:expr, $message_a:expr,
      $message_b:expr, $dst:expr, $aug:expr, $altered_a:expr,
      $altered_b:expr $(,)?) => {{
         let sk_a = $variant::SecretKey::key_gen($ikm_a, &[])
@@ -107,6 +108,16 @@ macro_rules! exercise_variant {
         );
         let sig_a_wire = aggregate_sig_a.to_bytes();
         let sig_b_wire = aggregate_sig_b.to_bytes();
+        assert_eq!(
+            $variant::Signature::sig_validate(&sig_a_wire, true)
+                .expect("canonical validated signature"),
+            aggregate_sig_a
+        );
+        assert!($variant::Signature::sig_validate(
+            &sig_a_wire[..sig_a_wire.len() - 1],
+            true,
+        )
+        .is_err());
         let serialized_signature =
             $variant::AggregateSignature::aggregate_serialized(
                 &[sig_a_wire.as_slice(), sig_b_wire.as_slice()],
@@ -117,6 +128,11 @@ macro_rules! exercise_variant {
             serialized_signature.to_signature(),
             aggregate_signature.to_signature()
         );
+        assert!($variant::AggregateSignature::aggregate_serialized(
+            &[sig_a_wire.as_slice(), &sig_b_wire[..sig_b_wire.len() - 1],],
+            true,
+        )
+        .is_err());
 
         let aggregate_public_key =
             $variant::AggregatePublicKey::aggregate(&[&pk_a, &pk_b], true)
@@ -139,6 +155,15 @@ macro_rules! exercise_variant {
         );
         let pk_a_wire = pk_a.to_bytes();
         let pk_b_wire = pk_b.to_bytes();
+        assert_eq!(
+            $variant::PublicKey::key_validate(&pk_a_wire)
+                .expect("canonical validated public key"),
+            pk_a
+        );
+        assert!($variant::PublicKey::key_validate(
+            &pk_a_wire[..pk_a_wire.len() - 1],
+        )
+        .is_err());
         let serialized_public_key =
             $variant::AggregatePublicKey::aggregate_serialized(
                 &[pk_a_wire.as_slice(), pk_b_wire.as_slice()],
@@ -149,6 +174,11 @@ macro_rules! exercise_variant {
             serialized_public_key.to_public_key(),
             aggregate_public_key.to_public_key()
         );
+        assert!($variant::AggregatePublicKey::aggregate_serialized(
+            &[pk_a_wire.as_slice(), &pk_b_wire[..pk_b_wire.len() - 1],],
+            true,
+        )
+        .is_err());
 
         let same_a = sk_a.sign($message_a, $dst, &[]);
         let same_b = sk_b.sign($message_a, $dst, &[]);
@@ -183,6 +213,70 @@ macro_rules! exercise_variant {
                 &[&pk_a, &pk_b],
             ),
             BLST_ERROR::BLST_SUCCESS
+        );
+
+        let batch_pk = aggregate_public_key.to_public_key();
+        let batch_sig = same_aggregate.to_signature();
+        // Model verifier-owned independent weights through scalar sources that
+        // are domain-separated from both signing keys.
+        let weight_a = $variant::SecretKey::key_gen($weight_ikm_a, &[])
+            .expect("fixed-width weight IKM A");
+        let weight_b = $variant::SecretKey::key_gen($weight_ikm_b, &[])
+            .expect("fixed-width weight IKM B");
+        let rand_a: &blst_scalar = (&weight_a).into();
+        let rand_b: &blst_scalar = (&weight_b).into();
+        let batch_rands = [rand_a.clone(), rand_b.clone()];
+        assert_eq!(
+            $variant::Signature::verify_multiple_aggregate_signatures(
+                &[$message_a, $message_b],
+                $dst,
+                &[&batch_pk, &pk_b],
+                true,
+                &[&batch_sig, &aggregate_sig_b],
+                true,
+                &batch_rands,
+                256,
+            ),
+            BLST_ERROR::BLST_SUCCESS
+        );
+        assert_ne!(
+            $variant::Signature::verify_multiple_aggregate_signatures(
+                &[$message_a, $altered_b],
+                $dst,
+                &[&batch_pk, &pk_b],
+                true,
+                &[&batch_sig, &aggregate_sig_b],
+                true,
+                &batch_rands,
+                256,
+            ),
+            BLST_ERROR::BLST_SUCCESS
+        );
+        assert_eq!(
+            $variant::Signature::verify_multiple_aggregate_signatures(
+                &[$message_a, $message_b],
+                $dst,
+                &[&batch_pk, &pk_b],
+                true,
+                &[&batch_sig, &aggregate_sig_b],
+                true,
+                &batch_rands,
+                257,
+            ),
+            BLST_ERROR::BLST_BAD_SCALAR
+        );
+        assert_eq!(
+            $variant::Signature::verify_multiple_aggregate_signatures(
+                &[$message_a],
+                $dst,
+                &[&batch_pk, &pk_b],
+                true,
+                &[&batch_sig, &aggregate_sig_b],
+                true,
+                &batch_rands,
+                256,
+            ),
+            BLST_ERROR::BLST_VERIFY_FAIL
         );
 
         let weighted_public_key =
@@ -224,11 +318,15 @@ fuzz_target!(|data: &[u8]| {
     let altered_message_b = altered(message_b, selector);
     let ikm_a = derive_ikm(data, 0x31);
     let ikm_b = derive_ikm(data, 0xa7);
+    let weight_ikm_a = derive_ikm(data, 0x5c);
+    let weight_ikm_b = derive_ikm(data, 0xe3);
 
     exercise_variant!(
         min_pk,
         &ikm_a,
         &ikm_b,
+        &weight_ikm_a,
+        &weight_ikm_b,
         message_a,
         message_b,
         dst,
@@ -240,6 +338,8 @@ fuzz_target!(|data: &[u8]| {
         min_sig,
         &ikm_a,
         &ikm_b,
+        &weight_ikm_a,
+        &weight_ikm_b,
         message_a,
         message_b,
         dst,

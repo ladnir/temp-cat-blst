@@ -473,3 +473,28 @@ The new high-level marker has count 5, and the pairing-state rejection marker
 has count 14. The standard local C/C++ fuzz label passes 15/15 tests in 32.99
 seconds. These runs provide executed high-level API evidence. They do not prove
 correctness, security, or constant-time behavior.
+
+The next high-level review extends the safe Rust target to the two-item
+`verify_multiple_aggregate_signatures` flow. Both public-key orientations now
+exercise successful batch verification, altered-message rejection, input-shape
+rejection, invalid scalar width, and composed decode/validation failures. The
+changes remain fuzz-only.
+
+The first target revision has SHA-256
+`b645a8033dd5b0a4052f5931133598646ba72b2f7933c02a99eb85421172aa7d`.
+Eight isolated Peach ASan workers run it for five minutes each and complete
+15,623 executions. The run produces no artifact or new corpus input, and its
+90-input replay reaches 539 edges. Evidence review rejects this run as
+batch-protocol closure because the target derives its weights from the signing
+keys. The weights are valid and nonzero, but they do not model the API's
+independence requirement.
+
+The corrected target has SHA-256
+`cd5d1d0699cb3a7205b4a1d4e8721f736d1ea062e0a6fa0c8d140988b445ced0`.
+It derives verifier-weight scalars from sources that are domain-separated from
+both signing keys. Focused local replay passes the three committed inputs under
+ASan and native-dependency UBSan. A mutation-disabled Peach ASan replay passes
+the existing 90-input corpus and reaches 555 edges. No corpus file changes.
+Corrected discovery remains approval-gated. The rejected evidence concerns a
+fuzz harness precondition, not CatBLST, so it creates no `AUD-*` item. Neither
+run proves correctness, security, or constant-time behavior.

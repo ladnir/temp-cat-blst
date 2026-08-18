@@ -141,6 +141,19 @@ The new high-level marker executes five times, and pairing-state executes its
 named rejection marker 14 times. The standard local C/C++ fuzz label passes
 15/15 tests in 32.99 seconds.
 
+A follow-up extends the safe Rust target to two-item aggregate-signature batch
+verification. It covers successful verification, altered-message rejection,
+shape rejection, invalid scalar width, and composed decode/validation failures.
+An initial eight-worker Peach run completes 15,623 executions without an
+artifact or new corpus input. Review does not accept that run as batch-protocol
+closure because its weights came from the signing keys. The corrected fuzz-only
+constructor uses separate domain-separated scalar sources to model
+verifier-owned weights. Focused local ASan and native-dependency UBSan replay
+passes. A mutation-disabled Peach ASan replay passes all 90 existing inputs and
+reaches 555 edges. The corpus is unchanged. Corrected discovery remains an
+approval-gated next step. This harness issue is not a CatBLST defect, and these
+runs do not prove correctness, security, or constant-time behavior.
+
 ## Phase 0: inventory and enforce preconditions
 
 ### Symbol ledger

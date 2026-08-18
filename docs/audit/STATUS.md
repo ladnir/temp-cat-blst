@@ -69,6 +69,16 @@ All four artifacts and the initial 86-input working corpus pass after repair.
 The corrected campaign produces no artifact. No `AUD-*` item is created, and
 no fuzz-only code enters a production path.
 
+A follow-up adds two-item safe Rust batch verification and composed
+decode/validation failures. An initial eight-worker Peach run completes 15,623
+executions without an artifact or new input, but evidence review rejects it as
+batch-protocol closure because its weights come from the signing keys. The
+corrected fuzz-only constructor uses separate domain-separated scalar sources.
+Focused local ASan and native-dependency UBSan replay passes. Peach ASan replays
+the existing 90 inputs and reaches 555 edges. The corpus is unchanged, and a
+corrected discovery campaign remains approval-gated. This harness precondition
+issue is not a CatBLST defect and creates no `AUD-*` item.
+
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
 owner is reviewed at `4c58255b`, which adds only its final contract comment to
