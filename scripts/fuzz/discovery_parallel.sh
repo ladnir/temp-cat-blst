@@ -32,6 +32,7 @@ targets=(
     blst_fuzz_fields
     blst_fuzz_groups
     blst_fuzz_protocol
+    blst_fuzz_bls_api
     blst_fuzz_pairing_state
     blst_fuzz_uniq
     blst_fuzz_fft_middle
@@ -50,8 +51,8 @@ fi
 
 # Give every target one worker. Additional workers go first to the campaigns
 # with the most expensive arithmetic and state oracles.
-worker_counts=(1 1 1 1 1 1 1 1 1)
-priority=(2 3 4 5 7 8 0 1 6)
+worker_counts=(1 1 1 1 1 1 1 1 1 1)
+priority=(2 3 4 5 6 8 9 0 1 7)
 remaining=$((total_workers - ${#targets[@]}))
 for ((i = 0; remaining > 0; ++i, --remaining)); do
     index=${priority[$((i % ${#priority[@]}))]}

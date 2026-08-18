@@ -8,8 +8,8 @@ if [[ ${BLST_FUZZ_DISCOVERY_APPROVED:-} != YES ]]; then
     echo "set BLST_FUZZ_DISCOVERY_APPROVED=YES for an approved long run" >&2
     exit 2
 fi
-if [[ $# -gt 1 ]]; then
-    echo "usage: $0 [SECONDS]" >&2
+if [[ $# -gt 2 ]]; then
+    echo "usage: $0 [SECONDS] [TARGET]" >&2
     exit 2
 fi
 
@@ -23,7 +23,20 @@ readonly toolchain=nightly-2026-01-15
 readonly cargo_fuzz_version=0.13.2
 readonly fuzz_root=bindings/rust/fuzz
 readonly lock_dir=out/fuzz-rust/.single-fuzz-worker.lock
-readonly targets=(blst_rust_fuzz_decode blst_rust_fuzz_state)
+readonly default_targets=(
+    blst_rust_fuzz_decode
+    blst_rust_fuzz_state
+    blst_rust_fuzz_bls_api
+)
+if [[ $# -eq 2 ]]; then
+    targets=("$2")
+else
+    targets=("${default_targets[@]}")
+fi
+case "${targets[0]}" in
+    blst_rust_fuzz_decode|blst_rust_fuzz_state|blst_rust_fuzz_bls_api) ;;
+    *) echo "unknown Rust fuzz target: ${targets[0]}" >&2; exit 2 ;;
+esac
 
 export CARGO_BUILD_JOBS=2
 export CMAKE_BUILD_PARALLEL_LEVEL=2
@@ -50,6 +63,9 @@ for target in "${targets[@]}"; do
     if [[ "$target" == blst_rust_fuzz_decode ]]; then
         timeout_seconds=2
         max_len=192
+    elif [[ "$target" == blst_rust_fuzz_bls_api ]]; then
+        timeout_seconds=10
+        max_len=512
     else
         timeout_seconds=10
         max_len=4096

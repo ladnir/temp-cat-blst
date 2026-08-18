@@ -25,3 +25,10 @@ path = "fuzz_targets/state.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "blst_rust_fuzz_bls_api"
+path = "fuzz_targets/bls_api.rs"
+test = false
+doc = false
+bench = false

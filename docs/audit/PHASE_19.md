@@ -420,3 +420,56 @@ nine named paths with the committed 280-input corpus. The five new path counts
 are 41 for fields, 22 for protocol, 9 for pairing state, 19 for uniqueness, and
 19 for MSM. No crash, sanitizer diagnostic, assertion, or oracle mismatch
 occurs. No product source or hot path changes.
+
+The next packet concentrates discovery on high-level BLS interfaces. It adds a
+dedicated C target for both public-key orientations. Each input drives signing,
+direct verification, two-party aggregation, pairing-context merge, compressed
+round trips, and altered-message rejection. A separate safe Rust target drives
+the analogous `min_pk` and `min_sig` interfaces. It also covers incremental,
+serialized, fast, pre-aggregated, and weighted aggregation. The existing
+low-level targets remain available for deterministic replay. No fuzz-only code
+enters a production path.
+
+The Peach source starts from `153ec002`. The initial byte-exact overlay has
+SHA-256 `4cb2da083e58d9d16dc3dc000313446fcfe5b6325805409663f6df82d90d7a6b`.
+After oracle repair, the safe Rust target has SHA-256
+`d50835cd71a6c89e4b4ad4aeae116f283a50445e5f44e3daacbaf977d41774fe`.
+Clang 21.1.8 builds the C targets under RelWithDebInfo ASan and UBSan. Rustc
+nightly 1.94.0 and `cargo-fuzz` 0.13.2 build the safe target under ASan. Every
+build uses at most two workers.
+
+Each target receives eight isolated workers for five minutes. Target groups run
+sequentially on Peach's 16 logical CPUs. The C high-level target completes
+3,725 executions, and pairing-state completes 7,471 executions. Their working
+corpora contain 138 and 766 inputs. A single-process replay passes all 904
+inputs, reaches 2,873 and 3,059 edges, and produces no artifact.
+
+The first safe Rust attempt exposes a harness-oracle defect. The fast aggregate
+negative check signs `message_a` but alters `message_b`. Four three-byte inputs
+make the altered value equal `message_a`, so successful verification is the
+correct result. The repaired target derives separate altered messages. The four
+artifacts and the initial 86-input working corpus then pass sequential ASan
+replay. No CatBLST source changes, and no `AUD-*` item is created.
+
+The corrected safe Rust campaign completes 12,188 executions across eight
+five-minute workers. It produces no artifact. Its 90-input combined corpus
+passes a single-process replay and reaches 447 edges. Edge-only set-cover
+minimization then protects the checked-in baselines and produces this retained
+packet:
+
+| Target | Working inputs | Additions | Retained inputs | Replayed edges | Addition bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| C high-level BLS | 138 | 3 | 4 | 2,873 | 26 |
+| C pairing state | 766 | 5 | 13 | 3,059 | 73 |
+| Safe Rust high-level BLS | 90 | 2 | 3 | 447 | 17 |
+
+The ten promoted files total 116 bytes. Every filename matches the SHA-1 of its
+bytes. The retained unions replay under the Peach sanitizer profiles. Focused
+local replay also passes both C targets under ASan/UBSan and the Rust target
+under ASan and native-dependency UBSan. The scalar corpus now contains 289
+inputs and 6,794 bytes. The safe Rust corpus contains 102 inputs and 733 bytes.
+A final local Clang 18.1.3 coverage replay reaches all ten named scalar paths.
+The new high-level marker has count 5, and the pairing-state rejection marker
+has count 14. The standard local C/C++ fuzz label passes 15/15 tests in 32.99
+seconds. These runs provide executed high-level API evidence. They do not prove
+correctness, security, or constant-time behavior.

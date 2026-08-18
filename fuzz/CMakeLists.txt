@@ -99,6 +99,8 @@ blst_add_fuzz_target(
 blst_add_fuzz_target(
     blst_fuzz_protocol targets/protocol.cpp 2048 10 internal/adapter_protocol.cpp)
 blst_add_fuzz_target(
+    blst_fuzz_bls_api targets/bls_api.cpp 512 10 internal/adapter_bls_api.cpp)
+blst_add_fuzz_target(
     blst_fuzz_uniq targets/uniq.cpp 4097 10 internal/adapter_uniq.cpp)
 blst_add_fuzz_target(
     blst_fuzz_pairing_state targets/pairing_state.cpp 1024 10
@@ -120,6 +122,7 @@ set_tests_properties(
     PROPERTIES LABELS "fuzz;phase2;replay")
 set_tests_properties(
     blst_fuzz_protocol_replay
+    blst_fuzz_bls_api_replay
     blst_fuzz_pairing_state_replay
     blst_fuzz_fft_middle_replay
     blst_fuzz_msm_replay
@@ -160,6 +163,7 @@ add_custom_target(blst_fuzz_phase3
         blst_fuzz_fft_middle
         blst_fuzz_msm
         blst_fuzz_pairing_state
+        blst_fuzz_bls_api
         blst_fuzz_protocol
         blst_fuzz_uniq)
 

@@ -30,6 +30,7 @@ default_targets=(
     blst_fuzz_fields
     blst_fuzz_groups
     blst_fuzz_protocol
+    blst_fuzz_bls_api
     blst_fuzz_pairing_state
     blst_fuzz_uniq
     blst_fuzz_fft_middle

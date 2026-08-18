@@ -49,6 +49,26 @@ corpus now contains 99 inputs and 676 bytes. Standard local replay passes 101
 ASan runs and 101 native-dependency UBSan runs. A narrow binary attribute
 prevents line-ending transforms in the Rust corpus.
 
+The high-level fuzz packet adds dedicated C and safe Rust BLS scenario targets.
+On Peach, the C high-level and pairing-state targets use eight workers for five
+minutes each. They complete 3,725 and 7,471 executions. Sequential replay passes
+their 138-input and 766-input working corpora under Clang 21.1.8 ASan/UBSan. A
+corrected safe Rust run completes 12,188 executions with the same worker budget.
+Its 90-input corpus passes sequential ASan replay. Edge-only minimization adds
+ten content-addressed seeds and 116 bytes while preserving 2,873 C high-level,
+3,059 pairing-state, and 447 safe Rust replayed edges. The scalar corpus now
+contains 289 inputs and 6,794 bytes. The safe Rust corpus contains 102 inputs
+and 733 bytes. A final local coverage replay reaches all ten named scalar paths;
+the new high-level marker executes five times. The standard local C/C++ fuzz
+label passes 15/15 tests in 32.99 seconds.
+
+The first safe Rust attempt found a harness defect, not a library defect. Its
+fast-aggregate negative check altered a different message, so four short inputs
+correctly verified. Separate guaranteed-distinct alterations repair the oracle.
+All four artifacts and the initial 86-input working corpus pass after repair.
+The corrected campaign produces no artifact. No `AUD-*` item is created, and
+no fuzz-only code enters a production path.
+
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
 owner is reviewed at `4c58255b`, which adds only its final contract comment to

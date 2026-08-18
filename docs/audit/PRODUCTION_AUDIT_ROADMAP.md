@@ -76,8 +76,15 @@ Edge-only minimization promotes 95 safe Rust seeds and preserves all 671 decode
 and 941 state ASan edges. The resulting 99-input corpus passes standard local
 ASan and native-dependency UBSan replay. A local Clang 18.1.3 RelWithDebInfo
 ASan/UBSan coverage replay reaches all nine named scalar paths with the
-committed 280-input corpus. Apple release-candidate replay and longer recurring
-discovery remain separate approval-gated evidence.
+committed 280-input corpus. A later high-level packet adds dedicated C and safe
+Rust BLS scenario targets. Three sequential Peach campaigns use eight workers
+for five minutes each. The corrected runs complete 23,384 executions and replay
+994 working inputs without a CatBLST finding. Edge-only minimization promotes
+ten seeds and preserves 2,873 C high-level, 3,059 pairing-state, and 447 safe
+Rust replayed edges. The scalar and safe Rust corpora now contain 289 and 102
+inputs. A final local coverage replay reaches all ten named scalar paths. The
+standard local C/C++ fuzz label passes 15/15 tests. Apple release-candidate
+replay and longer recurring discovery remain separate approval-gated evidence.
 
 ## Current work volume
 

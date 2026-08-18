@@ -60,10 +60,12 @@ Rust functions or methods. Structural checks reject missing classifications,
 nonexecuted direct C rows, nonexecuted unique C++ rows, direct library calls
 outside the adapter, and incomplete safe Rust ownership mappings.
 
-All nine scalar campaigns replay their retained corpora under RelWithDebInfo
-ASan/UBSan and Debug assertions. The independent modulus oracle and all domain
-factory tests pass. Portable AVX Debug replay passes its retained corpus. Both
-safe Rust targets replay with the pinned nightly toolchain and cargo-fuzz.
+The nine foundation scalar campaigns replay their retained corpora under
+RelWithDebInfo ASan/UBSan and Debug assertions. The high-level C campaign
+replays under RelWithDebInfo ASan/UBSan. The independent modulus oracle and all
+domain factory tests pass. Portable AVX Debug replay passes its retained corpus.
+All three safe Rust targets replay with the pinned nightly toolchain and
+cargo-fuzz.
 LLVM source coverage produces one profile, text section, and HTML report per
 scalar campaign. At foundation closure, the named success, rejection,
 boundary, aliasing, and round-trip paths had nonzero retained-corpus coverage.
@@ -105,6 +107,39 @@ ASan edges in 8 inputs and 67 bytes. The promotion adds 95 content-addressed
 seeds and 613 bytes. Standard local replay passes 101 ASan runs and 101
 native-dependency UBSan runs. The checked-in safe Rust corpus now contains 99
 inputs and 676 bytes.
+
+The high-level packet adds dedicated C and safe Rust scenario targets. The C
+target exercises both public-key orientations through signing, direct
+verification, two-party aggregation, pairing-context merge, and altered-message
+rejection. The safe Rust target exercises the corresponding `min_pk` and
+`min_sig` interfaces, including incremental, serialized, fast, pre-aggregated,
+and weighted aggregation. These targets are fuzz-only and do not change a
+production path.
+
+Peach Clang 21.1.8 runs the two C targets under RelWithDebInfo ASan/UBSan. Each
+target receives eight isolated workers for five minutes. The high-level target
+completes 3,725 executions and produces 138 working inputs. Pairing-state
+completes 7,471 executions and produces 766 working inputs. Sequential replay
+passes all 904 inputs and reaches 2,873 and 3,059 edges, respectively.
+
+The corrected safe Rust target runs eight isolated ASan workers for five
+minutes and completes 12,188 executions. Its 90-input working corpus replays
+sequentially and reaches 447 edges. An earlier harness revision derived the
+fast-aggregate negative input from the wrong message. Four three-byte inputs
+could therefore equal the signed message and correctly verify. The corrected
+oracle gives each signed message a distinct alteration. All four inputs replay
+successfully after the repair. This harness defect is not a CatBLST finding.
+
+Edge-only set-cover minimization protects every checked-in seed. It promotes
+three C high-level inputs, five pairing-state inputs, and two safe Rust
+high-level inputs. The additions total 116 bytes and preserve every replayed
+edge in the three affected targets. The scalar corpus now contains 289 inputs
+and 6,794 bytes. The safe Rust corpus contains 102 inputs and 733 bytes. Every
+addition is content-addressed and passes focused local sanitizer replay. A
+final local Clang 18.1.3 coverage replay reaches all ten named scalar paths.
+The new high-level marker executes five times, and pairing-state executes its
+named rejection marker 14 times. The standard local C/C++ fuzz label passes
+15/15 tests in 32.99 seconds.
 
 ## Phase 0: inventory and enforce preconditions
 

@@ -9,6 +9,7 @@ blst_fuzz_target_limits() {
         blst_fuzz_fields) BLST_FUZZ_MAX_LEN=256; BLST_FUZZ_TIMEOUT=2 ;;
         blst_fuzz_groups) BLST_FUZZ_MAX_LEN=64; BLST_FUZZ_TIMEOUT=2 ;;
         blst_fuzz_protocol) BLST_FUZZ_MAX_LEN=2048; BLST_FUZZ_TIMEOUT=10 ;;
+        blst_fuzz_bls_api) BLST_FUZZ_MAX_LEN=512; BLST_FUZZ_TIMEOUT=10 ;;
         blst_fuzz_pairing_state) BLST_FUZZ_MAX_LEN=1024; BLST_FUZZ_TIMEOUT=10 ;;
         blst_fuzz_uniq) BLST_FUZZ_MAX_LEN=4097; BLST_FUZZ_TIMEOUT=10 ;;
         blst_fuzz_fft_middle) BLST_FUZZ_MAX_LEN=128; BLST_FUZZ_TIMEOUT=10 ;;

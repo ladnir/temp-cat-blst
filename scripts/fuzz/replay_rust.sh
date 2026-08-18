@@ -9,7 +9,11 @@ readonly cargo_fuzz_version=0.13.2
 readonly manifest=bindings/rust/fuzz/Cargo.toml
 readonly fuzz_root=bindings/rust/fuzz
 readonly lock_dir=out/fuzz-rust/.single-fuzz-worker.lock
-readonly targets=(blst_rust_fuzz_decode blst_rust_fuzz_state)
+readonly targets=(
+    blst_rust_fuzz_decode
+    blst_rust_fuzz_state
+    blst_rust_fuzz_bls_api
+)
 
 profiles=("$@")
 if [[ ${#profiles[@]} -eq 0 ]]; then
@@ -58,6 +62,9 @@ for sanitizer in "${profiles[@]}"; do
         if [[ "$target" == blst_rust_fuzz_decode ]]; then
             timeout_seconds=2
             max_len=192
+        elif [[ "$target" == blst_rust_fuzz_bls_api ]]; then
+            timeout_seconds=10
+            max_len=512
         else
             timeout_seconds=10
             max_len=4096
