@@ -87,9 +87,11 @@ standard local C/C++ fuzz label passes 15/15 tests. Apple release-candidate
 replay and longer recurring discovery remain separate approval-gated evidence.
 A follow-up safe Rust target adds two-item batch verification and composed
 decode/validation failures. Its corrected 90-input Peach ASan replay reaches
-555 edges without an artifact. The corpus remains unchanged. A full corrected
-discovery run remains approval-gated because the first 15,623-execution run
-used signing-key-derived weights and is not accepted as batch-protocol closure.
+555 edges without an artifact. The corrected eight-worker campaign completes
+15,643 executions in five minutes per worker. It produces no finding or new
+input, and final replay reaches 555 coverage edges and 608 feature edges. The
+corpus remains unchanged. The first 15,623-execution run used
+signing-key-derived weights and is not accepted as batch-protocol closure.
 
 ## Current work volume
 

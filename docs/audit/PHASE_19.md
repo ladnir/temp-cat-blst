@@ -494,7 +494,17 @@ The corrected target has SHA-256
 It derives verifier-weight scalars from sources that are domain-separated from
 both signing keys. Focused local replay passes the three committed inputs under
 ASan and native-dependency UBSan. A mutation-disabled Peach ASan replay passes
-the existing 90-input corpus and reaches 555 edges. No corpus file changes.
-Corrected discovery remains approval-gated. The rejected evidence concerns a
-fuzz harness precondition, not CatBLST, so it creates no `AUD-*` item. Neither
-run proves correctness, security, or constant-time behavior.
+the existing 90-input corpus and reaches 555 edges.
+
+The corrected target then runs on eight isolated Peach ASan workers for five
+minutes each. The run uses Clang 21.1.8, `cargo-fuzz` 0.13.2, and at most two
+build workers. Its named tmux session has a 1,800-second outer timeout. The
+workers complete 15,643 executions without a crash, timeout, assertion,
+sanitizer diagnostic, or oracle mismatch. They produce no artifact or new
+input. A final single-process replay passes the unchanged 90-input corpus. It
+reaches 555 coverage edges and 608 feature edges.
+
+The rejected evidence concerns a fuzz harness precondition, not CatBLST, so it
+creates no `AUD-*` item. The corrected run completes the planned batch-scenario
+discovery budget. Neither run proves correctness, security, or constant-time
+behavior.

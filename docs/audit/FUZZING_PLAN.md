@@ -150,9 +150,15 @@ closure because its weights came from the signing keys. The corrected fuzz-only
 constructor uses separate domain-separated scalar sources to model
 verifier-owned weights. Focused local ASan and native-dependency UBSan replay
 passes. A mutation-disabled Peach ASan replay passes all 90 existing inputs and
-reaches 555 edges. The corpus is unchanged. Corrected discovery remains an
-approval-gated next step. This harness issue is not a CatBLST defect, and these
-runs do not prove correctness, security, or constant-time behavior.
+reaches 555 edges.
+
+The corrected target then receives eight isolated Peach ASan workers for five
+minutes each. The campaign completes 15,643 executions without a crash,
+timeout, assertion, sanitizer diagnostic, or oracle mismatch. It produces no
+artifact or new input. Sequential replay passes the unchanged 90-input corpus
+and reaches 555 coverage edges and 608 feature edges. This harness issue is not
+a CatBLST defect. The runs do not prove correctness, security, or constant-time
+behavior.
 
 ## Phase 0: inventory and enforce preconditions
 

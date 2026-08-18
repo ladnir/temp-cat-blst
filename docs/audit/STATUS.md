@@ -75,9 +75,12 @@ executions without an artifact or new input, but evidence review rejects it as
 batch-protocol closure because its weights come from the signing keys. The
 corrected fuzz-only constructor uses separate domain-separated scalar sources.
 Focused local ASan and native-dependency UBSan replay passes. Peach ASan replays
-the existing 90 inputs and reaches 555 edges. The corpus is unchanged, and a
-corrected discovery campaign remains approval-gated. This harness precondition
-issue is not a CatBLST defect and creates no `AUD-*` item.
+the existing 90 inputs and reaches 555 edges. The corrected eight-worker Peach
+campaign then completes 15,643 executions in five minutes per worker. It finds
+no crash, timeout, assertion, sanitizer diagnostic, oracle mismatch, artifact,
+or new input. Final replay reaches 555 coverage edges and 608 feature edges.
+The 90-input corpus is unchanged. This harness precondition issue is not a
+CatBLST defect and creates no `AUD-*` item.
 
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
