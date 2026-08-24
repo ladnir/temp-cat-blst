@@ -13,8 +13,9 @@ until the project owner changes their scope.
 
 The first equivalent benchmark comparison completed on 2026-08-17. The result
 does not justify porting the complete C++ protocol implementation. Rust owns
-protocol types, validation, orchestration, and integration. C++ supplies narrow
-kernels when equivalent measurements show a material advantage.
+BTX-internal protocol types, validation, and cryptographic orchestration. C++
+supplies narrow kernels when equivalent measurements show a material
+advantage. Consensus-facing integration is owned elsewhere.
 
 The canonical active plan is
 `monad-bft-private/monad-encrypted-tx/docs/BTX_WORK_PLAN.md`. This repository
@@ -22,8 +23,10 @@ does not keep a duplicate roadmap.
 
 ## Active C++ work
 
-- Stabilize the shared admission and combination-validation vectors.
-- Retain the current G1 MSM as the reference for Rust kernel parity.
+- Admission and combination-validation parity is complete.
+- G1 MSM arithmetic parity is implemented and passes the shared vectors. Its
+  performance gate remains open because the current laptop measurements are
+  too variable for a stable sub-10% comparison at every batch size.
 - Expose batched Miller-loop and prepared `update` operations through narrow,
   allocation-conscious boundaries when the Rust batches reach those stages.
 - Keep the legacy KEM-only ciphertext separate from the full Rust protocol

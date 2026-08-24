@@ -136,7 +136,7 @@ namespace bte::btx
                 throw std::invalid_argument("BTX MSM inputs must have matching lengths");
             }
             if (points.empty()) {
-                throw std::invalid_argument("BTX MSM inputs must be nonempty");
+                return blst::G1Point::infinity();
             }
             if (points.size() == 1) {
                 return scale_g1(points[0], scalars[0]);
@@ -484,6 +484,13 @@ namespace bte::btx
         }
     }
 
+    blst::G1Point G1MultiScalarMultiply(
+        const std::span<const blst::G1Point> points,
+        const std::span<const blst::Fr> scalars)
+    {
+        return msm_sum_g1(points, scalars);
+    }
+
     SetupResult Setup(const BtxParameters& params, const RandomBytesSource& rng)
     {
         validate_setup_params(params);
@@ -599,7 +606,7 @@ namespace bte::btx
 
         PartialDecryptionShare share{};
         share.index = secret_share.index;
-        share.value = msm_sum_g1(
+        share.value = G1MultiScalarMultiply(
             std::span<const blst::G1Point>(request.ordered_c1.data(), request.ordered_c1.size()),
             std::span<const blst::Fr>(
                 secret_share.tau_power_shares.data(),
@@ -645,7 +652,7 @@ namespace bte::btx
         // interpolation. Today we accept arbitrary (index, value) pairs here,
         // so one malformed or malicious share can corrupt the reconstructed
         // aggregate predecryption key for the whole batch.
-        return msm_sum_g1(
+        return G1MultiScalarMultiply(
             std::span<const blst::G1Point>(share_points.data(), share_points.size()),
             std::span<const blst::Fr>(lambdas.data(), lambdas.size()));
     }

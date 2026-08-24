@@ -7,6 +7,12 @@
 
 namespace bte::btx
 {
+    // Computes sum_i scalars[i] * points[i]. The empty MSM is the G1 identity.
+    // Throws std::invalid_argument when the input lengths differ.
+    blst::G1Point G1MultiScalarMultiply(
+        std::span<const blst::G1Point> points,
+        std::span<const blst::Fr> scalars);
+
     SetupResult Setup(const BtxParameters& params, const RandomBytesSource& rng);
     PreparedPublicParameters PreparePublicParameters(const PublicParameters& public_parameters);
 

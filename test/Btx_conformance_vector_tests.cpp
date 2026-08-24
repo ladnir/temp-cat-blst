@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstdint>
 #include <cstdlib>
@@ -14,6 +16,7 @@
 
 #include "BTE/btx/admission.h"
 #include "BTE/btx/core.h"
+#include "bindings/blst.h"
 
 namespace
 {
@@ -230,13 +233,9 @@ namespace
         return value;
     }
 
-    std::vector<std::uint8_t> bytes_field(const Case& test_case, const std::string_view name)
+    std::vector<std::uint8_t> decode_bytes(const std::string_view encoded)
     {
-        const Field& field = find_field(test_case, name);
-        if (field.kind != FieldKind::Bytes) {
-            throw std::runtime_error("field is not bytes");
-        }
-        if (field.encoded == "-") {
+        if (encoded == "-") {
             return {};
         }
 
@@ -245,12 +244,47 @@ namespace
                 ? static_cast<std::uint8_t>(c - '0')
                 : static_cast<std::uint8_t>(c - 'a' + 10);
         };
-        std::vector<std::uint8_t> bytes(field.encoded.size() / 2);
+        std::vector<std::uint8_t> bytes(encoded.size() / 2);
         for (std::size_t i = 0; i < bytes.size(); ++i) {
             bytes[i] = static_cast<std::uint8_t>(
-                (nibble(field.encoded[2 * i]) << 4) | nibble(field.encoded[(2 * i) + 1]));
+                (nibble(encoded[2 * i]) << 4) | nibble(encoded[(2 * i) + 1]));
         }
         return bytes;
+    }
+
+    std::vector<std::uint8_t> bytes_field(const Case& test_case, const std::string_view name)
+    {
+        const Field& field = find_field(test_case, name);
+        if (field.kind != FieldKind::Bytes) {
+            throw std::runtime_error("field is not bytes");
+        }
+        return decode_bytes(field.encoded);
+    }
+
+    std::vector<std::vector<std::uint8_t>> bytes_list_field(
+        const Case& test_case,
+        const std::string_view name)
+    {
+        const Field& field = find_field(test_case, name);
+        if (field.kind != FieldKind::BytesList) {
+            throw std::runtime_error("field is not bytes[]");
+        }
+        if (field.encoded == "-") {
+            return {};
+        }
+
+        std::vector<std::vector<std::uint8_t>> values;
+        std::size_t start = 0;
+        for (;;) {
+            const std::size_t comma = field.encoded.find(',', start);
+            values.push_back(decode_bytes(std::string_view(field.encoded).substr(
+                start,
+                comma == std::string::npos ? std::string_view::npos : comma - start)));
+            if (comma == std::string::npos) {
+                return values;
+            }
+            start = comma + 1;
+        }
     }
 
     std::vector<std::uint32_t> decode_indices(const std::vector<std::uint8_t>& bytes)
@@ -342,8 +376,89 @@ TEST(BtxConformanceVectors, ParsesAuthoritativeSharedFile)
     std::ifstream input(path);
     ASSERT_TRUE(input.is_open()) << path;
     const std::vector<Case> cases = parse_vectors(input);
-    ASSERT_EQ(cases.size(), 20U);
-    EXPECT_EQ(cases[0].id, "combine_valid");
+    ASSERT_EQ(cases.size(), 30U);
+    EXPECT_EQ(cases[0].id, "g1_msm_empty");
+}
+
+TEST(BtxConformanceVectors, G1MsmMatchesAuthoritativeSharedFile)
+{
+    const char* const path = std::getenv("BTX_CONFORMANCE_VECTOR_FILE");
+    if (path == nullptr || path[0] == '\0') {
+        GTEST_SKIP() << "BTX_CONFORMANCE_VECTOR_FILE is not configured";
+    }
+
+    std::ifstream input(path);
+    ASSERT_TRUE(input.is_open()) << path;
+    const std::vector<Case> cases = parse_vectors(input);
+
+    for (const Case& test_case : cases) {
+        if (test_case.operation != "g1_msm") {
+            continue;
+        }
+
+        std::string actual = "ok";
+        std::vector<blst::G1Point> points;
+        for (const std::vector<std::uint8_t>& encoded :
+            bytes_list_field(test_case, "points")) {
+            if (encoded.size() != 48) {
+                actual = "error:invalid_length";
+                break;
+            }
+            blst::G1AffinePoint affine{};
+            if (blst::G1AffinePoint::uncompress(affine, encoded.data()) != blst::BLST_SUCCESS) {
+                actual = "error:invalid_point";
+                break;
+            }
+            blst::G1Point point{};
+            blst::G1Point::from_affine(point, affine);
+            if (blst::G1Point::in_subgroup(point) == 0) {
+                actual = "error:invalid_point";
+                break;
+            }
+            points.push_back(point);
+        }
+
+        std::vector<blst::Fr> scalars;
+        if (actual == "ok") {
+            for (const std::vector<std::uint8_t>& encoded :
+                bytes_list_field(test_case, "scalars")) {
+                if (encoded.size() != 32) {
+                    actual = "error:invalid_length";
+                    break;
+                }
+                blst_scalar scalar{};
+                blst_scalar_from_bendian(&scalar, encoded.data());
+                if (!blst_scalar_fr_check(&scalar)) {
+                    actual = "error:invalid_scalar";
+                    break;
+                }
+                blst::Fr value{};
+                blst_fr_from_scalar(&value, &scalar);
+                scalars.push_back(value);
+            }
+        }
+
+        if (actual == "ok" && points.size() != scalars.size()) {
+            actual = "error:mismatched_lengths";
+        }
+        if (actual == "ok") {
+            const std::vector<std::uint8_t> expected = bytes_field(test_case, "result");
+            if (expected.size() != 48) {
+                actual = "error:invalid_length";
+            } else {
+                const blst::G1Point result = bte::btx::G1MultiScalarMultiply(
+                    std::span<const blst::G1Point>(points.data(), points.size()),
+                    std::span<const blst::Fr>(scalars.data(), scalars.size()));
+                std::array<std::uint8_t, 48> encoded_result{};
+                blst::G1Point::compress(encoded_result.data(), result);
+                if (!std::equal(encoded_result.begin(), encoded_result.end(), expected.begin())) {
+                    actual = "error:verification_failed";
+                }
+            }
+        }
+
+        EXPECT_EQ(actual, test_case.expectation) << test_case.id;
+    }
 }
 
 TEST(BtxConformanceVectors, CombineValidationMatchesAuthoritativeSharedFile)
