@@ -27,8 +27,11 @@ does not keep a duplicate roadmap.
 - G1 MSM arithmetic parity is implemented and passes the shared vectors. Its
   performance gate remains open because the current laptop measurements are
   too variable for a stable sub-10% comparison at every batch size.
-- Expose batched Miller-loop and prepared `update` operations through narrow,
-  allocation-conscious boundaries when the Rust batches reach those stages.
+- Batched Miller-loop verification is complete in C++ and implemented for
+  review in Rust. The Rust wrapper uses the same `batch_size + 1` equation and
+  is 3.0% to 16.2% faster in the final sequential measurements.
+- Expose the prepared `update` operation through a narrow,
+  allocation-conscious boundary when the Rust alpha batch reaches that stage.
 - Keep the legacy KEM-only ciphertext separate from the full Rust protocol
   type until an approved plan requires convergence.
 - Record benchmark profiles, commands, host details, and raw results.
