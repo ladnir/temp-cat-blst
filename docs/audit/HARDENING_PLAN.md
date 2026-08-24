@@ -2,8 +2,8 @@
 
 ## Ground rules
 
-- Keep BTx/BTE frozen and unmodified until its required future merge is ready;
-  see `BTX_FREEZE.md`.
+- BTX is active for sequential benchmarking, specification audit, modification,
+  and extraction; see `BTX_FREEZE.md`.
 - Do not audit or run benchmarks as part of correctness phases.
 - Never run two benchmark processes concurrently.
 - Keep changes small enough to review and revert independently.
@@ -159,8 +159,8 @@ tree tests, and C/Rust wrapper validation.
 - [x] Remove SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python
   bindings (`PHASE_06C.md`).
 - Keep CUDA opt-in and explicitly experimental; see `CUDA_EXPERIMENTAL.md`.
-  Do not modify, audit, extract, or remove frozen BTx/BTE until its required
-  merge is complete.
+  Keep BTX performance comparison and specification audit separate from the
+  remaining correctness phases.
 - Begin the standing CodeQL, sanitizer, fuzzing, warnings, and supported-build
   workstream in Phase 12 and expand it through the Phase 19 release gate.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream

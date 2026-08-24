@@ -72,10 +72,9 @@ constant-time behavior, or assembly safety.
 - Never run two benchmark processes concurrently.
 - Benchmarks are excluded from the file-by-file audit and run only for an
   explicit performance question or a planned performance gate.
-- Frozen BTx/BTE is excluded from new audit, sanitizer, and fuzz work until its
-  required merge is ready. Existing repository-wide builds and tests may keep
-  compiling and executing it as passive regression coverage, provided the
-  frozen subsystem is not changed or used for production-readiness claims.
+- BTX is active for the explicit performance comparison and specification
+  audit recorded in `BTX_FREEZE.md`. Do not infer production readiness from a
+  passing benchmark or correctness test.
 - Experimental CUDA is outside the primary scalar/AVX-512 gate unless a change
   directly affects CUDA or an explicit experimental checkpoint is scheduled.
 - Experimental non-Apple ARM64 and CHERI are blocked by default and remain

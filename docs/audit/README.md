@@ -17,8 +17,8 @@ BLST-derived codebase that is expected to become CatBLST.
    interpolation isolated behind a minimal explicit surface.
 6. Keep CUDA, non-Apple ARM64, and CHERI retained and explicitly experimental;
    keep Apple Silicon macOS in supported scalar scope. Unsupported language
-   bindings were removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its
-   required merge.
+   bindings were removed in Phases 6B and 6C. BTX is active for benchmarking,
+   specification audit, and extraction under `BTX_FREEZE.md`.
 7. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
@@ -67,7 +67,7 @@ for compatibility.
 | `PHASE_13.md` | Foundational hand-audit findings, C ABI exception policy, remediation sequence, and focused evidence |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
-| `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
+| `BTX_FREEZE.md` | Dated BTX unfreeze decision, active work, and production boundary |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |
 | `ARM64_CHERI_EXPERIMENTAL.md` | Apple support boundary plus default-deny policy and qualification gates for other ARM64 and CHERI targets |
 | `PHASE_*.md` | Implemented hardening and validation evidence |

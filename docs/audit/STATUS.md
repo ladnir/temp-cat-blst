@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-14
+Last updated: 2026-08-24
 
 The canonical finding register now has no `open`, `fixed`,
 `fix_in_progress`, or `needs_decision` entries. `AUD-016`, `AUD-030`,
@@ -314,7 +314,8 @@ accepted target-promotion risk under `AUD-360`, `AUD-374`, and `AUD-376`.
   still required before release.
 - Experimental and blocked by default: other ARM64 and Morello/CHERI; see
   `ARM64_CHERI_EXPERIMENTAL.md`.
-- Frozen: BTx/BTE pending its required future merge; see `BTX_FREEZE.md`.
+- Active candidate: BTX uses Rust for protocol ownership and measured C++
+  kernels for parity and performance work; see `BTX_FREEZE.md`.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
   `blst_` or `catblst_`; no runtime dispatch.
@@ -420,7 +421,8 @@ Current generated inventory:
 - 113 generated production;
 - 234 in-scope support;
 - 60 benchmark files explicitly excluded;
-- 32 frozen BTx/BTE files pending the required merge;
+- BTX source, public header, and tests active for performance and specification
+  review; unrelated PFE/TRX BTE files remain frozen;
 - 55 retained experimental files, including CUDA;
 - 0 planned-removal files;
 - 36 documentation/archive files.
@@ -461,9 +463,10 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 ## Next action
 
-Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
-CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. `point.h` and `point.cpp` are complete at
+BTX kernel work proceeds under `BTX_FREEZE.md`; unrelated PFE/TRX BTE remains
+outside the active scope. Do not include experimental CUDA, non-Apple ARM64,
+or CHERI in the primary production-readiness gate. Apple Silicon macOS remains
+in the supported scalar release matrix. `point.h` and `point.cpp` are complete at
 `07d79a48`; `AUD-096` accepts the inherited narrow unsuffixed-add contract with
 the complete `add_or_double`/`dadd` alternative documented. Scalar and selected
 bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
@@ -912,7 +915,7 @@ the 576-byte AVX GT serialize/decode boundary with the direct typed Fp12 bridge.
 conversion, fixes formatting residue, and adds Category Labs, Apache-2.0, and
 upstream lineage. MSVC 19.50 scalar-default plus portable-AVX Debug builds with
 two workers and passes eight focused root, plan, sizing, and C-boundary tests.
-`AUD-282` and benchmark-gated `AUD-287` remain open. Frozen BTx rebuilt as a
+`AUD-282` and benchmark-gated `AUD-287` remain open. The then-frozen BTx rebuilt as a
 dependency and emitted its existing nodiscard warning, but was neither changed
 nor audited. No benchmark, remote run, CUDA, sanitizer, portable-AVX Release,
 or full suite ran.
@@ -993,7 +996,7 @@ initialization path. `AUD-308` removes randomized generator discovery, trial
 factorization, dead helpers/macros, and transitive dependencies while retaining
 an explicit-generator generic API. Scalar Debug/Release focused tests pass 5/5,
 the independent validator and corruption self-test pass, and the header compiles
-standalone at MSVC `/W4`. Frozen BTx/BTE compiled unchanged through the shim.
+standalone at MSVC `/W4`. The then-frozen BTx/BTE compiled unchanged through the shim.
 No benchmark, CUDA run, full suite, sanitizer, native AVX-512, remote, or Apple
 run was performed.
 
@@ -1046,7 +1049,7 @@ public-name allowlists, distinct opaque C tags, and fail-closed normalization.
 Two output locations produced identical bytes; the 253/253 declaration gate,
 transform fixture, 13 generated tests, and 13 pairing/uniqueness wrapper tests
 pass. A path-scoped CI lane repeats the comparison without a native product
-build. No benchmark, CUDA, broad native rebuild, frozen BTx/BTE audit, native
+build. No benchmark, CUDA, broad native rebuild, then-frozen BTx/BTE audit, native
 AVX run, push, or hosted CI wait was performed.
 
 Phase 18 low-level Rust primitive review is complete through implementation
@@ -1126,7 +1129,7 @@ through G1/G2 endomorphisms using cheap representation checks and extends the
 regressions to batch and tail positions. Clang/GCC/MSVC focused compiles, the
 portable-only test graph, all AVX structural/proof validators, and CI policy
 pass. Hosted execution of the exact commit remains the next gate; no broad
-local build, benchmark, CUDA, sanitizer, native AVX, or frozen BTx/BTE work ran.
+local build, benchmark, CUDA, sanitizer, native AVX, or then-frozen BTx/BTE work ran.
 
 The next supported hosted run is fully green on Linux and Windows, including
 all C++ tests, proof gates, Rust MSRV, and current Rust. Apple alone rejected
@@ -1283,7 +1286,7 @@ five direct MatrixNoK audit gates pass, including 21 correspondence rows and 61
 mapped hashes. Optimized inspection finds no selected-vector wrapper or
 conversion symbol and no AVX C API dynamic-initialization guard. Miller retains
 its approximately 8,128-byte frame; GT GLV4 and G2 GLS remain below their
-recorded stack caps. The frozen BTx/BTE dependency emits its existing ignored
+recorded stack caps. The then-frozen BTx/BTE dependency emitted its existing ignored
 `nodiscard` warning while building the consolidated test executable. No
 benchmark, sanitizer, CUDA, or portable-AVX Release run occurred.
 
