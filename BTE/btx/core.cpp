@@ -614,6 +614,10 @@ namespace bte::btx
         if (shares.empty()) {
             throw std::invalid_argument("Need at least one BTX share to combine");
         }
+        if (public_parameters.threshold == 0 ||
+            public_parameters.threshold > public_parameters.num_servers) {
+            throw std::invalid_argument("Invalid BTX reconstruction threshold");
+        }
         if (shares.size() < public_parameters.threshold) {
             throw std::invalid_argument("Need at least threshold-many BTX shares to combine");
         }
@@ -621,6 +625,12 @@ namespace bte::btx
         std::vector<std::uint32_t> indices;
         indices.reserve(shares.size());
         for (const PartialDecryptionShare& share : shares) {
+            if (share.index == 0) {
+                throw std::invalid_argument("BTX share indices must be nonzero");
+            }
+            if (share.index > public_parameters.num_servers) {
+                throw std::invalid_argument("BTX share index is outside the DKG domain");
+            }
             indices.push_back(share.index);
         }
         const std::vector<blst::Fr> lambdas = bte::building_blocks::lagrange_at_zero(indices);

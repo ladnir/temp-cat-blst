@@ -86,6 +86,30 @@ TEST(BtxCApi, PreparedFlowRecoversEncryptedKeys)
         public_parameters,
         &aggregate_predecryption_key));
 
+    std::vector<blst_btx_partial_decryption_share> malformed_shares = shares;
+    malformed_shares[0].index = 0;
+    EXPECT_FALSE(blst_btx_combine_partial_decryption_shares(
+        malformed_shares.data(),
+        malformed_shares.size(),
+        public_parameters,
+        &aggregate_predecryption_key));
+
+    malformed_shares = shares;
+    malformed_shares[1].index = malformed_shares[0].index;
+    EXPECT_FALSE(blst_btx_combine_partial_decryption_shares(
+        malformed_shares.data(),
+        malformed_shares.size(),
+        public_parameters,
+        &aggregate_predecryption_key));
+
+    malformed_shares = shares;
+    malformed_shares[1].index = static_cast<std::uint32_t>(params.num_servers + 1);
+    EXPECT_FALSE(blst_btx_combine_partial_decryption_shares(
+        malformed_shares.data(),
+        malformed_shares.size(),
+        public_parameters,
+        &aggregate_predecryption_key));
+
     blst_btx_batch_precomputation* const precomputation =
         blst_btx_precompute_batch_decryption(
             prepared,

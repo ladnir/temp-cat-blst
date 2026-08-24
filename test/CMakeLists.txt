@@ -24,6 +24,7 @@ set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
     "BindingHeader_tests.cpp"
     "Btx_c_api_tests.cpp"
+    "Btx_conformance_vector_tests.cpp"
     "Btx_tests.cpp"
     "C_api_tests.cpp"
     "CompressedInfinity_tests.cpp"

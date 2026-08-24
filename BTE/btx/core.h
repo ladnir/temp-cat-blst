@@ -23,6 +23,8 @@ namespace bte::btx
         const ServerSecretShare& secret_share,
         const ThresholdRequest& request);
 
+    // Throws std::invalid_argument unless the shares contain at least the
+    // reconstruction threshold of distinct indices in the DKG domain.
     blst::G1Point CombinePartialDecryptionShares(
         std::span<const PartialDecryptionShare> shares,
         const PublicParameters& public_parameters);

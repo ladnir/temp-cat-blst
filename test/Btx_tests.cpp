@@ -381,6 +381,48 @@ TEST(Btx, CombineSharesRejectsInsufficientThreshold)
         std::invalid_argument);
 }
 
+TEST(Btx, CombineSharesRejectsMalformedIndices)
+{
+    BtxFixture fixture;
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(3);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+
+    std::array<PartialDecryptionShare, 2> shares = {
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[0], request),
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[1], request),
+    };
+
+    const std::span<const PartialDecryptionShare> empty;
+    EXPECT_THROW(
+        CombinePartialDecryptionShares(empty, fixture.setup.public_parameters),
+        std::invalid_argument);
+
+    shares[0].index = 0;
+    EXPECT_THROW(
+        CombinePartialDecryptionShares(shares, fixture.setup.public_parameters),
+        std::invalid_argument);
+
+    shares[0].index = shares[1].index;
+    EXPECT_THROW(
+        CombinePartialDecryptionShares(shares, fixture.setup.public_parameters),
+        std::invalid_argument);
+
+    shares[0].index = fixture.setup.secret_shares[0].index;
+    shares[1].index = static_cast<std::uint32_t>(
+        fixture.setup.public_parameters.num_servers + 1);
+    EXPECT_THROW(
+        CombinePartialDecryptionShares(shares, fixture.setup.public_parameters),
+        std::invalid_argument);
+
+    PublicParameters invalid_parameters = fixture.setup.public_parameters;
+    invalid_parameters.threshold = 0;
+    EXPECT_THROW(
+        CombinePartialDecryptionShares(shares, invalid_parameters),
+        std::invalid_argument);
+}
+
 TEST(Btx, SerializationRoundTripPreservesObjects)
 {
     BtxFixture fixture;
