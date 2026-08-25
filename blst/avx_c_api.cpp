@@ -2004,6 +2004,40 @@ bool blst_fp12_from_avx(blst_fp12* out, const blst_avx_fp12* in)
 #endif
 }
 
+bool blst_avx_gt_serialize(byte out[12 * 48], const blst_avx_gt* in)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || in == nullptr) {
+        return false;
+    }
+    AvxGt::serialize(out, *as_avx(in));
+    return true;
+#else
+    (void)out;
+    (void)in;
+    return false;
+#endif
+}
+
+bool blst_avx_gt_deserialize(blst_avx_gt* out, const byte in[12 * 48])
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || in == nullptr) {
+        return false;
+    }
+    AvxGt decoded = {};
+    if (!AvxGt::deserialize(decoded, in)) {
+        return false;
+    }
+    *as_avx(out) = decoded;
+    return true;
+#else
+    (void)out;
+    (void)in;
+    return false;
+#endif
+}
+
 bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_avx_fp12* b)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)

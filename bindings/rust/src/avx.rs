@@ -482,6 +482,14 @@ extern "C" {
         out: *mut blst_fp12,
         input: *const blst_avx_fp12,
     ) -> bool;
+    pub fn blst_avx_gt_serialize(
+        out: *mut blst_byte,
+        input: *const blst_avx_gt,
+    ) -> bool;
+    pub fn blst_avx_gt_deserialize(
+        out: *mut blst_avx_gt,
+        input: *const blst_byte,
+    ) -> bool;
     pub fn blst_avx_fp12_mul(
         out: *mut blst_avx_fp12,
         a: *const blst_avx_fp12,
@@ -687,6 +695,37 @@ mod tests {
             core::mem::align_of::<blst_avx_fp12>()
                 >= unsafe { blst_avx_fp12_alignof() }
         );
+    }
+
+    #[test]
+    fn native_gt_canonical_roundtrip() {
+        if !unsafe { blst_avx_enabled() } {
+            return;
+        }
+
+        let mut value = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe {
+            blst_avx_pairing(
+                value.as_mut_ptr(),
+                blst_avx_p1_generator(),
+                blst_avx_p2_generator(),
+            )
+        });
+        let value = unsafe { value.assume_init() };
+        let mut encoded = [0u8; 576];
+        assert!(unsafe { blst_avx_gt_serialize(encoded.as_mut_ptr(), &value) });
+        let mut decoded = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe {
+            blst_avx_gt_deserialize(decoded.as_mut_ptr(), encoded.as_ptr())
+        });
+        let decoded = unsafe { decoded.assume_init() };
+        assert!(unsafe { blst_avx_fp12_is_equal(&value, &decoded) });
+
+        let invalid = [0u8; 576];
+        let mut invalid_out = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(!unsafe {
+            blst_avx_gt_deserialize(invalid_out.as_mut_ptr(), invalid.as_ptr())
+        });
     }
 
     #[test]
