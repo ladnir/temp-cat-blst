@@ -606,6 +606,17 @@ const blst_avx_fp12* blst_avx_fp12_one(void);
  */
 bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_p2* g2);
 
+/**
+ * Computes one final exponentiation of the product of `n` Miller loops over
+ * contiguous native affine arrays. Empty input returns the GT identity. Points
+ * must already be subgroup validated. No allocation is performed.
+ */
+bool blst_avx_pairing_n(
+    blst_avx_fp12* out,
+    const blst_avx_p1_affine* g1,
+    const blst_avx_p2_affine* g2,
+    size_t n);
+
 #ifdef __cplusplus
 }
 #endif

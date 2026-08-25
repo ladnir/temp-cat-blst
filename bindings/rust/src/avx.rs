@@ -528,6 +528,12 @@ extern "C" {
         g1: *const blst_avx_p1,
         g2: *const blst_avx_p2,
     ) -> bool;
+    pub fn blst_avx_pairing_n(
+        out: *mut blst_avx_fp12,
+        g1: *const blst_avx_p1_affine,
+        g2: *const blst_avx_p2_affine,
+        n: usize,
+    ) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -738,6 +744,47 @@ mod tests {
         assert!(!unsafe {
             blst_avx_gt_deserialize(invalid_out.as_mut_ptr(), invalid.as_ptr())
         });
+    }
+
+    #[test]
+    fn native_batched_pairing_matches_individual_product() {
+        if !unsafe { blst_avx_enabled() } {
+            return;
+        }
+        let mut g1_affine = [blst_avx_p1_affine::default(); 2];
+        let mut g2_affine = [blst_avx_p2_affine::default(); 2];
+        for point in &mut g1_affine {
+            assert!(unsafe { blst_avx_p1_to_affine(point, blst_avx_p1_generator()) });
+        }
+        for point in &mut g2_affine {
+            assert!(unsafe { blst_avx_p2_to_affine(point, blst_avx_p2_generator()) });
+        }
+        let mut batched = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe {
+            blst_avx_pairing_n(
+                batched.as_mut_ptr(),
+                g1_affine.as_ptr(),
+                g2_affine.as_ptr(),
+                2,
+            )
+        });
+        let batched = unsafe { batched.assume_init() };
+        let mut single = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe {
+            blst_avx_pairing(
+                single.as_mut_ptr(),
+                blst_avx_p1_generator(),
+                blst_avx_p2_generator(),
+            )
+        });
+        let single = unsafe { single.assume_init() };
+        let mut expected = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe { blst_avx_fp12_mul(expected.as_mut_ptr(), &single, &single) });
+        assert!(unsafe { blst_avx_fp12_is_equal(&batched, &expected.assume_init()) });
+
+        let mut empty = MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe { blst_avx_pairing_n(empty.as_mut_ptr(), ptr::null(), ptr::null(), 0) });
+        assert!(unsafe { blst_avx_fp12_is_equal(&empty.assume_init(), blst_avx_fp12_one()) });
     }
 
     #[test]

@@ -2248,4 +2248,31 @@ bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_
 #endif
 }
 
+bool blst_avx_pairing_n(
+    blst_avx_fp12* out,
+    const blst_avx_p1_affine* g1,
+    const blst_avx_p2_affine* g2,
+    size_t n)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || (n != 0 && (g1 == nullptr || g2 == nullptr))) {
+        return false;
+    }
+    AvxMillerResult miller = {};
+    AvxGt::miller_loop_n(
+        miller,
+        reinterpret_cast<const AvxG2Affine*>(g2),
+        reinterpret_cast<const AvxG1Affine*>(g1),
+        n);
+    AvxGt::final_exp(*as_avx(out), miller);
+    return true;
+#else
+    (void)out;
+    (void)g1;
+    (void)g2;
+    (void)n;
+    return false;
+#endif
+}
+
 } // extern "C"
