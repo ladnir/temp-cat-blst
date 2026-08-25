@@ -7,6 +7,9 @@ The Rust middle-product surface is intentionally small:
 - `middle_product`
 - `update`
 - `combine`
+- `ScalarMiddleProductPrecomputedB` with `middle_product_scalar` and
+  `update_scalar`
+- `AvxMiddleProductPrecomputedB` with `middle_product_avx` and `update_avx`
 
 Design points:
 
@@ -41,8 +44,13 @@ Length rules:
 Backend behavior:
 
 - the Rust ABI stays scalar/public
-- the native implementation may internally use AVX and convert from scalar
-  boundary types when the build enables that backend
+- the default handle follows the CatBLST build default for compatibility
+- the explicit scalar and AVX handles bind the backend at construction and
+  have different Rust and C types; they cannot be interchanged
+- an explicit AVX precompute returns `PrecomputeFailed` when the linked build
+  does not contain AVX support
+- the AVX implementation converts from scalar boundary types once per kernel
+  call; no per-point backend tag or inner-loop dispatch is present
 - `combine` uses the GT group law; at the `blst_fp12` boundary this appears as
   elementwise multiplication because GT is represented inside Fp12
 - all algorithms are variable-time with respect to their public points and

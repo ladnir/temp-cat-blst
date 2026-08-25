@@ -48,6 +48,45 @@ static_assert(
 static_assert(std::is_same_v<PublicGt, blst::scalar::GT>);
 #endif
 
+using ScalarPrecomputedB = blst::MiddleProductPrecomputedBScalar;
+using ScalarWorkspace = blst::MiddleProductWorkspaceScalar;
+
+inline ScalarPrecomputedB precompute_scalar(
+    std::span<const BoundaryG2> b,
+    std::size_t n)
+{
+    return blst::detail::precompute_middle_product_b_impl<blst::MiddleProductScalarContext>(
+        b,
+        n,
+        nullptr);
+}
+
+inline void run_scalar(
+    std::span<const BoundaryG1> a,
+    const ScalarPrecomputedB& precomputed_b,
+    std::span<PublicGt> out)
+{
+    ScalarWorkspace workspace;
+    blst::detail::middle_product_impl<blst::MiddleProductScalarContext>(
+        a,
+        precomputed_b,
+        out,
+        workspace,
+        nullptr);
+}
+
+inline void run_update_scalar(
+    const BoundaryG1& a0,
+    const ScalarPrecomputedB& precomputed_b,
+    std::span<PublicGt> out)
+{
+    blst::detail::update_impl<blst::MiddleProductScalarContext>(
+        a0,
+        precomputed_b,
+        out,
+        nullptr);
+}
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 using NativeG1 = blst::avx::G1Point;
 using NativeG2 = blst::avx::G2Point;
@@ -172,7 +211,201 @@ struct blst_middle_product_precomputed_b
     }
 };
 
+struct blst_middle_product_precomputed_b_scalar
+{
+    std::size_t n;
+    ScalarPrecomputedB value;
+
+    explicit blst_middle_product_precomputed_b_scalar(
+        std::size_t input_n,
+        ScalarPrecomputedB&& input_value)
+        : n(input_n), value(std::move(input_value))
+    {
+    }
+};
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+struct blst_middle_product_precomputed_b_avx
+{
+    std::size_t n;
+    blst::MiddleProductPrecomputedBAvx value;
+
+    explicit blst_middle_product_precomputed_b_avx(
+        std::size_t input_n,
+        blst::MiddleProductPrecomputedBAvx&& input_value)
+        : n(input_n), value(std::move(input_value))
+    {
+    }
+};
+#else
+struct blst_middle_product_precomputed_b_avx
+{
+};
+#endif
+
 extern "C" {
+
+blst_middle_product_precomputed_b_scalar* blst_middle_product_precompute_b_scalar(
+    const blst_p2* b,
+    size_t n)
+{
+    if (b == nullptr || !blst::middle_product_n_is_supported(n)) {
+        return nullptr;
+    }
+
+    try {
+        auto precomputed = precompute_scalar(
+            std::span<const BoundaryG2>(b, blst::middle_product_b_size(n)),
+            n);
+        return new blst_middle_product_precomputed_b_scalar(n, std::move(precomputed));
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+bool blst_middle_product_scalar(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_fp12* out)
+{
+    if (a == nullptr || out == nullptr || precomputed_b == nullptr || n == 0 ||
+        precomputed_b->n != n) {
+        return false;
+    }
+
+    try {
+        std::vector<PublicGt> native_out(n, PublicGt::identity());
+        run_scalar(
+            std::span<const BoundaryG1>(a, n),
+            precomputed_b->value,
+            std::span<PublicGt>(native_out));
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_update_scalar(
+    const blst_p1* a0,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_fp12* out)
+{
+    if (a0 == nullptr || out == nullptr || precomputed_b == nullptr || precomputed_b->n == 0) {
+        return false;
+    }
+
+    try {
+        const std::size_t n = precomputed_b->n;
+        std::vector<PublicGt> native_out(n, PublicGt::identity());
+        run_update_scalar(*a0, precomputed_b->value, std::span<PublicGt>(native_out));
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void blst_middle_product_precomputed_b_scalar_free(
+    blst_middle_product_precomputed_b_scalar* precomputed_b)
+{
+    delete precomputed_b;
+}
+
+blst_middle_product_precomputed_b_avx* blst_middle_product_precompute_b_avx(
+    const blst_p2* b,
+    size_t n)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (b == nullptr || !blst::middle_product_n_is_supported(n)) {
+        return nullptr;
+    }
+    try {
+        auto precomputed = precompute_native(
+            std::span<const BoundaryG2>(b, blst::middle_product_b_size(n)),
+            n);
+        return new blst_middle_product_precomputed_b_avx(n, std::move(precomputed));
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)b;
+    (void)n;
+    return nullptr;
+#endif
+}
+
+bool blst_middle_product_avx(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_fp12* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (a == nullptr || out == nullptr || precomputed_b == nullptr || n == 0 ||
+        precomputed_b->n != n) {
+        return false;
+    }
+    try {
+        std::vector<PublicGt> native_out(n, PublicGt::identity());
+        run_native(
+            std::span<const BoundaryG1>(a, n),
+            precomputed_b->value,
+            std::span<PublicGt>(native_out));
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)a;
+    (void)n;
+    (void)precomputed_b;
+    (void)out;
+    return false;
+#endif
+}
+
+bool blst_middle_product_update_avx(
+    const blst_p1* a0,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_fp12* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (a0 == nullptr || out == nullptr || precomputed_b == nullptr || precomputed_b->n == 0) {
+        return false;
+    }
+    try {
+        const std::size_t n = precomputed_b->n;
+        std::vector<PublicGt> native_out(n, PublicGt::identity());
+        run_update_native(*a0, precomputed_b->value, std::span<PublicGt>(native_out));
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)a0;
+    (void)precomputed_b;
+    (void)out;
+    return false;
+#endif
+}
+
+void blst_middle_product_precomputed_b_avx_free(
+    blst_middle_product_precomputed_b_avx* precomputed_b)
+{
+    delete precomputed_b;
+}
 
 blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
     const blst_p2* b,

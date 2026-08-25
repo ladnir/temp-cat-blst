@@ -25,7 +25,53 @@ pub struct blst_middle_product_precomputed_b {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub struct blst_middle_product_precomputed_b_scalar {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct blst_middle_product_precomputed_b_avx {
+    _private: [u8; 0],
+}
+
 extern "C" {
+    fn blst_middle_product_precompute_b_scalar(
+        b: *const blst_p2,
+        n: usize,
+    ) -> *mut blst_middle_product_precomputed_b_scalar;
+    fn blst_middle_product_scalar(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_update_scalar(
+        a0: *const blst_p1,
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_precomputed_b_scalar_free(
+        precomputed_b: *mut blst_middle_product_precomputed_b_scalar,
+    );
+    fn blst_middle_product_precompute_b_avx(
+        b: *const blst_p2,
+        n: usize,
+    ) -> *mut blst_middle_product_precomputed_b_avx;
+    fn blst_middle_product_avx(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_update_avx(
+        a0: *const blst_p1,
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_precomputed_b_avx_free(
+        precomputed_b: *mut blst_middle_product_precomputed_b_avx,
+    );
     fn blst_middle_product_precompute_b(
         b: *const blst_p2,
         n: usize,
@@ -100,6 +146,91 @@ impl Drop for MiddleProductPrecomputedB {
     }
 }
 
+/// Opaque precomputation whose evaluations always use the scalar backend.
+#[derive(Debug)]
+pub struct ScalarMiddleProductPrecomputedB {
+    raw: *mut blst_middle_product_precomputed_b_scalar,
+    n: usize,
+}
+
+impl ScalarMiddleProductPrecomputedB {
+    pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
+        validate_precompute_input(b)?;
+        let n = b.len() / 2;
+        let raw =
+            unsafe { blst_middle_product_precompute_b_scalar(b.as_ptr(), n) };
+        if raw.is_null() {
+            return Err(MiddleProductError::PrecomputeFailed);
+        }
+        Ok(Self { raw, n })
+    }
+
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+}
+
+impl Drop for ScalarMiddleProductPrecomputedB {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_precomputed_b_scalar_free(self.raw) };
+        }
+    }
+}
+
+/// Opaque precomputation whose evaluations always use the AVX backend.
+///
+/// Construction returns `PrecomputeFailed` when the linked CatBLST build does
+/// not contain AVX support.
+#[derive(Debug)]
+pub struct AvxMiddleProductPrecomputedB {
+    raw: *mut blst_middle_product_precomputed_b_avx,
+    n: usize,
+}
+
+impl AvxMiddleProductPrecomputedB {
+    pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
+        validate_precompute_input(b)?;
+        let n = b.len() / 2;
+        let raw =
+            unsafe { blst_middle_product_precompute_b_avx(b.as_ptr(), n) };
+        if raw.is_null() {
+            return Err(MiddleProductError::PrecomputeFailed);
+        }
+        Ok(Self { raw, n })
+    }
+
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+}
+
+impl Drop for AvxMiddleProductPrecomputedB {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_precomputed_b_avx_free(self.raw) };
+        }
+    }
+}
+
+fn validate_precompute_input(b: &[blst_p2]) -> Result<(), MiddleProductError> {
+    if b.is_empty() {
+        return Err(MiddleProductError::EmptyInput);
+    }
+    if b.len() % 2 != 0 {
+        return Err(MiddleProductError::InvalidBLength);
+    }
+    Ok(())
+}
+
 /// Precomputes the `b` operand for repeated middle-product evaluations.
 ///
 /// Every value in `b` must be a reduced, on-curve G2 subgroup point. Infinity
@@ -109,12 +240,7 @@ impl Drop for MiddleProductPrecomputedB {
 pub fn precompute_middle_product_b(
     b: &[blst_p2],
 ) -> Result<MiddleProductPrecomputedB, MiddleProductError> {
-    if b.is_empty() {
-        return Err(MiddleProductError::EmptyInput);
-    }
-    if b.len() % 2 != 0 {
-        return Err(MiddleProductError::InvalidBLength);
-    }
+    validate_precompute_input(b)?;
 
     let n = b.len() / 2;
     let raw = unsafe { blst_middle_product_precompute_b(b.as_ptr(), n) };
@@ -161,6 +287,64 @@ pub fn middle_product(
     }
 }
 
+/// Computes a middle product through an explicitly scalar precompute.
+pub fn middle_product_scalar(
+    a: &[blst_p1],
+    precomputed_b: &ScalarMiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
+    let ok = unsafe {
+        blst_middle_product_scalar(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            out.as_mut_ptr(),
+        )
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Computes a middle product through an explicitly AVX precompute.
+pub fn middle_product_avx(
+    a: &[blst_p1],
+    precomputed_b: &AvxMiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
+    let ok = unsafe {
+        blst_middle_product_avx(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            out.as_mut_ptr(),
+        )
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+fn validate_evaluation_buffers(
+    input_len: usize,
+    expected: usize,
+    output_len: usize,
+) -> Result<(), MiddleProductError> {
+    if input_len != expected {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if output_len < expected {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+    Ok(())
+}
+
 /// Computes the constant-term contribution for one G1 point against a
 /// precomputed `b` tail.
 ///
@@ -181,6 +365,46 @@ pub fn update(
         blst_middle_product_update(a0, precomputed_b.raw, out.as_mut_ptr())
     };
     if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Computes the constant-term contribution through the scalar backend.
+pub fn update_scalar(
+    a0: &blst_p1,
+    precomputed_b: &ScalarMiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    if out.len() < precomputed_b.n {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+    if unsafe {
+        blst_middle_product_update_scalar(
+            a0,
+            precomputed_b.raw,
+            out.as_mut_ptr(),
+        )
+    } {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Computes the constant-term contribution through the AVX backend.
+pub fn update_avx(
+    a0: &blst_p1,
+    precomputed_b: &AvxMiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    if out.len() < precomputed_b.n {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+    if unsafe {
+        blst_middle_product_update_avx(a0, precomputed_b.raw, out.as_mut_ptr())
+    } {
         Ok(())
     } else {
         Err(MiddleProductError::BackendFailure)
@@ -299,6 +523,46 @@ mod tests {
 
         update(&a0, &precomputed, &mut out).unwrap();
         assert_eq!(out[0], blst_fp12::default());
+    }
+
+    #[test]
+    fn explicit_scalar_backend_accepts_zero_boundary_points() {
+        let b = [blst_p2::default(), blst_p2::default()];
+        let precomputed = ScalarMiddleProductPrecomputedB::new(&b).unwrap();
+        let a = [blst_p1::default()];
+        let mut middle = [zero_fp12()];
+        let mut constant = [zero_fp12()];
+
+        middle_product_scalar(&a, &precomputed, &mut middle).unwrap();
+        update_scalar(&a[0], &precomputed, &mut constant).unwrap();
+        assert_eq!(middle[0], blst_fp12::default());
+        assert_eq!(constant[0], blst_fp12::default());
+    }
+
+    #[test]
+    fn explicit_avx_backend_matches_scalar_or_reports_unavailable() {
+        let b = unsafe { [*blst_p2_generator(), *blst_p2_generator()] };
+        let avx = AvxMiddleProductPrecomputedB::new(&b);
+        if !unsafe { blst_avx_enabled() } {
+            assert!(matches!(avx, Err(MiddleProductError::PrecomputeFailed)));
+            return;
+        }
+
+        let scalar = ScalarMiddleProductPrecomputedB::new(&b).unwrap();
+        let avx = avx.unwrap();
+        let a = unsafe { [*blst_p1_generator()] };
+        let mut scalar_middle = [zero_fp12()];
+        let mut avx_middle = [zero_fp12()];
+        let mut scalar_constant = [zero_fp12()];
+        let mut avx_constant = [zero_fp12()];
+
+        middle_product_scalar(&a, &scalar, &mut scalar_middle).unwrap();
+        middle_product_avx(&a, &avx, &mut avx_middle).unwrap();
+        update_scalar(&a[0], &scalar, &mut scalar_constant).unwrap();
+        update_avx(&a[0], &avx, &mut avx_constant).unwrap();
+
+        assert_eq!(avx_middle, scalar_middle);
+        assert_eq!(avx_constant, scalar_constant);
     }
 
     #[test]

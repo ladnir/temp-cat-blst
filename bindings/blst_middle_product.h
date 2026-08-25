@@ -17,6 +17,47 @@ extern "C" {
 #endif
 
 typedef struct blst_middle_product_precomputed_b blst_middle_product_precomputed_b;
+typedef struct blst_middle_product_precomputed_b_scalar
+    blst_middle_product_precomputed_b_scalar;
+typedef struct blst_middle_product_precomputed_b_avx
+    blst_middle_product_precomputed_b_avx;
+
+/**
+ * Explicit scalar and AVX middle-product handles.
+ *
+ * These APIs accept and produce the same scalar/public ABI values as the
+ * default interface, but the opaque precompute fixes the arithmetic backend
+ * at construction. Scalar and AVX handles are different C types and are not
+ * interchangeable. The AVX constructor returns null, and AVX evaluation
+ * returns false, when CatBLST was built without AVX support.
+ */
+BLST_NODISCARD blst_middle_product_precomputed_b_scalar*
+blst_middle_product_precompute_b_scalar(const blst_p2* b, size_t n);
+BLST_NODISCARD bool blst_middle_product_scalar(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_fp12* out);
+BLST_NODISCARD bool blst_middle_product_update_scalar(
+    const blst_p1* a0,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_fp12* out);
+void blst_middle_product_precomputed_b_scalar_free(
+    blst_middle_product_precomputed_b_scalar* precomputed_b);
+
+BLST_NODISCARD blst_middle_product_precomputed_b_avx*
+blst_middle_product_precompute_b_avx(const blst_p2* b, size_t n);
+BLST_NODISCARD bool blst_middle_product_avx(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_fp12* out);
+BLST_NODISCARD bool blst_middle_product_update_avx(
+    const blst_p1* a0,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_fp12* out);
+void blst_middle_product_precomputed_b_avx_free(
+    blst_middle_product_precomputed_b_avx* precomputed_b);
 
 /**
  * Precomputes the `b` operand for repeated middle-product evaluations.

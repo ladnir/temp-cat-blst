@@ -77,9 +77,11 @@ pub use avx::{
     AvxMsmError,
 };
 pub use middle_product::{
-    blst_middle_product_precomputed_b, combine, middle_product,
-    precompute_middle_product_b, update, MiddleProductError,
-    MiddleProductPrecomputedB,
+    blst_middle_product_precomputed_b, blst_middle_product_precomputed_b_avx,
+    blst_middle_product_precomputed_b_scalar, combine, middle_product,
+    middle_product_avx, middle_product_scalar, precompute_middle_product_b,
+    update, update_avx, update_scalar, AvxMiddleProductPrecomputedB,
+    MiddleProductError, MiddleProductPrecomputedB, ScalarMiddleProductPrecomputedB,
 };
 #[cfg(blst_std)]
 pub use pairing::print_bytes;
