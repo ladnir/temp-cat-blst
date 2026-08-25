@@ -722,6 +722,8 @@ mod tests {
             )
         });
         let value = unsafe { value.assume_init() };
+        assert!(unsafe { blst_avx_fp12_is_equal(&value, &value) });
+        assert!(unsafe { blst_avx_fp12_in_group(&value) });
         let mut encoded = [0u8; 576];
         assert!(unsafe { blst_avx_gt_serialize(encoded.as_mut_ptr(), &value) });
         let mut decoded = MaybeUninit::<blst_avx_gt>::uninit();

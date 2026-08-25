@@ -16,6 +16,7 @@
 #include "blst/avx/curve/point.h"
 #include "blst/avx/gt/glv4.h"
 #include "blst/avx/pairing/matrixnok_pairing.h"
+#include "blst/common/bytes.h"
 #include "blst/scalar/curve/GT.h"
 
 #include <array>
@@ -76,6 +77,55 @@ inline blst::Fp12 to_scalar(const typename FP12::StandardElement& value)
 inline typename FP12::StandardElement from_scalar(const blst::Fp12& value)
 {
     return avx_blst_direct_bridge::scalar_fp12_to_ring(ring(), value);
+}
+
+// The established CatBLST GT wire order interleaves the two Fp6 halves for
+// each Fp2 coefficient. Keep this order stable while canonicalizing each
+// native MatrixNoK coefficient independently at the serialization boundary.
+inline constexpr std::array<size_t, 12> kGtWireToNativeCoefficient = {
+    0, 1, 6, 7, 2, 3, 8, 9, 4, 5, 10, 11,
+};
+
+inline void fp_to_bendian(
+    unsigned char out[48], const Ring::StandardElement& value)
+{
+    blst::Fp montgomery =
+        avx_blst_direct_bridge::ring_to_scalar_fp(ring(), value);
+    blst::Fp canonical = {};
+    blst::Fp::from_mont(canonical, montgomery);
+    blst::be_bytes_from_limbs(out, canonical.l, sizeof(canonical));
+}
+
+[[nodiscard]] inline bool fp_from_bendian(
+    Ring::StandardElement& out, const unsigned char in[48])
+{
+    blst::Fp canonical = {};
+    blst::limbs_from_be_bytes(canonical.l, in, sizeof(canonical));
+    if (!blst::Fp::is_redc(canonical))
+        return false;
+    out = Ring::from_canonical_limbs(canonical);
+    return true;
+}
+
+inline bool_t fp12_equal(
+    const FP12::StandardElement& a,
+    const FP12::StandardElement& b)
+{
+    bool_t equal = 1;
+    BLST_UNROLL
+    for (size_t i = 0; i < a.size(); ++i) {
+        const blst::Fp a_canonical =
+            avx_blst_direct_bridge::ring_to_scalar_fp(ring(), a[i]);
+        const blst::Fp b_canonical =
+            avx_blst_direct_bridge::ring_to_scalar_fp(ring(), b[i]);
+        equal &= blst::Fp::equal(a_canonical, b_canonical);
+    }
+    return equal;
+}
+
+inline bool_t fp12_is_zero(const FP12::StandardElement& value)
+{
+    return fp12_equal(value, FP12::StandardElement{});
 }
 
 constexpr AVXVector<8> literal_vector(const std::array<uint64_t, 8>& lanes)
@@ -686,9 +736,7 @@ struct GT
     /** Return one exactly when `a` and `b` represent the same GT element. */
     static limb_t equal(const GT& a, const GT& b)
     {
-        return blst::scalar::GT::equal(
-            blst::scalar::GT(avx_gt_detail::to_scalar(a.data)),
-            blst::scalar::GT(avx_gt_detail::to_scalar(b.data)));
+        return avx_gt_detail::fp12_equal(a.data, b.data);
     }
 
     /** Return the canonical generator of the prime-order target group. */
@@ -709,13 +757,32 @@ struct GT
     /** Perform a complete prime-order target-group membership check. */
     static bool_t in_group(const GT& p)
     {
-        return blst::scalar::GT::in_group(blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
+        if (avx_gt_detail::fp12_is_zero(p.data) || !is_cyclotomic(p))
+            return 0;
+
+        const auto frobenius =
+            avx_gt_detail::fp12ring().fp12_flat_frobenius_map1(
+                p.data, avx_gt_detail::ring());
+        const auto raised = avx_gt_detail::narrow_to_standard(
+            raise_to_z(
+                p.data, avx_gt_detail::fp12ring(), avx_gt_detail::ring()));
+        return avx_gt_detail::fp12_equal(frobenius, raised);
     }
 
     /** Check the wider cyclotomic relation; this does not establish GT. */
     static bool_t is_cyclotomic(const GT& p)
     {
-        return blst::scalar::GT::is_cyclotomic(blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
+        const auto frobenius2 =
+            avx_gt_detail::fp12ring().fp12_flat_frobenius_map2(
+                p.data, avx_gt_detail::ring());
+        const auto frobenius4 =
+            avx_gt_detail::fp12ring().fp12_flat_frobenius_map2(
+                frobenius2, avx_gt_detail::ring());
+        const auto product =
+            avx_gt_detail::fp12ring().fp12_flat_mul(
+                frobenius4, p.data, avx_gt_detail::ring());
+        return avx_gt_detail::fp12_equal(
+            avx_gt_detail::narrow_to_standard(frobenius2), product);
     }
 
     /**
@@ -724,7 +791,14 @@ struct GT
      */
     static void serialize(unsigned char serialized[12 * 48], const GT& p)
     {
-        blst::scalar::GT::serialize(serialized, blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
+        BLST_UNROLL
+        for (size_t wire = 0;
+             wire < avx_gt_detail::kGtWireToNativeCoefficient.size();
+             ++wire) {
+            avx_gt_detail::fp_to_bendian(
+                serialized + wire * 48,
+                p.data[avx_gt_detail::kGtWireToNativeCoefficient[wire]]);
+        }
     }
 
     /**
@@ -736,10 +810,10 @@ struct GT
     [[nodiscard]] static bool deserialize(
         GT& out, const unsigned char serialized[12 * 48])
     {
-        blst::scalar::GT scalar = {};
-        if (!blst::scalar::GT::deserialize(scalar, serialized))
+        GT decoded = {};
+        if (!deserialize_unchecked(decoded, serialized) || !in_group(decoded))
             return false;
-        out.data = avx_gt_detail::from_scalar(scalar.data);
+        out = decoded;
         return true;
     }
 
@@ -753,10 +827,17 @@ struct GT
     [[nodiscard]] static bool deserialize_unchecked(
         GT& out, const unsigned char serialized[12 * 48])
     {
-        blst::scalar::GT scalar = {};
-        if (!blst::scalar::GT::deserialize_unchecked(scalar, serialized))
-            return false;
-        out.data = avx_gt_detail::from_scalar(scalar.data);
+        Field_type decoded = {};
+        BLST_UNROLL
+        for (size_t wire = 0;
+             wire < avx_gt_detail::kGtWireToNativeCoefficient.size();
+             ++wire) {
+            if (!avx_gt_detail::fp_from_bendian(
+                    decoded[avx_gt_detail::kGtWireToNativeCoefficient[wire]],
+                    serialized + wire * 48))
+                return false;
+        }
+        out.data = decoded;
         return true;
     }
 
