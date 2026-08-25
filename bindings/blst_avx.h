@@ -536,6 +536,8 @@ bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_av
  * exactly alias `a`; partial overlap is not supported.
  */
 bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a);
+/** Inverts a validated AVX target-group value. `ret` may alias `a`. */
+bool blst_avx_gt_inverse(blst_avx_gt* ret, const blst_avx_gt* a);
 
 /** Returns aggregate scratch bytes required by `blst_avx_gt_mult_pippenger`. */
 size_t blst_avx_gt_mult_pippenger_scratch_sizeof(size_t npoints);

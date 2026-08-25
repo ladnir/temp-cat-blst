@@ -39,7 +39,7 @@ pub use avx::{
     blst_avx_fp12_alignof, blst_avx_fp12_final_exp, blst_avx_fp12_from_scalar,
     blst_avx_fp12_in_group, blst_avx_fp12_is_equal, blst_avx_fp12_mul,
     blst_avx_fp12_one, blst_avx_fp12_sizeof, blst_avx_fp12_sqr, blst_avx_gt,
-    blst_avx_gt_deserialize, blst_avx_gt_mult_pippenger,
+    blst_avx_gt_deserialize, blst_avx_gt_inverse, blst_avx_gt_mult_pippenger,
     blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof,
     blst_avx_gt_mult_pippenger_scratch_sizeof, blst_avx_gt_serialize, blst_avx_p1,
     blst_avx_p1_add,

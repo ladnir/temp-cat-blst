@@ -499,6 +499,10 @@ extern "C" {
         out: *mut blst_avx_fp12,
         input: *const blst_avx_fp12,
     ) -> bool;
+    pub fn blst_avx_gt_inverse(
+        out: *mut blst_avx_gt,
+        input: *const blst_avx_gt,
+    ) -> bool;
     pub fn blst_avx_fp12_final_exp(
         out: *mut blst_avx_fp12,
         input: *const blst_avx_fp12,
@@ -720,6 +724,14 @@ mod tests {
         });
         let decoded = unsafe { decoded.assume_init() };
         assert!(unsafe { blst_avx_fp12_is_equal(&value, &decoded) });
+
+        let mut inverse = core::mem::MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe { blst_avx_gt_inverse(inverse.as_mut_ptr(), &value) });
+        let inverse = unsafe { inverse.assume_init() };
+        let mut product = core::mem::MaybeUninit::<blst_avx_gt>::uninit();
+        assert!(unsafe { blst_avx_fp12_mul(product.as_mut_ptr(), &value, &inverse) });
+        let product = unsafe { product.assume_init() };
+        assert!(unsafe { blst_avx_fp12_is_equal(&product, blst_avx_fp12_one()) });
 
         let invalid = [0u8; 576];
         let mut invalid_out = MaybeUninit::<blst_avx_gt>::uninit();

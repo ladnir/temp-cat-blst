@@ -2069,6 +2069,21 @@ bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a)
 #endif
 }
 
+bool blst_avx_gt_inverse(blst_avx_gt* ret, const blst_avx_gt* a)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (ret == nullptr || a == nullptr) {
+        return false;
+    }
+    AvxGt::neg(*as_avx(ret), *as_avx(a));
+    return true;
+#else
+    (void)ret;
+    (void)a;
+    return false;
+#endif
+}
+
 size_t blst_avx_gt_mult_pippenger_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
