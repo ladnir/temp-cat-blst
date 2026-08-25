@@ -3,6 +3,12 @@
 //
 // CatBLST C ownership and exception boundary for the middle-product API.
 
+#include "blst/config.h"
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+#define BLST_AVX_USE_CPP_TYPES 1
+#endif
+
 #include "bindings/blst_middle_product.h"
 
 #include "blst/fft/context.h"
@@ -90,8 +96,13 @@ inline void run_update_scalar(
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 using NativeG1 = blst::avx::G1Point;
 using NativeG2 = blst::avx::G2Point;
+using NativeGt = blst::avx::GT;
 using NativePrecomputedB = blst::MiddleProductPrecomputedBAvx;
 using NativeWorkspace = blst::MiddleProductWorkspaceAvx;
+
+static_assert(std::is_same_v<blst_avx_p1, NativeG1>);
+static_assert(std::is_same_v<blst_avx_p2, NativeG2>);
+static_assert(std::is_same_v<blst_avx_gt, NativeGt>);
 
 inline NativeG1 convert_g1_input(const BoundaryG1& input)
 {
@@ -268,12 +279,29 @@ struct blst_middle_product_workspace_avx
         value.ensure_size(precomputed_b.value.fft_size);
     }
 };
+
+struct blst_middle_product_workspace_avx_native
+{
+    std::size_t n;
+    NativeWorkspace value;
+
+    explicit blst_middle_product_workspace_avx_native(
+        const blst_middle_product_precomputed_b_avx& precomputed_b)
+        : n(precomputed_b.n)
+    {
+        value.ensure_size(precomputed_b.value.fft_size);
+    }
+};
 #else
 struct blst_middle_product_precomputed_b_avx
 {
 };
 
 struct blst_middle_product_workspace_avx
+{
+};
+
+struct blst_middle_product_workspace_avx_native
 {
 };
 #endif
@@ -538,6 +566,88 @@ void blst_middle_product_precomputed_b_avx_free(
     blst_middle_product_precomputed_b_avx* precomputed_b)
 {
     delete precomputed_b;
+}
+
+blst_middle_product_precomputed_b_avx* blst_middle_product_precompute_b_avx_native(
+    const blst_avx_p2* b,
+    size_t n)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (b == nullptr || !blst::middle_product_n_is_supported(n)) {
+        return nullptr;
+    }
+    try {
+        auto precomputed =
+            blst::detail::precompute_middle_product_b_impl<blst::MiddleProductAvxContext>(
+                std::span<const NativeG2>(b, blst::middle_product_b_size(n)),
+                n,
+                nullptr);
+        return new blst_middle_product_precomputed_b_avx(n, std::move(precomputed));
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)b;
+    (void)n;
+    return nullptr;
+#endif
+}
+
+blst_middle_product_workspace_avx_native* blst_middle_product_workspace_avx_native_new(
+    const blst_middle_product_precomputed_b_avx* precomputed_b)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (precomputed_b == nullptr || precomputed_b->n == 0) {
+        return nullptr;
+    }
+    try {
+        return new blst_middle_product_workspace_avx_native(*precomputed_b);
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)precomputed_b;
+    return nullptr;
+#endif
+}
+
+bool blst_middle_product_avx_native_with_workspace(
+    const blst_avx_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst_avx_gt* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
+        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_impl<blst::MiddleProductAvxContext>(
+            std::span<const NativeG1>(a, n),
+            precomputed_b->value,
+            std::span<NativeGt>(out, n),
+            workspace->value,
+            nullptr);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)a;
+    (void)n;
+    (void)precomputed_b;
+    (void)workspace;
+    (void)out;
+    return false;
+#endif
+}
+
+void blst_middle_product_workspace_avx_native_free(
+    blst_middle_product_workspace_avx_native* workspace)
+{
+    delete workspace;
 }
 
 blst_middle_product_precomputed_b* blst_middle_product_precompute_b(

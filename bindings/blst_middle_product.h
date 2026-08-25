@@ -10,6 +10,7 @@
 #ifndef BLST_MIDDLE_PRODUCT_H
 #define BLST_MIDDLE_PRODUCT_H
 
+#include "blst_avx.h"
 #include "blst_types.h"
 
 #ifdef __cplusplus
@@ -25,6 +26,8 @@ typedef struct blst_middle_product_workspace_scalar
     blst_middle_product_workspace_scalar;
 typedef struct blst_middle_product_workspace_avx
     blst_middle_product_workspace_avx;
+typedef struct blst_middle_product_workspace_avx_native
+    blst_middle_product_workspace_avx_native;
 
 /**
  * Explicit scalar and AVX middle-product handles.
@@ -90,6 +93,33 @@ BLST_NODISCARD bool blst_middle_product_update_avx(
     blst_fp12* out);
 void blst_middle_product_precomputed_b_avx_free(
     blst_middle_product_precomputed_b_avx* precomputed_b);
+
+/**
+ * Conversion-free AVX middle-product boundary.
+ *
+ * All G1, G2, and GT values use the native AVX ABI from `blst_avx.h`. The
+ * precompute and workspace retain native storage, and evaluation writes
+ * directly into caller-owned native GT output. No scalar representation or
+ * scalar/native conversion is used by these functions.
+ *
+ * The precompute owns immutable data and may be shared between threads. The
+ * workspace is mutable, allocation-free after construction, and must remain
+ * exclusive to one evaluation at a time. The input, precompute, workspace,
+ * and output lengths must match exactly.
+ */
+BLST_NODISCARD blst_middle_product_precomputed_b_avx*
+blst_middle_product_precompute_b_avx_native(const blst_avx_p2* b, size_t n);
+BLST_NODISCARD blst_middle_product_workspace_avx_native*
+blst_middle_product_workspace_avx_native_new(
+    const blst_middle_product_precomputed_b_avx* precomputed_b);
+BLST_NODISCARD bool blst_middle_product_avx_native_with_workspace(
+    const blst_avx_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst_avx_gt* out);
+void blst_middle_product_workspace_avx_native_free(
+    blst_middle_product_workspace_avx_native* workspace);
 
 /**
  * Precomputes the `b` operand for repeated middle-product evaluations.

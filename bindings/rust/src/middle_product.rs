@@ -11,6 +11,8 @@
 //! - write outputs into caller-provided `&mut [blst_fp12]`
 //! - recover the constant-term contribution with `update`
 //! - combine GT outputs with `combine`
+//! - keep explicit AVX inputs and outputs native with
+//!   `middle_product_avx_native_with_workspace`
 //!
 //! For `a.len() == n` and a precomputed `b.len() == 2*n`, output `k` is
 //! `product_i pairing(a[i], b[n + k - i])`. All G1/G2 values must already be
@@ -42,6 +44,11 @@ pub struct blst_middle_product_workspace_scalar {
 
 #[repr(C)]
 pub struct blst_middle_product_workspace_avx {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct blst_middle_product_workspace_avx_native {
     _private: [u8; 0],
 }
 
@@ -107,6 +114,23 @@ extern "C" {
     ) -> bool;
     fn blst_middle_product_precomputed_b_avx_free(
         precomputed_b: *mut blst_middle_product_precomputed_b_avx,
+    );
+    fn blst_middle_product_precompute_b_avx_native(
+        b: *const blst_avx_p2,
+        n: usize,
+    ) -> *mut blst_middle_product_precomputed_b_avx;
+    fn blst_middle_product_workspace_avx_native_new(
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+    ) -> *mut blst_middle_product_workspace_avx_native;
+    fn blst_middle_product_avx_native_with_workspace(
+        a: *const blst_avx_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        workspace: *mut blst_middle_product_workspace_avx_native,
+        out: *mut blst_avx_gt,
+    ) -> bool;
+    fn blst_middle_product_workspace_avx_native_free(
+        workspace: *mut blst_middle_product_workspace_avx_native,
     );
     fn blst_middle_product_precompute_b(
         b: *const blst_p2,
@@ -321,7 +345,78 @@ impl Drop for AvxMiddleProductWorkspace {
     }
 }
 
-fn validate_precompute_input(b: &[blst_p2]) -> Result<(), MiddleProductError> {
+/// Opaque owner for a precomputed native-AVX G2 operand.
+///
+/// Unlike [`AvxMiddleProductPrecomputedB`], construction accepts AVX-native G2
+/// values directly and performs no scalar/native conversion.
+#[derive(Debug)]
+pub struct NativeAvxMiddleProductPrecomputedB {
+    raw: *mut blst_middle_product_precomputed_b_avx,
+    n: usize,
+}
+
+impl NativeAvxMiddleProductPrecomputedB {
+    pub fn new(b: &[blst_avx_p2]) -> Result<Self, MiddleProductError> {
+        validate_precompute_input(b)?;
+        let n = b.len() / 2;
+        let raw = unsafe { blst_middle_product_precompute_b_avx_native(b.as_ptr(), n) };
+        if raw.is_null() {
+            return Err(MiddleProductError::PrecomputeFailed);
+        }
+        Ok(Self { raw, n })
+    }
+
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+}
+
+impl Drop for NativeAvxMiddleProductPrecomputedB {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_precomputed_b_avx_free(self.raw) };
+        }
+    }
+}
+
+/// Caller-owned native AVX FFT workspace.
+///
+/// This workspace contains only backend-native FFT scratch. It has no scalar
+/// input-conversion or scalar output-staging buffers.
+#[derive(Debug)]
+pub struct NativeAvxMiddleProductWorkspace {
+    raw: *mut blst_middle_product_workspace_avx_native,
+    n: usize,
+}
+
+impl NativeAvxMiddleProductWorkspace {
+    pub fn new(
+        precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+    ) -> Result<Self, MiddleProductError> {
+        let raw = unsafe { blst_middle_product_workspace_avx_native_new(precomputed_b.raw) };
+        if raw.is_null() {
+            return Err(MiddleProductError::WorkspaceCreationFailed);
+        }
+        Ok(Self {
+            raw,
+            n: precomputed_b.n,
+        })
+    }
+}
+
+impl Drop for NativeAvxMiddleProductWorkspace {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_workspace_avx_native_free(self.raw) };
+        }
+    }
+}
+
+fn validate_precompute_input<T>(b: &[T]) -> Result<(), MiddleProductError> {
     if b.is_empty() {
         return Err(MiddleProductError::EmptyInput);
     }
@@ -474,6 +569,35 @@ pub fn middle_product_avx_with_workspace(
     }
     if unsafe {
         blst_middle_product_avx_with_workspace(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            workspace.raw,
+            out.as_mut_ptr(),
+        )
+    } {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Computes an AVX middle product using native input and output types.
+///
+/// Construction and evaluation never cross the scalar representation. The
+/// native call allocates nothing after `workspace` is constructed.
+pub fn middle_product_avx_native_with_workspace(
+    a: &[blst_avx_p1],
+    precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+    workspace: &mut NativeAvxMiddleProductWorkspace,
+    out: &mut [blst_avx_gt],
+) -> Result<(), MiddleProductError> {
+    validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
+    if workspace.n != precomputed_b.n {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if unsafe {
+        blst_middle_product_avx_native_with_workspace(
             a.as_ptr(),
             precomputed_b.n,
             precomputed_b.raw,
@@ -751,6 +875,49 @@ mod tests {
         assert_eq!(scalar_reused, scalar_middle);
         assert_eq!(avx_reused, scalar_middle);
         assert_eq!(avx_constant, scalar_constant);
+    }
+
+    #[test]
+    fn native_avx_backend_accepts_and_returns_only_native_values() {
+        if !unsafe { blst_avx_enabled() } {
+            return;
+        }
+
+        let scalar_b = unsafe { [*blst_p2_generator(), *blst_p2_generator()] };
+        let scalar_a = unsafe { [*blst_p1_generator()] };
+        let mut native_b = [blst_avx_p2::default(); 2];
+        let mut native_a = [blst_avx_p1::default(); 1];
+        for (native, scalar) in native_b.iter_mut().zip(scalar_b.iter()) {
+            assert!(unsafe { blst_avx_p2_from_scalar(native, scalar) });
+        }
+        assert!(unsafe { blst_avx_p1_from_scalar(&mut native_a[0], &scalar_a[0]) });
+
+        let precomputed = NativeAvxMiddleProductPrecomputedB::new(&native_b).unwrap();
+        let mut workspace = NativeAvxMiddleProductWorkspace::new(&precomputed).unwrap();
+        let mut native_out = [blst_avx_gt::default(); 1];
+        middle_product_avx_native_with_workspace(
+            &native_a,
+            &precomputed,
+            &mut workspace,
+            &mut native_out,
+        )
+        .unwrap();
+
+        let scalar_precomputed = ScalarMiddleProductPrecomputedB::new(&scalar_b).unwrap();
+        let mut scalar_workspace =
+            ScalarMiddleProductWorkspace::new(&scalar_precomputed).unwrap();
+        let mut expected = [zero_fp12(); 1];
+        middle_product_scalar_with_workspace(
+            &scalar_a,
+            &scalar_precomputed,
+            &mut scalar_workspace,
+            &mut expected,
+        )
+        .unwrap();
+
+        let mut converted = [zero_fp12(); 1];
+        assert!(unsafe { blst_fp12_from_avx(&mut converted[0], &native_out[0]) });
+        assert_eq!(converted, expected);
     }
 
     #[test]

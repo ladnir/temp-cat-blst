@@ -13,6 +13,9 @@ The Rust middle-product surface is intentionally small:
 - `AvxMiddleProductPrecomputedB` with `middle_product_avx` and `update_avx`
   plus `AvxMiddleProductWorkspace` and
   `middle_product_avx_with_workspace`
+- `NativeAvxMiddleProductPrecomputedB` with
+  `NativeAvxMiddleProductWorkspace` and
+  `middle_product_avx_native_with_workspace`
 
 Design points:
 
@@ -26,6 +29,9 @@ Design points:
 - the explicit `*_with_workspace` evaluations reuse caller-owned native FFT,
   output-staging, and AVX input-conversion storage and allocate nothing after
   successful workspace construction
+- the native AVX interface accepts `blst_avx_p2` and `blst_avx_p1` directly,
+  writes caller-owned `blst_avx_gt`, and needs neither conversion storage nor
+  scalar output staging
 
 Mathematical and point-domain contract:
 
@@ -49,10 +55,12 @@ Length rules:
 
 Backend behavior:
 
-- the Rust ABI stays scalar/public
+- compatibility interfaces keep the scalar/public Rust ABI
 - the default handle follows the CatBLST build default for compatibility
 - the explicit scalar and AVX handles bind the backend at construction and
   have different Rust and C types; they cannot be interchanged
+- the native AVX handle and workspace never cross the scalar representation;
+  canonical encoding and decoding remain caller-owned wire-boundary work
 - an explicit AVX precompute returns `PrecomputeFailed` when the linked build
   does not contain AVX support
 - the AVX implementation converts from scalar boundary types once per kernel

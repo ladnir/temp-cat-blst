@@ -7,7 +7,7 @@ use blst::*;
 // Benchmark min_pk
 use blst::min_pk::*;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -465,6 +465,68 @@ fn bench_keys(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(feature = "avx")]
+fn bench_middle_product_native_boundary(c: &mut Criterion) {
+    if !unsafe { blst_avx_enabled() } {
+        return;
+    }
+
+    let mut group = c.benchmark_group("middle_product_avx_boundary");
+    group.sample_size(15);
+
+    for n in [16usize, 32, 64, 128, 256] {
+        let scalar_a = vec![unsafe { *blst_p1_generator() }; n];
+        let scalar_b = vec![unsafe { *blst_p2_generator() }; 2 * n];
+        let mut native_a = vec![blst_avx_p1::default(); n];
+        let mut native_b = vec![blst_avx_p2::default(); 2 * n];
+        for (native, scalar) in native_a.iter_mut().zip(scalar_a.iter()) {
+            assert!(unsafe { blst_avx_p1_from_scalar(native, scalar) });
+        }
+        for (native, scalar) in native_b.iter_mut().zip(scalar_b.iter()) {
+            assert!(unsafe { blst_avx_p2_from_scalar(native, scalar) });
+        }
+
+        let compatibility_precompute =
+            AvxMiddleProductPrecomputedB::new(&scalar_b).unwrap();
+        let mut compatibility_workspace =
+            AvxMiddleProductWorkspace::new(&compatibility_precompute).unwrap();
+        let native_precompute =
+            NativeAvxMiddleProductPrecomputedB::new(&native_b).unwrap();
+        let mut native_workspace =
+            NativeAvxMiddleProductWorkspace::new(&native_precompute).unwrap();
+        let mut compatibility_out = vec![blst_fp12::default(); n];
+        let mut native_out = vec![blst_avx_gt::default(); n];
+
+        group.bench_function(BenchmarkId::new("compatibility", n), |bencher| {
+            bencher.iter(|| {
+                middle_product_avx_with_workspace(
+                    black_box(&scalar_a),
+                    black_box(&compatibility_precompute),
+                    black_box(&mut compatibility_workspace),
+                    black_box(&mut compatibility_out),
+                )
+                .unwrap();
+            });
+        });
+        group.bench_function(BenchmarkId::new("native", n), |bencher| {
+            bencher.iter(|| {
+                middle_product_avx_native_with_workspace(
+                    black_box(&native_a),
+                    black_box(&native_precompute),
+                    black_box(&mut native_workspace),
+                    black_box(&mut native_out),
+                )
+                .unwrap();
+            });
+        });
+    }
+
+    group.finish();
+}
+
+#[cfg(not(feature = "avx"))]
+fn bench_middle_product_native_boundary(_c: &mut Criterion) {}
+
 criterion_group!(
     benches,
     bench_verify_multi_aggregate,
@@ -473,6 +535,7 @@ criterion_group!(
     bench_aggregate,
     bench_single_message,
     bench_serdes,
-    bench_keys
+    bench_keys,
+    bench_middle_product_native_boundary
 );
 criterion_main!(benches);

@@ -79,12 +79,14 @@ pub use avx::{
 pub use middle_product::{
     blst_middle_product_precomputed_b, blst_middle_product_precomputed_b_avx,
     blst_middle_product_precomputed_b_scalar,
-    blst_middle_product_workspace_avx, blst_middle_product_workspace_scalar,
-    combine, middle_product, middle_product_avx,
+    blst_middle_product_workspace_avx, blst_middle_product_workspace_avx_native,
+    blst_middle_product_workspace_scalar, combine, middle_product,
+    middle_product_avx, middle_product_avx_native_with_workspace,
     middle_product_avx_with_workspace, middle_product_scalar,
     middle_product_scalar_with_workspace, precompute_middle_product_b, update,
     update_avx, update_scalar, AvxMiddleProductPrecomputedB,
     AvxMiddleProductWorkspace, MiddleProductError, MiddleProductPrecomputedB,
+    NativeAvxMiddleProductPrecomputedB, NativeAvxMiddleProductWorkspace,
     ScalarMiddleProductPrecomputedB, ScalarMiddleProductWorkspace,
 };
 #[cfg(blst_std)]

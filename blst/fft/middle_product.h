@@ -430,12 +430,14 @@ namespace blst {
                     plan);
             }
 
+            template<class OutputGt>
             static void extract_middle_window(
-                std::span<GT> out,
+                std::span<OutputGt> out,
                 std::span<const GtFftElement> values,
                 std::size_t start,
                 std::size_t length)
             {
+                static_assert(std::is_same_v<OutputGt, GT>);
                 for (std::size_t i = 0; i < length; ++i) {
                     out[i] = to_public_gt(values[start + i]);
                 }
@@ -542,14 +544,20 @@ namespace blst {
                     plan);
             }
 
+            template<class OutputGt>
             static void extract_middle_window(
-                std::span<GT> out,
+                std::span<OutputGt> out,
                 std::span<const GtFftElement> values,
                 std::size_t start,
                 std::size_t length)
             {
                 for (std::size_t i = 0; i < length; ++i) {
-                    out[i] = to_public_gt(values[start + i]);
+                    if constexpr (std::is_same_v<OutputGt, avx::GT>) {
+                        out[i].data = values[start + i].data;
+                    } else {
+                        static_assert(std::is_same_v<OutputGt, GT>);
+                        out[i] = to_public_gt(values[start + i]);
+                    }
                 }
             }
         };
@@ -688,11 +696,11 @@ namespace blst {
             return precomputed;
         }
 
-        template<class Context>
+        template<class Context, class OutputGt>
         inline void middle_product_impl(
             std::span<const typename Context::G1Point> a,
             const MiddleProductPrecomputedBImpl<Context>& precomputed_b,
-            std::span<GT> out,
+            std::span<OutputGt> out,
             MiddleProductWorkspaceImpl<Context>& workspace,
             TimingStats* timings)
         {
