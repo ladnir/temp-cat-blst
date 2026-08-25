@@ -462,6 +462,34 @@ TEST(Btx, SerializationRoundTripPreservesObjects)
     EXPECT_TRUE(blst::G1Point::equal(decoded_share.value, share.value));
 }
 
+TEST(Btx, PublicParameterDeserializationRejectsMalformedDimensions)
+{
+    BtxFixture fixture;
+    const bte::building_blocks::Bytes encoded =
+        SerializePublicParameters(fixture.setup.public_parameters);
+
+    bte::building_blocks::Bytes wrong_power_count = encoded;
+    constexpr std::size_t power_count_offset = 1 + 4 + 4 + 4 + (12 * 48);
+    wrong_power_count[power_count_offset + 0] = 0;
+    wrong_power_count[power_count_offset + 1] = 0;
+    wrong_power_count[power_count_offset + 2] = 0;
+    wrong_power_count[power_count_offset + 3] = 1;
+    EXPECT_THROW(DeserializePublicParameters(wrong_power_count), std::invalid_argument);
+
+    bte::building_blocks::Bytes trailing = encoded;
+    trailing.push_back(0);
+    EXPECT_THROW(DeserializePublicParameters(trailing), std::invalid_argument);
+}
+
+TEST(Btx, ThresholdRequestDeserializationRejectsImpossibleElementCount)
+{
+    bte::building_blocks::Bytes encoded = {
+        1, // wire version
+        0, 0, 0, 2, // two points claimed
+    };
+    EXPECT_THROW(DeserializeThresholdRequest(encoded), std::invalid_argument);
+}
+
 TEST(Btx, EndToEndFlowWorksAcrossSerializationBoundaries)
 {
     BtxFixture fixture;

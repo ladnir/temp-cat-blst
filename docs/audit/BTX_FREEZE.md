@@ -30,8 +30,14 @@ does not keep a duplicate roadmap.
 - Batched Miller-loop verification is complete in C++ and implemented for
   review in Rust. The Rust wrapper uses the same `batch_size + 1` equation and
   is 3.0% to 16.2% faster in the final sequential measurements.
-- Expose the prepared `update` operation through a narrow,
-  allocation-conscious boundary when the Rust alpha batch reaches that stage.
+- Scalar prepared-alpha comparison is complete. Rust selected the existing
+  generic prepared Miller-line boundary rather than ordinary `update`; no
+  BTX-specific C++ kernel was added.
+- Batch 5 malformed-input parity is complete. The C++
+  public-parameter decoder checks the exact SRS dimension and all encoded
+  element counts before allocation. Threshold-request decoding likewise
+  rejects an impossible element count before reserving storage. Rust owns the
+  broader fallible protocol interfaces that have no C++ counterpart.
 - Keep the legacy KEM-only ciphertext separate from the full Rust protocol
   type until an approved plan requires convergence.
 - Record benchmark profiles, commands, host details, and raw results.

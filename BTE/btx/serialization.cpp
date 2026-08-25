@@ -1,6 +1,7 @@
 #include "BTE/btx/serialization.h"
 
 #include <array>
+#include <limits>
 #include <stdexcept>
 
 #include "BTE/building_blocks/serialization.h"
@@ -134,6 +135,18 @@ namespace bte::btx
                 throw std::invalid_argument("Unsupported BTX wire version");
             }
         }
+
+        void expect_encoded_elements(
+            const std::span<const std::uint8_t> input,
+            const std::size_t offset,
+            const std::size_t count,
+            const std::size_t element_size)
+        {
+            if (offset > input.size() ||
+                count > (input.size() - offset) / element_size) {
+                throw std::invalid_argument("BTX wire element count exceeds the encoded payload");
+            }
+        }
     }
 
     Bytes SerializePublicParameters(const PublicParameters& public_parameters)
@@ -160,9 +173,29 @@ namespace bte::btx
         public_parameters.max_batch_size = read_u32_be(encoded, offset);
         public_parameters.num_servers = read_u32_be(encoded, offset);
         public_parameters.threshold = read_u32_be(encoded, offset);
+        if (public_parameters.max_batch_size == 0) {
+            throw std::invalid_argument("BTX max_batch_size must be nonzero");
+        }
+        if (public_parameters.num_servers == 0) {
+            throw std::invalid_argument("BTX num_servers must be nonzero");
+        }
+        if (public_parameters.threshold == 0 ||
+            public_parameters.threshold > public_parameters.num_servers) {
+            throw std::invalid_argument("BTX threshold must be in [1, num_servers]");
+        }
         public_parameters.gt_tau_to_bmax_plus_one = deserialize_gt(read_bytes(encoded, offset, 12 * 48));
 
         const std::size_t num_powers = read_u32_be(encoded, offset);
+        if (public_parameters.max_batch_size >
+            (std::numeric_limits<std::size_t>::max() - 1) / 2) {
+            throw std::invalid_argument("BTX max_batch_size overflows the public-power dimension");
+        }
+        const std::size_t expected_num_powers =
+            (2 * public_parameters.max_batch_size) + 1;
+        if (num_powers != expected_num_powers) {
+            throw std::invalid_argument("BTX public-power vector has the wrong size");
+        }
+        expect_encoded_elements(encoded, offset, num_powers, 96);
         public_parameters.g2_powers.reserve(num_powers);
         for (std::size_t i = 0; i < num_powers; ++i) {
             public_parameters.g2_powers.push_back(deserialize_g2(read_bytes(encoded, offset, 96)));
@@ -209,6 +242,7 @@ namespace bte::btx
 
         ThresholdRequest request{};
         const std::size_t batch_size = read_u32_be(encoded, offset);
+        expect_encoded_elements(encoded, offset, batch_size, 48);
         request.ordered_c1.reserve(batch_size);
         for (std::size_t i = 0; i < batch_size; ++i) {
             request.ordered_c1.push_back(deserialize_g1(read_bytes(encoded, offset, 48)));
