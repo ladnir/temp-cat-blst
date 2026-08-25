@@ -35,6 +35,16 @@ pub struct blst_middle_product_precomputed_b_avx {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub struct blst_middle_product_workspace_scalar {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct blst_middle_product_workspace_avx {
+    _private: [u8; 0],
+}
+
 extern "C" {
     fn blst_middle_product_precompute_b_scalar(
         b: *const blst_p2,
@@ -46,6 +56,19 @@ extern "C" {
         precomputed_b: *const blst_middle_product_precomputed_b_scalar,
         out: *mut blst_fp12,
     ) -> bool;
+    fn blst_middle_product_workspace_scalar_new(
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+    ) -> *mut blst_middle_product_workspace_scalar;
+    fn blst_middle_product_scalar_with_workspace(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        workspace: *mut blst_middle_product_workspace_scalar,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_workspace_scalar_free(
+        workspace: *mut blst_middle_product_workspace_scalar,
+    );
     fn blst_middle_product_update_scalar(
         a0: *const blst_p1,
         precomputed_b: *const blst_middle_product_precomputed_b_scalar,
@@ -64,6 +87,19 @@ extern "C" {
         precomputed_b: *const blst_middle_product_precomputed_b_avx,
         out: *mut blst_fp12,
     ) -> bool;
+    fn blst_middle_product_workspace_avx_new(
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+    ) -> *mut blst_middle_product_workspace_avx;
+    fn blst_middle_product_avx_with_workspace(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        workspace: *mut blst_middle_product_workspace_avx,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_workspace_avx_free(
+        workspace: *mut blst_middle_product_workspace_avx,
+    );
     fn blst_middle_product_update_avx(
         a0: *const blst_p1,
         precomputed_b: *const blst_middle_product_precomputed_b_avx,
@@ -106,6 +142,7 @@ pub enum MiddleProductError {
     LengthMismatch,
     OutputTooSmall,
     PrecomputeFailed,
+    WorkspaceCreationFailed,
     BackendFailure,
 }
 
@@ -182,6 +219,38 @@ impl Drop for ScalarMiddleProductPrecomputedB {
     }
 }
 
+/// Caller-owned reusable scalar FFT workspace.
+#[derive(Debug)]
+pub struct ScalarMiddleProductWorkspace {
+    raw: *mut blst_middle_product_workspace_scalar,
+    n: usize,
+}
+
+impl ScalarMiddleProductWorkspace {
+    pub fn new(
+        precomputed_b: &ScalarMiddleProductPrecomputedB,
+    ) -> Result<Self, MiddleProductError> {
+        let raw = unsafe {
+            blst_middle_product_workspace_scalar_new(precomputed_b.raw)
+        };
+        if raw.is_null() {
+            return Err(MiddleProductError::WorkspaceCreationFailed);
+        }
+        Ok(Self {
+            raw,
+            n: precomputed_b.n,
+        })
+    }
+}
+
+impl Drop for ScalarMiddleProductWorkspace {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_workspace_scalar_free(self.raw) };
+        }
+    }
+}
+
 /// Opaque precomputation whose evaluations always use the AVX backend.
 ///
 /// Construction returns `PrecomputeFailed` when the linked CatBLST build does
@@ -217,6 +286,37 @@ impl Drop for AvxMiddleProductPrecomputedB {
     fn drop(&mut self) {
         if !self.raw.is_null() {
             unsafe { blst_middle_product_precomputed_b_avx_free(self.raw) };
+        }
+    }
+}
+
+/// Caller-owned reusable AVX FFT and scalar-to-AVX conversion workspace.
+#[derive(Debug)]
+pub struct AvxMiddleProductWorkspace {
+    raw: *mut blst_middle_product_workspace_avx,
+    n: usize,
+}
+
+impl AvxMiddleProductWorkspace {
+    pub fn new(
+        precomputed_b: &AvxMiddleProductPrecomputedB,
+    ) -> Result<Self, MiddleProductError> {
+        let raw =
+            unsafe { blst_middle_product_workspace_avx_new(precomputed_b.raw) };
+        if raw.is_null() {
+            return Err(MiddleProductError::WorkspaceCreationFailed);
+        }
+        Ok(Self {
+            raw,
+            n: precomputed_b.n,
+        })
+    }
+}
+
+impl Drop for AvxMiddleProductWorkspace {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_workspace_avx_free(self.raw) };
         }
     }
 }
@@ -309,6 +409,36 @@ pub fn middle_product_scalar(
     }
 }
 
+/// Computes a scalar middle product without allocating in the native call.
+///
+/// `workspace` must have been constructed for a scalar precompute with the
+/// same logical length. It may be reused by subsequent calls, but is mutably
+/// borrowed so concurrent evaluations require distinct workspaces.
+pub fn middle_product_scalar_with_workspace(
+    a: &[blst_p1],
+    precomputed_b: &ScalarMiddleProductPrecomputedB,
+    workspace: &mut ScalarMiddleProductWorkspace,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
+    if workspace.n != precomputed_b.n {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if unsafe {
+        blst_middle_product_scalar_with_workspace(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            workspace.raw,
+            out.as_mut_ptr(),
+        )
+    } {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
 /// Computes a middle product through an explicitly AVX precompute.
 pub fn middle_product_avx(
     a: &[blst_p1],
@@ -325,6 +455,32 @@ pub fn middle_product_avx(
         )
     };
     if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Computes an AVX middle product without allocating in the native call.
+pub fn middle_product_avx_with_workspace(
+    a: &[blst_p1],
+    precomputed_b: &AvxMiddleProductPrecomputedB,
+    workspace: &mut AvxMiddleProductWorkspace,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
+    if workspace.n != precomputed_b.n {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if unsafe {
+        blst_middle_product_avx_with_workspace(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            workspace.raw,
+            out.as_mut_ptr(),
+        )
+    } {
         Ok(())
     } else {
         Err(MiddleProductError::BackendFailure)
@@ -529,12 +685,23 @@ mod tests {
     fn explicit_scalar_backend_accepts_zero_boundary_points() {
         let b = [blst_p2::default(), blst_p2::default()];
         let precomputed = ScalarMiddleProductPrecomputedB::new(&b).unwrap();
+        let mut workspace =
+            ScalarMiddleProductWorkspace::new(&precomputed).unwrap();
         let a = [blst_p1::default()];
         let mut middle = [zero_fp12()];
+        let mut middle_reused = [zero_fp12()];
         let mut constant = [zero_fp12()];
 
         middle_product_scalar(&a, &precomputed, &mut middle).unwrap();
+        middle_product_scalar_with_workspace(
+            &a,
+            &precomputed,
+            &mut workspace,
+            &mut middle_reused,
+        )
+        .unwrap();
         update_scalar(&a[0], &precomputed, &mut constant).unwrap();
+        assert_eq!(middle_reused, middle);
         assert_eq!(middle[0], blst_fp12::default());
         assert_eq!(constant[0], blst_fp12::default());
     }
@@ -550,18 +717,39 @@ mod tests {
 
         let scalar = ScalarMiddleProductPrecomputedB::new(&b).unwrap();
         let avx = avx.unwrap();
+        let mut scalar_workspace =
+            ScalarMiddleProductWorkspace::new(&scalar).unwrap();
+        let mut avx_workspace = AvxMiddleProductWorkspace::new(&avx).unwrap();
         let a = unsafe { [*blst_p1_generator()] };
         let mut scalar_middle = [zero_fp12()];
         let mut avx_middle = [zero_fp12()];
+        let mut scalar_reused = [zero_fp12()];
+        let mut avx_reused = [zero_fp12()];
         let mut scalar_constant = [zero_fp12()];
         let mut avx_constant = [zero_fp12()];
 
         middle_product_scalar(&a, &scalar, &mut scalar_middle).unwrap();
         middle_product_avx(&a, &avx, &mut avx_middle).unwrap();
+        middle_product_scalar_with_workspace(
+            &a,
+            &scalar,
+            &mut scalar_workspace,
+            &mut scalar_reused,
+        )
+        .unwrap();
+        middle_product_avx_with_workspace(
+            &a,
+            &avx,
+            &mut avx_workspace,
+            &mut avx_reused,
+        )
+        .unwrap();
         update_scalar(&a[0], &scalar, &mut scalar_constant).unwrap();
         update_avx(&a[0], &avx, &mut avx_constant).unwrap();
 
         assert_eq!(avx_middle, scalar_middle);
+        assert_eq!(scalar_reused, scalar_middle);
+        assert_eq!(avx_reused, scalar_middle);
         assert_eq!(avx_constant, scalar_constant);
     }
 

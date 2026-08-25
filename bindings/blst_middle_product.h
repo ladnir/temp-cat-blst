@@ -21,6 +21,10 @@ typedef struct blst_middle_product_precomputed_b_scalar
     blst_middle_product_precomputed_b_scalar;
 typedef struct blst_middle_product_precomputed_b_avx
     blst_middle_product_precomputed_b_avx;
+typedef struct blst_middle_product_workspace_scalar
+    blst_middle_product_workspace_scalar;
+typedef struct blst_middle_product_workspace_avx
+    blst_middle_product_workspace_avx;
 
 /**
  * Explicit scalar and AVX middle-product handles.
@@ -30,6 +34,12 @@ typedef struct blst_middle_product_precomputed_b_avx
  * at construction. Scalar and AVX handles are different C types and are not
  * interchangeable. The AVX constructor returns null, and AVX evaluation
  * returns false, when CatBLST was built without AVX support.
+ *
+ * The `*_workspace_*_new` constructors allocate all mutable FFT, output
+ * staging, and (for AVX) input-conversion storage required by the matching
+ * precompute. The `*_with_workspace` evaluations allocate nothing. A
+ * workspace is mutable and must not be used concurrently; create one per
+ * evaluation thread. Its length and backend must match the precompute.
  */
 BLST_NODISCARD blst_middle_product_precomputed_b_scalar*
 blst_middle_product_precompute_b_scalar(const blst_p2* b, size_t n);
@@ -38,6 +48,17 @@ BLST_NODISCARD bool blst_middle_product_scalar(
     size_t n,
     const blst_middle_product_precomputed_b_scalar* precomputed_b,
     blst_fp12* out);
+BLST_NODISCARD blst_middle_product_workspace_scalar*
+blst_middle_product_workspace_scalar_new(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b);
+BLST_NODISCARD bool blst_middle_product_scalar_with_workspace(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    blst_fp12* out);
+void blst_middle_product_workspace_scalar_free(
+    blst_middle_product_workspace_scalar* workspace);
 BLST_NODISCARD bool blst_middle_product_update_scalar(
     const blst_p1* a0,
     const blst_middle_product_precomputed_b_scalar* precomputed_b,
@@ -52,6 +73,17 @@ BLST_NODISCARD bool blst_middle_product_avx(
     size_t n,
     const blst_middle_product_precomputed_b_avx* precomputed_b,
     blst_fp12* out);
+BLST_NODISCARD blst_middle_product_workspace_avx*
+blst_middle_product_workspace_avx_new(
+    const blst_middle_product_precomputed_b_avx* precomputed_b);
+BLST_NODISCARD bool blst_middle_product_avx_with_workspace(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx* workspace,
+    blst_fp12* out);
+void blst_middle_product_workspace_avx_free(
+    blst_middle_product_workspace_avx* workspace);
 BLST_NODISCARD bool blst_middle_product_update_avx(
     const blst_p1* a0,
     const blst_middle_product_precomputed_b_avx* precomputed_b,

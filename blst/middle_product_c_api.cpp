@@ -224,6 +224,20 @@ struct blst_middle_product_precomputed_b_scalar
     }
 };
 
+struct blst_middle_product_workspace_scalar
+{
+    std::size_t n;
+    ScalarWorkspace value;
+    std::vector<PublicGt> native_out;
+
+    explicit blst_middle_product_workspace_scalar(
+        const blst_middle_product_precomputed_b_scalar& precomputed_b)
+        : n(precomputed_b.n), native_out(precomputed_b.n, PublicGt::identity())
+    {
+        value.ensure_size(precomputed_b.value.fft_size);
+    }
+};
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 struct blst_middle_product_precomputed_b_avx
 {
@@ -237,8 +251,29 @@ struct blst_middle_product_precomputed_b_avx
     {
     }
 };
+
+struct blst_middle_product_workspace_avx
+{
+    std::size_t n;
+    NativeWorkspace value;
+    std::vector<NativeG1> converted_a;
+    std::vector<PublicGt> native_out;
+
+    explicit blst_middle_product_workspace_avx(
+        const blst_middle_product_precomputed_b_avx& precomputed_b)
+        : n(precomputed_b.n),
+          converted_a(precomputed_b.n),
+          native_out(precomputed_b.n, PublicGt::identity())
+    {
+        value.ensure_size(precomputed_b.value.fft_size);
+    }
+};
 #else
 struct blst_middle_product_precomputed_b_avx
+{
+};
+
+struct blst_middle_product_workspace_avx
 {
 };
 #endif
@@ -275,18 +310,58 @@ bool blst_middle_product_scalar(
     }
 
     try {
-        std::vector<PublicGt> native_out(n, PublicGt::identity());
-        run_scalar(
+        blst_middle_product_workspace_scalar workspace(*precomputed_b);
+        return blst_middle_product_scalar_with_workspace(
+            a, n, precomputed_b, &workspace, out);
+    } catch (...) {
+        return false;
+    }
+}
+
+blst_middle_product_workspace_scalar* blst_middle_product_workspace_scalar_new(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b)
+{
+    if (precomputed_b == nullptr || precomputed_b->n == 0) {
+        return nullptr;
+    }
+    try {
+        return new blst_middle_product_workspace_scalar(*precomputed_b);
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+bool blst_middle_product_scalar_with_workspace(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    blst_fp12* out)
+{
+    if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
+        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_impl<blst::MiddleProductScalarContext>(
             std::span<const BoundaryG1>(a, n),
             precomputed_b->value,
-            std::span<PublicGt>(native_out));
+            std::span<PublicGt>(workspace->native_out),
+            workspace->value,
+            nullptr);
         for (std::size_t i = 0; i < n; ++i) {
-            out[i] = gt_to_boundary(native_out[i]);
+            out[i] = gt_to_boundary(workspace->native_out[i]);
         }
         return true;
     } catch (...) {
         return false;
     }
+}
+
+void blst_middle_product_workspace_scalar_free(
+    blst_middle_product_workspace_scalar* workspace)
+{
+    delete workspace;
 }
 
 bool blst_middle_product_update_scalar(
@@ -352,15 +427,9 @@ bool blst_middle_product_avx(
         return false;
     }
     try {
-        std::vector<PublicGt> native_out(n, PublicGt::identity());
-        run_native(
-            std::span<const BoundaryG1>(a, n),
-            precomputed_b->value,
-            std::span<PublicGt>(native_out));
-        for (std::size_t i = 0; i < n; ++i) {
-            out[i] = gt_to_boundary(native_out[i]);
-        }
-        return true;
+        blst_middle_product_workspace_avx workspace(*precomputed_b);
+        return blst_middle_product_avx_with_workspace(
+            a, n, precomputed_b, &workspace, out);
     } catch (...) {
         return false;
     }
@@ -371,6 +440,70 @@ bool blst_middle_product_avx(
     (void)out;
     return false;
 #endif
+}
+
+blst_middle_product_workspace_avx* blst_middle_product_workspace_avx_new(
+    const blst_middle_product_precomputed_b_avx* precomputed_b)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (precomputed_b == nullptr || precomputed_b->n == 0) {
+        return nullptr;
+    }
+    try {
+        return new blst_middle_product_workspace_avx(*precomputed_b);
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)precomputed_b;
+    return nullptr;
+#endif
+}
+
+bool blst_middle_product_avx_with_workspace(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx* workspace,
+    blst_fp12* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
+        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        for (std::size_t i = 0; i < n; ++i) {
+            workspace->converted_a[i] =
+                blst::avx::avx_map_to_G_detail::from_scalar(a[i]);
+        }
+        blst::detail::middle_product_impl<blst::MiddleProductAvxContext>(
+            std::span<const NativeG1>(workspace->converted_a),
+            precomputed_b->value,
+            std::span<PublicGt>(workspace->native_out),
+            workspace->value,
+            nullptr);
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = gt_to_boundary(workspace->native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)a;
+    (void)n;
+    (void)precomputed_b;
+    (void)workspace;
+    (void)out;
+    return false;
+#endif
+}
+
+void blst_middle_product_workspace_avx_free(
+    blst_middle_product_workspace_avx* workspace)
+{
+    delete workspace;
 }
 
 bool blst_middle_product_update_avx(
