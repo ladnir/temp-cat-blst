@@ -206,6 +206,22 @@ inline bool_t is_zero_mod_field(const CurveFp2Ring::StandardElement& value)
         blst::Fp::equal(scalar[1], blst::Fp::zero());
 }
 
+inline bool_t equal_mod_field(
+    const CurveRing::StandardElement& left,
+    const CurveRing::StandardElement& right)
+{
+    return blst::Fp::equal(
+        ring_fp_to_scalar(left), ring_fp_to_scalar(right));
+}
+
+inline bool_t equal_mod_field(
+    const CurveFp2Ring::StandardElement& left,
+    const CurveFp2Ring::StandardElement& right)
+{
+    return equal_mod_field(left.x(), right.x()) &
+        equal_mod_field(left.y(), right.y());
+}
+
 inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine& point)
 {
     blst::scalar::G2AffinePoint out = {};
@@ -359,6 +375,73 @@ inline CurveG2Projective affine_to_projective(const CurveG2Affine& point)
         return curve_g2().zero(curve_fp2_ring());
     }
     return {point.x, point.y, curve_fp2_ring().one()};
+}
+
+inline bool_t on_curve(const CurveG1Affine& point)
+{
+    if (is_zero_mod_field(point.x) & is_zero_mod_field(point.y))
+        return 1;
+
+    const auto xx = curve_ring().modmul(point.x, point.x);
+    const auto xxx = curve_ring().modmul(xx, point.x);
+    const auto yy = curve_ring().modmul(point.y, point.y);
+    const auto two = curve_ring().one() * std::integral_constant<int, 2>{};
+    const auto four = two * std::integral_constant<int, 2>{};
+    const auto rhs = NormalizePointCoord(
+        xxx + four, curve_ring());
+    return equal_mod_field(yy, rhs);
+}
+
+inline bool_t on_curve(const CurveG2Affine& point)
+{
+    if (is_zero_mod_field(point.x) & is_zero_mod_field(point.y))
+        return 1;
+
+    const auto xx = curve_fp2_ring().square(point.x);
+    const auto xxx = curve_fp2_ring().mul(xx, point.x);
+    const auto yy = curve_fp2_ring().square(point.y);
+    const auto b = curve_fp2_ring().mul_by_nonresidue(
+        curve_fp2_ring().one());
+    const auto two_b = b * std::integral_constant<int, 2>{};
+    const auto four_b = two_b * std::integral_constant<int, 2>{};
+    const auto rhs = NormalizePointCoord(xxx + four_b, curve_fp2_ring());
+    return equal_mod_field(yy, rhs);
+}
+
+inline bool_t on_curve(const CurveG1Projective& point)
+{
+    if (is_zero_mod_field(point.z))
+        return 1;
+
+    const auto xx = curve_ring().modmul(point.x, point.x);
+    const auto yy = curve_ring().modmul(point.y, point.y);
+    const auto zz = curve_ring().modmul(point.z, point.z);
+    const auto xxx = curve_ring().modmul(xx, point.x);
+    const auto yyz = curve_ring().modmul(yy, point.z);
+    const auto zzz = curve_ring().modmul(zz, point.z);
+    const auto two_zzz = zzz * std::integral_constant<int, 2>{};
+    const auto four_zzz = two_zzz * std::integral_constant<int, 2>{};
+    const auto rhs = NormalizePointCoord(
+        xxx + four_zzz, curve_ring());
+    return equal_mod_field(yyz, rhs);
+}
+
+inline bool_t on_curve(const CurveG2Projective& point)
+{
+    if (is_zero_mod_field(point.z))
+        return 1;
+
+    const auto xx = curve_fp2_ring().square(point.x);
+    const auto yy = curve_fp2_ring().square(point.y);
+    const auto zz = curve_fp2_ring().square(point.z);
+    const auto xxx = curve_fp2_ring().mul(xx, point.x);
+    const auto yyz = curve_fp2_ring().mul(yy, point.z);
+    const auto zzz = curve_fp2_ring().mul(zz, point.z);
+    const auto bzzz = curve_fp2_ring().mul_by_nonresidue(zzz);
+    const auto two_bzzz = bzzz * std::integral_constant<int, 2>{};
+    const auto four_bzzz = two_bzzz * std::integral_constant<int, 2>{};
+    const auto rhs = NormalizePointCoord(xxx + four_bzzz, curve_fp2_ring());
+    return equal_mod_field(yyz, rhs);
 }
 
 inline const CurveRing::StandardElement& aprime_e1()
@@ -793,6 +876,9 @@ BLST_INLINE void unchecked_mult(
 
 }  // namespace avx_curve_detail
 
+inline bool_t g1_in_subgroup_relation(const G1Point& point);
+inline bool_t g2_in_subgroup_relation(const G2Point& point);
+
 inline const G1AffinePoint& G1AffinePoint::generator()
 {
     static constexpr G1AffinePoint g(
@@ -807,9 +893,8 @@ inline const G1AffinePoint& G1AffinePoint::generator()
 
 inline int G1AffinePoint::equal(const G1AffinePoint& a, const G1AffinePoint& b)
 {
-    return blst::scalar::G1AffinePoint::equal(
-        avx_curve_detail::curve_g1_affine_to_scalar({a.X, a.Y}),
-        avx_curve_detail::curve_g1_affine_to_scalar({b.X, b.Y}));
+    return avx_curve_detail::equal_mod_field(a.X, b.X) &
+        avx_curve_detail::equal_mod_field(a.Y, b.Y);
 }
 
 inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
@@ -820,12 +905,17 @@ inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
 
 inline bool_t G1AffinePoint::on_curve(const G1AffinePoint& p)
 {
-    return blst::scalar::G1AffinePoint::on_curve(avx_curve_detail::curve_g1_affine_to_scalar({p.X, p.Y}));
+    return avx_curve_detail::on_curve(
+        avx_curve_detail::CurveG1Affine{p.X, p.Y});
 }
 
 inline bool_t G1AffinePoint::in_subgroup(const G1AffinePoint& p)
 {
-    return blst::scalar::G1AffinePoint::in_subgroup(avx_curve_detail::curve_g1_affine_to_scalar({p.X, p.Y}));
+    if (!on_curve(p))
+        return 0;
+    G1Point projective = {};
+    G1Point::from_affine(projective, p);
+    return g1_in_subgroup_relation(projective);
 }
 
 inline void G1AffinePoint::cneg(G1AffinePoint& inOut, bool_t c)
@@ -1056,8 +1146,7 @@ inline limb_t G1Point::equal(const G1Point& a, const G1Point& b)
         avx_curve_detail::CurveG1Projective{b.X, b.Y, b.Z},
         avx_curve_detail::curve_ring(),
         [](const Field_type& value) {
-            return blst::Fp::equal(
-                avx_curve_detail::ring_fp_to_scalar(value), blst::Fp::zero());
+            return avx_curve_detail::is_zero_mod_field(value);
         });
 }
 
@@ -1091,14 +1180,13 @@ inline bool_t G1Point::is_inf(const G1Point& p) { return is_identity(p); }
 
 inline bool_t G1Point::on_curve(const G1Point& p)
 {
-    return blst::scalar::G1Point::on_curve(
-        avx_curve_detail::curve_g1_to_scalar({p.X, p.Y, p.Z}));
+    return avx_curve_detail::on_curve(
+        avx_curve_detail::CurveG1Projective{p.X, p.Y, p.Z});
 }
 
 inline bool_t G1Point::in_subgroup(const G1Point& p)
 {
-    return blst::scalar::G1Point::in_subgroup(
-        avx_curve_detail::curve_g1_to_scalar({p.X, p.Y, p.Z}));
+    return on_curve(p) && g1_in_subgroup_relation(p);
 }
 
 inline limb_t G1Point::serialize_BE(unsigned char* out, const G1Point& in)
@@ -1147,9 +1235,8 @@ inline const G2AffinePoint& G2AffinePoint::generator()
 
 inline int G2AffinePoint::equal(const G2AffinePoint& a, const G2AffinePoint& b)
 {
-    return blst::scalar::G2AffinePoint::equal(
-        avx_curve_detail::curve_g2_affine_to_scalar({a.X, a.Y}),
-        avx_curve_detail::curve_g2_affine_to_scalar({b.X, b.Y}));
+    return avx_curve_detail::equal_mod_field(a.X, b.X) &
+        avx_curve_detail::equal_mod_field(a.Y, b.Y);
 }
 
 inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
@@ -1160,12 +1247,17 @@ inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
 
 inline bool_t G2AffinePoint::on_curve(const G2AffinePoint& p)
 {
-    return blst::scalar::G2AffinePoint::on_curve(avx_curve_detail::curve_g2_affine_to_scalar({p.X, p.Y}));
+    return avx_curve_detail::on_curve(
+        avx_curve_detail::CurveG2Affine{p.X, p.Y});
 }
 
 inline bool_t G2AffinePoint::in_subgroup(const G2AffinePoint& p)
 {
-    return blst::scalar::G2AffinePoint::in_subgroup(avx_curve_detail::curve_g2_affine_to_scalar({p.X, p.Y}));
+    if (!on_curve(p))
+        return 0;
+    G2Point projective = {};
+    G2Point::from_affine(projective, p);
+    return g2_in_subgroup_relation(projective);
 }
 
 inline void G2AffinePoint::cneg(G2AffinePoint& inOut, bool_t c)
@@ -1407,9 +1499,7 @@ inline limb_t G2Point::equal(const G2Point& a, const G2Point& b)
         avx_curve_detail::CurveG2Projective{b.X, b.Y, b.Z},
         avx_curve_detail::curve_fp2_ring(),
         [](const Field_type& value) {
-            const blst::Fp2 scalar = avx_curve_detail::ring_fp2_to_scalar(value);
-            return blst::Fp::equal(scalar[0], blst::Fp::zero()) &
-                blst::Fp::equal(scalar[1], blst::Fp::zero());
+            return avx_curve_detail::is_zero_mod_field(value);
         });
 }
 
@@ -1449,14 +1539,13 @@ inline bool_t G2Point::is_inf(const G2Point& p) { return is_identity(p); }
 
 inline bool_t G2Point::on_curve(const G2Point& p)
 {
-    return blst::scalar::G2Point::on_curve(
-        avx_curve_detail::curve_g2_to_scalar({p.X, p.Y, p.Z}));
+    return avx_curve_detail::on_curve(
+        avx_curve_detail::CurveG2Projective{p.X, p.Y, p.Z});
 }
 
 inline bool_t G2Point::in_subgroup(const G2Point& p)
 {
-    return blst::scalar::G2Point::in_subgroup(
-        avx_curve_detail::curve_g2_to_scalar({p.X, p.Y, p.Z}));
+    return on_curve(p) && g2_in_subgroup_relation(p);
 }
 
 inline limb_t G2Point::serialize_BE(unsigned char* out, const G2Point& in)
@@ -1618,6 +1707,39 @@ inline void times_minus_z<G2Point>(G2Point& out, const G2Point& in)
     add_n_dbl(out, in, 9);
     add_n_dbl(out, in, 32);
     add_n_dbl(out, in, 16);
+}
+
+inline void sigma_squared(G1Point& out, const G1Point& in)
+{
+    out = in;
+    out.X = avx_curve_detail::curve_ring().modmul(
+        in.X, avx_curve_detail::curve_g1_glv().beta);
+}
+
+inline bool_t g1_in_subgroup_relation(const G1Point& point)
+{
+    G1Point t0 = {};
+    G1Point t1 = {};
+
+    times_minus_z(t0, point);
+    times_minus_z(t1, t0);
+    G1Point::cneg(t1, 1);
+
+    sigma_squared(t0, point);
+
+    return G1Point::equal(t0, t1);
+}
+
+inline bool_t g2_in_subgroup_relation(const G2Point& point)
+{
+    G2Point t0 = {};
+    G2Point t1 = {};
+
+    psi(t0, point);
+    times_minus_z(t1, point);
+    G2Point::cneg(t1, 1);
+
+    return G2Point::equal(t0, t1);
 }
 
 }  // namespace blst::avx
