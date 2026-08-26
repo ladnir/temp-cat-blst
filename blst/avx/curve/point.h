@@ -222,6 +222,116 @@ inline bool_t equal_mod_field(
         equal_mod_field(left.y(), right.y());
 }
 
+inline blst::Fp canonical_fp(const CurveRing::StandardElement& value)
+{
+    const blst::Fp montgomery = ring_fp_to_scalar(value);
+    blst::Fp canonical = {};
+    blst::Fp::from_mont(canonical, montgomery);
+    return canonical;
+}
+
+inline blst::Fp2 canonical_fp2(const CurveFp2Ring::StandardElement& value)
+{
+    const blst::Fp2 montgomery = ring_fp2_to_scalar(value);
+    blst::Fp2 canonical = {};
+    blst::Fp::from_mont(canonical[0], montgomery[0]);
+    blst::Fp::from_mont(canonical[1], montgomery[1]);
+    return canonical;
+}
+
+inline void canonical_fp_to_be(
+    unsigned char out[48], const blst::Fp& canonical)
+{
+    be_bytes_from_limbs(out, canonical.l, sizeof(canonical));
+}
+
+inline bool decode_fp_be(
+    CurveRing::StandardElement& out,
+    const unsigned char in[48],
+    bool clear_top_three_bits)
+{
+    blst::Fp canonical = {};
+    limbs_from_be_bytes(canonical.l, in, sizeof(canonical));
+    if (clear_top_three_bits) {
+        canonical[blst::Fp::num_limb() - 1] &=
+            (static_cast<limb_t>(0) - 1) >> 3;
+    }
+
+    blst::Fp reduced = {};
+    blst::Fp::add(reduced, canonical, blst::Fp::zero());
+    if (!vec_is_equal(reduced.l, canonical.l, sizeof(canonical)))
+        return false;
+
+    blst::Fp montgomery = {};
+    blst::Fp::mul(montgomery, canonical, blst::get_BLST_RR());
+    out = scalar_fp_to_ring(montgomery);
+    return true;
+}
+
+inline void serialize_fp2_be(
+    unsigned char out[96],
+    const CurveFp2Ring::StandardElement& value)
+{
+    const blst::Fp2 canonical = canonical_fp2(value);
+    canonical_fp_to_be(out, canonical[1]);
+    canonical_fp_to_be(out + 48, canonical[0]);
+}
+
+inline bool decode_fp2_be(
+    CurveFp2Ring::StandardElement& out,
+    const unsigned char in[96],
+    bool clear_top_three_bits)
+{
+    CurveRing::StandardElement imaginary = {};
+    CurveRing::StandardElement real = {};
+    if (!decode_fp_be(imaginary, in, clear_top_three_bits) ||
+        !decode_fp_be(real, in + 48, false)) {
+        return false;
+    }
+    out = CurveFp2Ring::StandardElement(real, imaginary);
+    return true;
+}
+
+inline limb_t fp_sign(const CurveRing::StandardElement& value)
+{
+    return blst::Fp::sgn0_pty_mont(ring_fp_to_scalar(value));
+}
+
+inline limb_t fp2_sign(const CurveFp2Ring::StandardElement& value)
+{
+    return blst::Fp2::sgn0_pty_mont(ring_fp2_to_scalar(value));
+}
+
+inline bool recover_g1_y(
+    CurveRing::StandardElement& out,
+    const CurveRing::StandardElement& x)
+{
+    const blst::Fp scalar_x = ring_fp_to_scalar(x);
+    blst::Fp scalar_y = {};
+    blst::Fp::sqr(scalar_y, scalar_x);
+    blst::Fp::mul(scalar_y, scalar_y, scalar_x);
+    blst::Fp::add(scalar_y, scalar_y, blst::scalar::get_BLST_B_E1());
+    if (!blst::Fp::sqrt(scalar_y, scalar_y))
+        return false;
+    out = scalar_fp_to_ring(scalar_y);
+    return true;
+}
+
+inline bool recover_g2_y(
+    CurveFp2Ring::StandardElement& out,
+    const CurveFp2Ring::StandardElement& x)
+{
+    const blst::Fp2 scalar_x = ring_fp2_to_scalar(x);
+    blst::Fp2 scalar_y = {};
+    blst::Fp2::sqr(scalar_y, scalar_x);
+    blst::Fp2::mul(scalar_y, scalar_y, scalar_x);
+    blst::Fp2::add(scalar_y, scalar_y, blst::scalar::get_BLST_B_E2());
+    if (!blst::Fp2::sqrt(scalar_y, scalar_y))
+        return false;
+    out = scalar_fp2_to_ring(scalar_y);
+    return true;
+}
+
 inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine& point)
 {
     blst::scalar::G2AffinePoint out = {};
@@ -929,70 +1039,108 @@ inline void G1AffinePoint::cneg(G1AffinePoint& inOut, bool_t c)
 
 inline limb_t G1AffinePoint::serialize_BE(unsigned char* out, const G1AffinePoint& in)
 {
-    return blst::scalar::G1AffinePoint::serialize_BE(out, avx_curve_detail::curve_g1_affine_to_scalar({in.X, in.Y}));
+    const blst::Fp x = avx_curve_detail::canonical_fp(in.X);
+    const blst::Fp y = avx_curve_detail::canonical_fp(in.Y);
+    avx_curve_detail::canonical_fp_to_be(out, x);
+    avx_curve_detail::canonical_fp_to_be(out + 48, y);
+    return blst::Fp::sgn0_pty(y);
 }
 
 inline void G1AffinePoint::serialize(unsigned char* out, const G1AffinePoint& in)
 {
-    blst::scalar::G1AffinePoint::serialize(out, avx_curve_detail::curve_g1_affine_to_scalar({in.X, in.Y}));
+    if (is_inf(in)) {
+        bytes_zero(out, 96);
+        out[0] = 0x40;
+    }
+    else {
+        (void)serialize_BE(out, in);
+    }
 }
 
 inline BLST_ERROR G1AffinePoint::deserialize_BE(G1AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G1AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G1AffinePoint::deserialize_BE(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar.y));
+    G1AffinePoint decoded = {};
+    if (!avx_curve_detail::decode_fp_be(decoded.X, in, true) ||
+        !avx_curve_detail::decode_fp_be(decoded.Y, in + 48, false)) {
+        return BLST_BAD_ENCODING;
     }
-    return err;
+    if (!on_curve(decoded))
+        return BLST_POINT_NOT_ON_CURVE;
+    if (avx_curve_detail::is_zero_mod_field(decoded.X))
+        return BLST_POINT_NOT_IN_GROUP;
+    out = decoded;
+    return BLST_SUCCESS;
 }
 
 inline BLST_ERROR G1AffinePoint::deserialize(G1AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G1AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G1AffinePoint::deserialize(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar.y));
+    const unsigned char in0 = in[0];
+    if ((in0 & 0xe0) == 0)
+        return deserialize_BE(out, in);
+    if (in0 & 0x80)
+        return uncompress(out, in);
+    if (in0 & 0x40) {
+        if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, 95)) {
+            out = {};
+            return BLST_SUCCESS;
+        }
     }
-    return err;
+    return BLST_BAD_ENCODING;
 }
 
 inline limb_t G1AffinePoint::compress_BE(unsigned char* out, const G1AffinePoint& in)
 {
-    return blst::scalar::G1AffinePoint::compress_BE(out, avx_curve_detail::curve_g1_affine_to_scalar({in.X, in.Y}));
+    avx_curve_detail::canonical_fp_to_be(
+        out, avx_curve_detail::canonical_fp(in.X));
+    return avx_curve_detail::fp_sign(in.Y);
 }
 
 inline void G1AffinePoint::compress(unsigned char* out, const G1AffinePoint& in)
 {
-    blst::scalar::G1AffinePoint::compress(out, avx_curve_detail::curve_g1_affine_to_scalar({in.X, in.Y}));
+    if (is_inf(in)) {
+        bytes_zero(out, 48);
+        out[0] = 0xc0;
+    }
+    else {
+        const limb_t sign = compress_BE(out, in);
+        out[0] |= static_cast<unsigned char>(0x80 | ((sign & 2) << 4));
+    }
 }
 
 inline limb_t G1AffinePoint::uncompress_BE(G1AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G1AffinePoint scalar = {};
-    const limb_t parity = blst::scalar::G1AffinePoint::uncompress_BE(scalar, in);
-    if (parity <= 1) {
-        out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar.y));
-    }
-    return parity;
+    G1AffinePoint decoded = {};
+    if (!avx_curve_detail::decode_fp_be(decoded.X, in, true))
+        return static_cast<limb_t>(0) - BLST_BAD_ENCODING;
+    if (!avx_curve_detail::recover_g1_y(decoded.Y, decoded.X))
+        return static_cast<limb_t>(0) - BLST_POINT_NOT_ON_CURVE;
+    out = decoded;
+    return avx_curve_detail::fp_sign(out.Y);
 }
 
 inline BLST_ERROR G1AffinePoint::uncompress(G1AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G1AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G1AffinePoint::uncompress(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar.y));
+    const unsigned char in0 = in[0];
+    if ((in0 & 0x80) == 0)
+        return BLST_BAD_ENCODING;
+    if (in0 & 0x40) {
+        if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, 47)) {
+            out = {};
+            return BLST_SUCCESS;
+        }
+        return BLST_BAD_ENCODING;
     }
-    return err;
+
+    G1AffinePoint decoded = {};
+    limb_t sign = uncompress_BE(decoded, in);
+    if (sign > 3)
+        return static_cast<BLST_ERROR>(0 - sign);
+    sign = (sign >> 1) ^ ((in0 & 0x20) >> 5);
+    cneg(decoded, sign);
+    if (avx_curve_detail::is_zero_mod_field(decoded.X))
+        return BLST_POINT_NOT_IN_GROUP;
+    out = decoded;
+    return BLST_SUCCESS;
 }
 
 inline void G1Point::dadd(G1Point& out, const G1Point& a, const G1Point& b) { dadd(out, a, b, nullptr); }
@@ -1271,70 +1419,107 @@ inline void G2AffinePoint::cneg(G2AffinePoint& inOut, bool_t c)
 
 inline limb_t G2AffinePoint::serialize_BE(unsigned char* out, const G2AffinePoint& in)
 {
-    return blst::scalar::G2AffinePoint::serialize_BE(out, avx_curve_detail::curve_g2_affine_to_scalar({in.X, in.Y}));
+    const blst::Fp2 x = avx_curve_detail::canonical_fp2(in.X);
+    const blst::Fp2 y = avx_curve_detail::canonical_fp2(in.Y);
+    avx_curve_detail::canonical_fp_to_be(out, x[1]);
+    avx_curve_detail::canonical_fp_to_be(out + 48, x[0]);
+    avx_curve_detail::canonical_fp_to_be(out + 96, y[1]);
+    avx_curve_detail::canonical_fp_to_be(out + 144, y[0]);
+    return blst::Fp2::sgn0_pty(y);
 }
 
 inline void G2AffinePoint::serialize(unsigned char* out, const G2AffinePoint& in)
 {
-    blst::scalar::G2AffinePoint::serialize(out, avx_curve_detail::curve_g2_affine_to_scalar({in.X, in.Y}));
+    if (is_inf(in)) {
+        bytes_zero(out, 192);
+        out[0] = 0x40;
+    }
+    else {
+        (void)serialize_BE(out, in);
+    }
 }
 
 inline BLST_ERROR G2AffinePoint::deserialize_BE(G2AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G2AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G2AffinePoint::deserialize_BE(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
+    G2AffinePoint decoded = {};
+    if (!avx_curve_detail::decode_fp2_be(decoded.X, in, true) ||
+        !avx_curve_detail::decode_fp2_be(decoded.Y, in + 96, false)) {
+        return BLST_BAD_ENCODING;
     }
-    return err;
+    if (!on_curve(decoded))
+        return BLST_POINT_NOT_ON_CURVE;
+    out = decoded;
+    return BLST_SUCCESS;
 }
 
 inline BLST_ERROR G2AffinePoint::deserialize(G2AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G2AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G2AffinePoint::deserialize(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
+    const unsigned char in0 = in[0];
+    if ((in0 & 0xe0) == 0)
+        return deserialize_BE(out, in);
+    if (in0 & 0x80)
+        return uncompress(out, in);
+    if (in0 & 0x40) {
+        if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, 191)) {
+            out = {};
+            return BLST_SUCCESS;
+        }
     }
-    return err;
+    return BLST_BAD_ENCODING;
 }
 
 inline limb_t G2AffinePoint::compress_BE(unsigned char* out, const G2AffinePoint& in)
 {
-    return blst::scalar::G2AffinePoint::compress_BE(out, avx_curve_detail::curve_g2_affine_to_scalar({in.X, in.Y}));
+    avx_curve_detail::serialize_fp2_be(out, in.X);
+    return avx_curve_detail::fp2_sign(in.Y);
 }
 
 inline void G2AffinePoint::compress(unsigned char* out, const G2AffinePoint& in)
 {
-    blst::scalar::G2AffinePoint::compress(out, avx_curve_detail::curve_g2_affine_to_scalar({in.X, in.Y}));
+    if (is_inf(in)) {
+        bytes_zero(out, 96);
+        out[0] = 0xc0;
+    }
+    else {
+        const limb_t sign = compress_BE(out, in);
+        out[0] |= static_cast<unsigned char>(0x80 | ((sign & 2) << 4));
+    }
 }
 
 inline limb_t G2AffinePoint::uncompress_BE(G2AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G2AffinePoint scalar = {};
-    const limb_t parity = blst::scalar::G2AffinePoint::uncompress_BE(scalar, in);
-    if (parity <= 1) {
-        out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
-    }
-    return parity;
+    G2AffinePoint decoded = {};
+    if (!avx_curve_detail::decode_fp2_be(decoded.X, in, true))
+        return static_cast<limb_t>(0) - BLST_BAD_ENCODING;
+    if (!avx_curve_detail::recover_g2_y(decoded.Y, decoded.X))
+        return static_cast<limb_t>(0) - BLST_POINT_NOT_ON_CURVE;
+    out = decoded;
+    return avx_curve_detail::fp2_sign(out.Y);
 }
 
 inline BLST_ERROR G2AffinePoint::uncompress(G2AffinePoint& out, const unsigned char* in)
 {
-    blst::scalar::G2AffinePoint scalar = {};
-    const BLST_ERROR err = blst::scalar::G2AffinePoint::uncompress(scalar, in);
-    if (err == BLST_SUCCESS) {
-        out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
+    const unsigned char in0 = in[0];
+    if ((in0 & 0x80) == 0)
+        return BLST_BAD_ENCODING;
+    if (in0 & 0x40) {
+        if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, 95)) {
+            out = {};
+            return BLST_SUCCESS;
+        }
+        return BLST_BAD_ENCODING;
     }
-    return err;
+
+    G2AffinePoint decoded = {};
+    limb_t sign = uncompress_BE(decoded, in);
+    if (sign > 3)
+        return static_cast<BLST_ERROR>(0 - sign);
+    sign = (sign >> 1) ^ ((in0 & 0x20) >> 5);
+    cneg(decoded, sign);
+    if (avx_curve_detail::is_zero_mod_field(decoded.X))
+        return BLST_POINT_NOT_IN_GROUP;
+    out = decoded;
+    return BLST_SUCCESS;
 }
 
 inline void G2Point::dadd(G2Point& out, const G2Point& a, const G2Point& b) { dadd(out, a, b, nullptr); }
