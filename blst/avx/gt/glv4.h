@@ -483,7 +483,8 @@ inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_glv4(
         }
     }
 
-    std::array<StandardElement, 16> table = {};
+    // Every entry is assigned below before the schedule can read it.
+    std::array<StandardElement, 16> table;
     table[0] = fp12ring.one(ring);
     table[1] = basis[0];
     table[2] = basis[1];

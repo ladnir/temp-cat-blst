@@ -617,6 +617,35 @@ bool blst_avx_pairing_n(
     const blst_avx_p2_affine* g2,
     size_t n);
 
+/** Returns caller-owned storage bytes required for one native G2 line table. */
+size_t blst_avx_prepared_g2_lines_sizeof(void);
+/** Returns the required alignment for one native G2 line table. */
+size_t blst_avx_prepared_g2_lines_alignof(void);
+
+/**
+ * Initializes one native G2 Miller-line table in caller-owned storage.
+ *
+ * `storage` must be aligned to `blst_avx_prepared_g2_lines_alignof()` and
+ * contain at least `storage_size` bytes. Construction is intended for the
+ * cold public-parameter setup path; evaluation performs no allocation.
+ * `g2` must be a library-produced, subgroup-validated native point.
+ */
+bool blst_avx_prepared_g2_lines_init(
+    void* storage,
+    size_t storage_size,
+    const blst_avx_p2* g2);
+
+/**
+ * Computes final_exponentiation(miller_loop(prepared_g2, g1)).
+ * `storage` must have completed `blst_avx_prepared_g2_lines_init`
+ * successfully, and `g1` must be a subgroup-validated native point.
+ */
+bool blst_avx_pairing_prepared_g2(
+    blst_avx_fp12* out,
+    const void* storage,
+    size_t storage_size,
+    const blst_avx_p1* g1);
+
 #ifdef __cplusplus
 }
 #endif

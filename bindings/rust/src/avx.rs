@@ -12,9 +12,11 @@
 //! of any operation other than an explicitly documented validator.
 
 use crate::*;
+use alloc::alloc::{alloc, dealloc};
 use alloc::vec::Vec;
+use core::alloc::Layout;
 use core::mem::{size_of, MaybeUninit};
-use core::ptr;
+use core::ptr::{self, NonNull};
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
@@ -53,6 +55,83 @@ pub struct blst_avx_fp12 {
 
 /// Semantic alias for AVX Fp12 storage known to contain a GT element.
 pub type blst_avx_gt = blst_avx_fp12;
+
+/// Owned, immutable native G2 Miller-line table.
+///
+/// Allocation and line preparation happen once during construction. Pairing
+/// evaluation reuses the caller-owned native table without allocating.
+pub struct NativeAvxPreparedG2Lines {
+    storage: NonNull<u8>,
+    layout: Layout,
+}
+
+impl NativeAvxPreparedG2Lines {
+    pub fn new(g2: &blst_avx_p2) -> Result<Self, ()> {
+        if !unsafe { blst_avx_enabled() } {
+            return Err(());
+        }
+        let size = unsafe { blst_avx_prepared_g2_lines_sizeof() };
+        let align = unsafe { blst_avx_prepared_g2_lines_alignof() };
+        let layout = Layout::from_size_align(size, align).map_err(|_| ())?;
+        if size == 0 {
+            return Err(());
+        }
+        let storage = NonNull::new(unsafe { alloc(layout) }).ok_or(())?;
+        if !unsafe {
+            blst_avx_prepared_g2_lines_init(
+                storage.as_ptr().cast::<core::ffi::c_void>(),
+                layout.size(),
+                g2,
+            )
+        } {
+            unsafe { dealloc(storage.as_ptr(), layout) };
+            return Err(());
+        }
+        Ok(Self { storage, layout })
+    }
+
+    pub fn pairing_into(
+        &self,
+        out: &mut blst_avx_fp12,
+        g1: &blst_avx_p1,
+    ) -> Result<(), ()> {
+        if unsafe {
+            blst_avx_pairing_prepared_g2(
+                out,
+                self.storage.as_ptr().cast::<core::ffi::c_void>(),
+                self.layout.size(),
+                g1,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn storage_bytes(&self) -> usize {
+        self.layout.size()
+    }
+}
+
+impl core::fmt::Debug for NativeAvxPreparedG2Lines {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("NativeAvxPreparedG2Lines")
+            .field("storage_bytes", &self.storage_bytes())
+            .finish()
+    }
+}
+
+impl Drop for NativeAvxPreparedG2Lines {
+    fn drop(&mut self) {
+        unsafe { dealloc(self.storage.as_ptr(), self.layout) };
+    }
+}
+
+// SAFETY: initialization completes before publication. Evaluation receives a
+// const table pointer and CatBLST does not mutate prepared line storage.
+unsafe impl Send for NativeAvxPreparedG2Lines {}
+unsafe impl Sync for NativeAvxPreparedG2Lines {}
 
 pub type blst_avx_random_bytes_fn = Option<
     unsafe extern "C" fn(
@@ -534,6 +613,19 @@ extern "C" {
         g2: *const blst_avx_p2_affine,
         n: usize,
     ) -> bool;
+    pub fn blst_avx_prepared_g2_lines_sizeof() -> usize;
+    pub fn blst_avx_prepared_g2_lines_alignof() -> usize;
+    pub fn blst_avx_prepared_g2_lines_init(
+        storage: *mut core::ffi::c_void,
+        storage_size: usize,
+        g2: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_pairing_prepared_g2(
+        out: *mut blst_avx_fp12,
+        storage: *const core::ffi::c_void,
+        storage_size: usize,
+        g1: *const blst_avx_p1,
+    ) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -705,6 +797,10 @@ mod tests {
             core::mem::align_of::<blst_avx_fp12>()
                 >= unsafe { blst_avx_fp12_alignof() }
         );
+        if unsafe { blst_avx_enabled() } {
+            assert_eq!(unsafe { blst_avx_prepared_g2_lines_sizeof() }, 68 * 1024);
+            assert_eq!(unsafe { blst_avx_prepared_g2_lines_alignof() }, 64);
+        }
     }
 
     #[test]
@@ -787,6 +883,23 @@ mod tests {
         let mut empty = MaybeUninit::<blst_avx_gt>::uninit();
         assert!(unsafe { blst_avx_pairing_n(empty.as_mut_ptr(), ptr::null(), ptr::null(), 0) });
         assert!(unsafe { blst_avx_fp12_is_equal(&empty.assume_init(), blst_avx_fp12_one()) });
+    }
+
+    #[test]
+    fn native_prepared_pairing_matches_direct_pairing() {
+        if !unsafe { blst_avx_enabled() } {
+            return;
+        }
+
+        let g1 = unsafe { &*blst_avx_p1_generator() };
+        let g2 = unsafe { &*blst_avx_p2_generator() };
+        let prepared = NativeAvxPreparedG2Lines::new(g2).unwrap();
+        let mut actual = blst_avx_fp12::default();
+        prepared.pairing_into(&mut actual, g1).unwrap();
+
+        let mut expected = blst_avx_fp12::default();
+        assert!(unsafe { blst_avx_pairing(&mut expected, g1, g2) });
+        assert!(unsafe { blst_avx_fp12_is_equal(&actual, &expected) });
     }
 
     #[test]

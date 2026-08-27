@@ -441,7 +441,7 @@ namespace bte::btx
             return slot;
         }
 
-        const blst::MiddleProductPrecomputedB& ensure_precomputed_alpha(
+        const blst::MiddleProductPrecomputedBMultipair& ensure_precomputed_alpha(
             const PreparedPublicParameters& prepared_public_parameters,
             const std::size_t batch_size)
         {
@@ -449,13 +449,13 @@ namespace bte::btx
                 throw std::invalid_argument("BTX prepared alpha cache does not cover this batch size");
             }
 
-            blst::MiddleProductPrecomputedB& slot =
+            blst::MiddleProductPrecomputedBMultipair& slot =
                 prepared_public_parameters.alpha_precomputed_b_by_batch_size[batch_size];
             if (slot.n != batch_size) {
                 const std::vector<blst::G2Point> b = make_alpha_middle_product_kernel(
                     prepared_public_parameters.public_parameters,
                     batch_size);
-                slot = blst::precompute_middle_product_b(
+                slot = blst::precompute_middle_product_b_multipair(
                     std::span<const blst::G2Point>(b.data(), b.size()),
                     batch_size);
             }
@@ -817,7 +817,7 @@ namespace bte::btx
 
         const std::size_t batch_size = precomputation.ciphertexts.size();
         std::vector<blst::GT> alpha(batch_size, blst::GT::identity());
-        blst::update(
+        blst::update_multipair(
             aggregate_predecryption_key,
             ensure_precomputed_alpha(prepared_public_parameters, batch_size),
             std::span<blst::GT>(alpha.data(), alpha.size()));

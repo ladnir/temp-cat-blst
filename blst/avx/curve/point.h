@@ -16,10 +16,12 @@
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/scalar/curve/point.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 namespace blst::avx {
 
@@ -700,6 +702,13 @@ struct G1Point
     /// Convert an on-curve public point to affine. This is variable-time;
     /// infinity maps to the all-zero affine value and subgroup state is preserved.
     static void to_affine(G1AffinePoint& out, const G1Point& in);
+    /// Batch-normalize public points with one field inversion. Output and input
+    /// lengths must match; prefix_products supplies at least one field element
+    /// per point and may be retained by a caller-owned hot-path workspace.
+    static void to_affine_batch(
+        std::span<G1AffinePoint> out,
+        std::span<const G1Point> in,
+        std::span<Field_type> prefix_products);
     /// Convert an on-curve affine value to homogeneous projective storage;
     /// subgroup state is preserved and exact out/a overlap is not permitted.
     static void from_affine(G1Point& out, const G1AffinePoint& a);
@@ -848,6 +857,13 @@ struct G2Point
     /// Convert an on-curve public point to affine. This is variable-time;
     /// infinity maps to the all-zero affine value and subgroup state is preserved.
     static void to_affine(G2AffinePoint& out, const G2Point& in);
+    /// Batch-normalize public points with one Fp2 inversion. Output and input
+    /// lengths must match; prefix_products supplies at least one field element
+    /// per point and may be retained by a caller-owned hot-path workspace.
+    static void to_affine_batch(
+        std::span<G2AffinePoint> out,
+        std::span<const G2Point> in,
+        std::span<Field_type> prefix_products);
     /// Convert an on-curve affine value to homogeneous projective storage;
     /// subgroup state is preserved and exact out/a overlap is not permitted.
     static void from_affine(G2Point& out, const G2AffinePoint& a);
@@ -1257,6 +1273,53 @@ inline void G1Point::to_affine(G1AffinePoint& out, const G1Point& in)
     out = {affine.x, affine.y};
 }
 
+inline void G1Point::to_affine_batch(
+    std::span<G1AffinePoint> out,
+    std::span<const G1Point> in,
+    std::span<Field_type> prefix_products)
+{
+    BLST_ASSERT(out.size() == in.size());
+    BLST_ASSERT(prefix_products.size() >= in.size());
+    if (in.empty()) {
+        return;
+    }
+
+    const auto& ring = avx_curve_detail::curve_ring();
+    Field_type product = ring.one();
+    std::size_t nonzero_count = 0;
+    for (std::size_t i = 0; i < in.size(); ++i) {
+        prefix_products[i] = product;
+        if (!avx_curve_detail::is_zero_mod_field(in[i].Z)) {
+            product = ring.modmul(product, in[i].Z);
+            ++nonzero_count;
+        }
+    }
+
+    if (nonzero_count == 0) {
+        const auto infinity = avx_curve_detail::g1_affine_infinity();
+        std::fill(out.begin(), out.end(), G1AffinePoint{infinity.x, infinity.y});
+        return;
+    }
+
+    Field_type running_inverse =
+        avx_curve_detail::curve_inverse_vartime(product);
+    for (std::size_t i = in.size(); i-- > 0;) {
+        if (avx_curve_detail::is_zero_mod_field(in[i].Z)) {
+            const auto infinity = avx_curve_detail::g1_affine_infinity();
+            out[i] = {infinity.x, infinity.y};
+            continue;
+        }
+
+        const Field_type z_inverse =
+            ring.modmul(prefix_products[i], running_inverse);
+        running_inverse = ring.modmul(running_inverse, in[i].Z);
+        auto [x, y] = ring.batch_reduce_expand(
+            ring.prep_left(in[i].X) * z_inverse,
+            ring.prep_left(in[i].Y) * z_inverse);
+        out[i] = {x, y};
+    }
+}
+
 inline void G1Point::from_affine(G1Point& out, const G1AffinePoint& a)
 {
     const auto point = avx_curve_detail::affine_to_projective({a.X, a.Y});
@@ -1645,6 +1708,52 @@ inline void G2Point::to_affine(G2AffinePoint& out, const G2Point& in)
 {
     const auto affine = avx_curve_detail::projective_to_affine({in.X, in.Y, in.Z});
     out = {affine.x, affine.y};
+}
+
+inline void G2Point::to_affine_batch(
+    std::span<G2AffinePoint> out,
+    std::span<const G2Point> in,
+    std::span<Field_type> prefix_products)
+{
+    BLST_ASSERT(out.size() == in.size());
+    BLST_ASSERT(prefix_products.size() >= in.size());
+    if (in.empty()) {
+        return;
+    }
+
+    const auto& ring = avx_curve_detail::curve_fp2_ring();
+    Field_type product = ring.one();
+    std::size_t nonzero_count = 0;
+    for (std::size_t i = 0; i < in.size(); ++i) {
+        prefix_products[i] = product;
+        if (!avx_curve_detail::is_zero_mod_field(in[i].Z)) {
+            product = ring.mul(product, in[i].Z);
+            ++nonzero_count;
+        }
+    }
+
+    if (nonzero_count == 0) {
+        const auto infinity = avx_curve_detail::g2_affine_infinity();
+        std::fill(out.begin(), out.end(), G2AffinePoint{infinity.x, infinity.y});
+        return;
+    }
+
+    Field_type running_inverse =
+        avx_curve_detail::curve_fp2_inverse_vartime(product);
+    for (std::size_t i = in.size(); i-- > 0;) {
+        if (avx_curve_detail::is_zero_mod_field(in[i].Z)) {
+            const auto infinity = avx_curve_detail::g2_affine_infinity();
+            out[i] = {infinity.x, infinity.y};
+            continue;
+        }
+
+        const Field_type z_inverse = ring.mul(prefix_products[i], running_inverse);
+        running_inverse = ring.mul(running_inverse, in[i].Z);
+        out[i] = {
+            ring.mul(in[i].X, z_inverse),
+            ring.mul(in[i].Y, z_inverse),
+        };
+    }
 }
 
 inline void G2Point::from_affine(G2Point& out, const G2AffinePoint& a)

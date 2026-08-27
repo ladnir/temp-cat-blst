@@ -13,6 +13,7 @@
 #include <span>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "blst/common/defines.h"
@@ -341,6 +342,7 @@ namespace blst {
             using GtCoeffCtx = GroupFftCoeffCtx<GtFftElement>;
             using PreparedInverseRoots = std::vector<Fr>;
             using PreparedLineTable = MiddleProductPreparedScalarLineTable;
+            static constexpr bool batch_affine_pointwise = false;
 
             static G1Point g1_infinity()
             {
@@ -455,6 +457,7 @@ namespace blst {
             using GtFftElement = avx::AvxGtElement;
             using PreparedInverseRoots = avx::AvxGtPreparedRoots;
             using PreparedLineTable = avx::PreparedLineTable;
+            static constexpr bool batch_affine_pointwise = true;
 
             static G1Point g1_infinity()
             {
@@ -509,6 +512,13 @@ namespace blst {
                 avx::GT::precompute_lines(out.lines, point_affine);
             }
 
+            static void prepare_lines_affine(
+                PreparedLineTable& out,
+                const G2AffinePoint& point)
+            {
+                avx::GT::precompute_lines(out.lines, point);
+            }
+
             static GtFftElement pointwise_pair_direct(const G1Point& left, const G2Point& right)
             {
                 G1AffinePoint p_aff = {};
@@ -521,6 +531,33 @@ namespace blst {
                 avx::GT pair = {};
                 avx::GT::final_exp(pair, miller);
                 return GtFftElement(pair.data);
+            }
+
+            static GtFftElement pointwise_pair_prepared(
+                const G1AffinePoint& left,
+                const PreparedLineTable& right)
+            {
+                avx::MillerResult miller = {};
+                avx::GT::miller_loop_lines(miller, right.lines, left);
+                avx::GT pair = {};
+                avx::GT::final_exp(pair, miller);
+                return GtFftElement(pair.data);
+            }
+
+            static void batch_to_affine_g1(
+                std::span<G1AffinePoint> out,
+                std::span<const G1Point> in,
+                std::span<typename G1Point::Field_type> prefix_products)
+            {
+                G1Point::to_affine_batch(out, in, prefix_products);
+            }
+
+            static void batch_to_affine_g2(
+                std::span<G2AffinePoint> out,
+                std::span<const G2Point> in,
+                std::span<typename G2Point::Field_type> prefix_products)
+            {
+                G2Point::to_affine_batch(out, in, prefix_products);
             }
 
             static GtFftElement identity()
@@ -578,6 +615,8 @@ namespace blst {
             std::size_t fft_size = 0;
             std::vector<typename Context::G2Point> b_tail;
             std::vector<typename Context::G2Point> b_fft;
+            std::vector<typename Context::PreparedLineTable> prepared_lines;
+            std::vector<uint8_t> b_fft_is_zero;
             std::vector<Fr> roots;
             typename Context::PreparedInverseRoots inv_roots;
             FftTruncatedForwardPlan forward_plan;
@@ -588,6 +627,8 @@ namespace blst {
         template<class Context>
         struct MiddleProductWorkspaceImpl {
             std::vector<typename Context::G1Point> a_fft;
+            std::vector<typename Context::G1AffinePoint> a_fft_affine;
+            std::vector<typename Context::G1Point::Field_type> affine_prefix_products;
             std::vector<typename Context::GtFftElement> c_fft;
 
             void ensure_size(std::size_t m)
@@ -597,6 +638,14 @@ namespace blst {
                 }
                 if (c_fft.size() != m) {
                     c_fft.assign(m, Context::identity());
+                }
+                if constexpr (Context::batch_affine_pointwise) {
+                    if (a_fft_affine.size() != m) {
+                        a_fft_affine.resize(m);
+                    }
+                    if (affine_prefix_products.size() != m) {
+                        affine_prefix_products.resize(m);
+                    }
                 }
             }
         };
@@ -638,7 +687,8 @@ namespace blst {
             precomputed.n = n;
             precomputed.fft_size = middle_product_fft_size(n);
             precomputed.b_tail.assign(n, Context::g2_infinity());
-            precomputed.b_fft.assign(precomputed.fft_size, Context::g2_infinity());
+            std::vector<typename Context::G2Point> b_fft(
+                precomputed.fft_size, Context::g2_infinity());
 
             {
                 ScopedTimer timer(timings, "middle_product_precompute.roots_ns");
@@ -648,7 +698,7 @@ namespace blst {
 
             std::vector<typename Context::G2Point> b1_fft(precomputed.fft_size, Context::g2_infinity());
             for (std::size_t i = 0; i < n; ++i) {
-                precomputed.b_fft[i] = b[i];
+                b_fft[i] = b[i];
                 precomputed.b_tail[i] = b[n + i];
                 b1_fft[i] = precomputed.b_tail[i];
             }
@@ -664,7 +714,7 @@ namespace blst {
             {
                 ScopedTimer timer(timings, "middle_product_precompute.fft_b0_ns");
                 fft_forward_truncated_prefix<typename Context::G2Point, Fr, typename Context::G2CoeffCtx>(
-                    precomputed.b_fft,
+                    b_fft,
                     std::span<const Fr>(precomputed.roots),
                     xn_b,
                     precomputed.forward_plan,
@@ -688,9 +738,37 @@ namespace blst {
                         (j * (n % precomputed.fft_size)) % precomputed.fft_size;
                     const Fr& zeta = precomputed.roots[idx];
                     const auto zeta_b1 = Context::G2CoeffCtx::mult(b1_fft[j], zeta);
-                    precomputed.b_fft[j] =
-                        Context::G2CoeffCtx::plus(precomputed.b_fft[j], zeta_b1);
+                    b_fft[j] = Context::G2CoeffCtx::plus(b_fft[j], zeta_b1);
                 }
+            }
+
+            if constexpr (Context::batch_affine_pointwise) {
+                ScopedTimer timer(
+                    timings,
+                    "middle_product_precompute.pointwise_prepare_ns");
+                std::vector<typename Context::G2AffinePoint> b_fft_affine(
+                    precomputed.fft_size);
+                std::vector<typename Context::G2Point::Field_type> prefix_products(
+                    precomputed.fft_size);
+                Context::batch_to_affine_g2(
+                    std::span<typename Context::G2AffinePoint>(b_fft_affine),
+                    std::span<const typename Context::G2Point>(b_fft),
+                    std::span<typename Context::G2Point::Field_type>(prefix_products));
+                precomputed.prepared_lines.resize(precomputed.fft_size);
+                precomputed.b_fft_is_zero.resize(precomputed.fft_size);
+                for (std::size_t i = 0; i < precomputed.fft_size; ++i) {
+                    const bool is_zero =
+                        (Context::G2AffinePoint::is_inf(b_fft_affine[i]) != 0);
+                    precomputed.b_fft_is_zero[i] =
+                        static_cast<uint8_t>(is_zero ? 1 : 0);
+                    if (!is_zero) {
+                        Context::prepare_lines_affine(
+                            precomputed.prepared_lines[i],
+                            b_fft_affine[i]);
+                    }
+                }
+            } else {
+                precomputed.b_fft = std::move(b_fft);
             }
 
             return precomputed;
@@ -710,8 +788,16 @@ namespace blst {
             if (precomputed_b.n != n) {
                 throw std::invalid_argument("middle product length does not match its precompute");
             }
+            const bool invalid_pointwise_state = [&]() {
+                if constexpr (Context::batch_affine_pointwise) {
+                    return precomputed_b.prepared_lines.size() != precomputed_b.fft_size ||
+                        precomputed_b.b_fft_is_zero.size() != precomputed_b.fft_size;
+                } else {
+                    return precomputed_b.b_fft.size() != precomputed_b.fft_size;
+                }
+            }();
             if (precomputed_b.fft_size != middle_product_fft_size(n) ||
-                precomputed_b.b_fft.size() != precomputed_b.fft_size ||
+                invalid_pointwise_state ||
                 precomputed_b.roots.size() != precomputed_b.fft_size ||
                 Context::inverse_roots_size(precomputed_b.inv_roots) != precomputed_b.fft_size ||
                 precomputed_b.forward_plan.n != precomputed_b.fft_size ||
@@ -747,8 +833,27 @@ namespace blst {
             }
             {
                 ScopedTimer timer(timings, "middle_product_pre.pointwise_ns");
-                for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
-                    c_fft[i] = Context::pointwise_pair_direct(a_fft[i], precomputed_b.b_fft[i]);
+                if constexpr (Context::batch_affine_pointwise) {
+                    Context::batch_to_affine_g1(
+                        std::span<typename Context::G1AffinePoint>(workspace.a_fft_affine),
+                        std::span<const typename Context::G1Point>(a_fft),
+                        std::span<typename Context::G1Point::Field_type>(
+                            workspace.affine_prefix_products));
+                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
+                        if (precomputed_b.b_fft_is_zero[i] != 0 ||
+                            Context::G1AffinePoint::is_inf(workspace.a_fft_affine[i]) != 0) {
+                            c_fft[i] = Context::identity();
+                            continue;
+                        }
+                        c_fft[i] = Context::pointwise_pair_prepared(
+                            workspace.a_fft_affine[i],
+                            precomputed_b.prepared_lines[i]);
+                    }
+                } else {
+                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
+                        c_fft[i] = Context::pointwise_pair_direct(
+                            a_fft[i], precomputed_b.b_fft[i]);
+                    }
                 }
             }
             {
@@ -1401,6 +1506,61 @@ namespace blst {
         }
     }
 
+    // Keep the workspace entry point separate from the convenience
+    // implementation. This preserves the measured layout of the outlined AVX
+    // pairing and final-exponentiation kernels while allowing hot callers to
+    // retain all temporary capacity.
+    template<class Context>
+    inline void update_multipair_workspace_impl(
+        const typename Context::G1Point& a0,
+        const MiddleProductPrecomputedBMultipairImpl<Context>& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairImpl<Context>& workspace,
+        TimingStats* timings = nullptr)
+    {
+        if constexpr (std::is_same_v<Context, MiddleProductScalarContext>) {
+            static_cast<void>(workspace);
+            update_multipair_impl<Context>(a0, precomputed_b, out, timings);
+        } else {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+            ScopedTimer total_timer(timings, "middle_product_multipair_update.total_ns");
+            const std::size_t n = precomputed_b.n;
+            validate_middle_product_output_shape(n, out.size());
+            const std::size_t b_size = middle_product_b_size(n);
+            if (precomputed_b.prepared_lines.size() != b_size ||
+                precomputed_b.b_is_zero.size() != b_size) {
+                throw std::invalid_argument("invalid multipair middle-product precompute state");
+            }
+
+            if (Context::G1Point::is_inf(a0) != 0) {
+                std::fill(out.begin(), out.begin() + n, GT::identity());
+                return;
+            }
+
+            typename Context::G1AffinePoint affine_a0 = {};
+            Context::G1Point::to_affine(affine_a0, a0);
+
+            ScopedTimer timer(timings, "middle_product_multipair_update.pointwise_ns");
+            workspace.miller_batch.resize(n);
+            for (std::size_t k = 0; k < n; ++k) {
+                if (precomputed_b.b_is_zero[n + k] != 0) {
+                    workspace.miller_batch[k] = avx::MillerResult::identity();
+                    continue;
+                }
+                avx::GT::miller_loop_lines_finite(
+                    workspace.miller_batch[k],
+                    precomputed_b.prepared_lines[n + k].lines,
+                    affine_a0);
+            }
+            middle_product_finalize_avx_millers(
+                out.first(n),
+                std::span<const avx::MillerResult>(workspace.miller_batch),
+                workspace.final_batch,
+                workspace.final_exp_scratch);
+#endif
+        }
+    }
+
     /**
      * @brief Precompute a length-`2*n` G2 operand for repeated evaluation.
      * @pre `1 <= n <= middle_product_max_n` and `b.size() == 2*n`.
@@ -1947,6 +2107,21 @@ namespace blst {
         const G1Point& a0,
         const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
         std::span<GT> out,
+        MiddleProductWorkspaceMultipairScalar& workspace,
+        TimingStats* timings = nullptr)
+    {
+        update_multipair_workspace_impl<MiddleProductScalarContext>(
+            MiddleProductScalarContext::to_backend_g1(a0),
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
+    inline void update_multipair_scalar(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::span<GT> out,
         TimingStats* timings = nullptr)
     {
         update_multipair_impl<MiddleProductScalarContext>(
@@ -1964,6 +2139,21 @@ namespace blst {
         TimingStats* timings = nullptr)
     {
         detail::update_public<MiddleProductAvxContext>(a0, precomputed_b, out, timings);
+    }
+
+    inline void update_multipair_avx(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairAvx& workspace,
+        TimingStats* timings = nullptr)
+    {
+        update_multipair_workspace_impl<MiddleProductAvxContext>(
+            MiddleProductAvxContext::to_backend_g1(a0),
+            precomputed_b,
+            out,
+            workspace,
+            timings);
     }
 
     inline void update_multipair_avx(
@@ -1990,6 +2180,20 @@ namespace blst {
         update_avx(a0, precomputed_b, out, timings);
 #else
         update_scalar(a0, precomputed_b, out, timings);
+#endif
+    }
+
+    inline void update_multipair(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipair& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipair& workspace,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        update_multipair_avx(a0, precomputed_b, out, workspace, timings);
+#else
+        update_multipair_scalar(a0, precomputed_b, out, workspace, timings);
 #endif
     }
 

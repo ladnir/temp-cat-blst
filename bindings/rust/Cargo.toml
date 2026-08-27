@@ -63,6 +63,11 @@ criterion = "0.3"
 name = "blst_benches"
 harness = false
 
+[[bench]]
+name = "btx_native_middle_product"
+harness = false
+required-features = ["avx"]
+
 [profile.release]
 #opt-level = 3
 

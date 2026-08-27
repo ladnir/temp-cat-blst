@@ -91,7 +91,8 @@ namespace bte::btx
         {
             std::array<std::uint8_t, kScalarSize> scalar_le{};
             blst::Fr::to_scaler(scalar_le.data(), scalar);
-            blst::G1Point::mult_glsv_vartime(out, point, scalar_le.data());
+            blst::G1Point::mult_vartime(
+                out, point, scalar_le.data(), kScalarSize * 8);
         }
     }
 

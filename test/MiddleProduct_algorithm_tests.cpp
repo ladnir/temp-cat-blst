@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -163,10 +164,12 @@ void multipair_update_for_context(
     std::span<GT> out)
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
-        blst::update_multipair_scalar(a0, precomputed_b, out);
+        blst::MiddleProductWorkspaceMultipairScalar workspace;
+        blst::update_multipair_scalar(a0, precomputed_b, out, workspace);
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
-        blst::update_multipair_avx(a0, precomputed_b, out);
+        blst::MiddleProductWorkspaceMultipairAvx workspace;
+        blst::update_multipair_avx(a0, precomputed_b, out, workspace);
 #endif
     }
 }
@@ -486,6 +489,95 @@ TEST(MiddleProductAlgorithm, ScalarAutoUsesExpectedAlgorithm)
 }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+template<class Point>
+Point avx_point(uint8_t scalar)
+{
+    std::array<blst::byte, 1> scalar_bytes = {scalar};
+    Point out = {};
+    Point::mult(out, Point::generator(), scalar_bytes.data(), 8);
+    return out;
+}
+
+TEST(AvxBatchAffine, G1MatchesIndividualConversion)
+{
+    using Affine = blst::avx::G1AffinePoint;
+    using Point = blst::avx::G1Point;
+
+    const std::vector<Point> points = {
+        Point::infinity(),
+        avx_point<Point>(1),
+        avx_point<Point>(2),
+        Point::infinity(),
+        avx_point<Point>(17),
+        avx_point<Point>(255),
+    };
+    std::vector<Affine> actual(points.size());
+    std::vector<Point::Field_type> prefix_products(points.size());
+    Point::to_affine_batch(
+        std::span<Affine>(actual),
+        std::span<const Point>(points),
+        std::span<Point::Field_type>(prefix_products));
+
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        Affine expected = {};
+        Point::to_affine(expected, points[i]);
+        EXPECT_TRUE(Affine::equal(expected, actual[i])) << "G1 index " << i;
+    }
+
+    std::vector<Point> all_infinity(4, Point::infinity());
+    actual.assign(all_infinity.size(), Affine::generator());
+    prefix_products.resize(all_infinity.size());
+    Point::to_affine_batch(
+        std::span<Affine>(actual),
+        std::span<const Point>(all_infinity),
+        std::span<Point::Field_type>(prefix_products));
+    for (const Affine& point : actual) {
+        EXPECT_TRUE(Affine::is_inf(point));
+    }
+
+    Point::to_affine_batch({}, {}, {});
+}
+
+TEST(AvxBatchAffine, G2MatchesIndividualConversion)
+{
+    using Affine = blst::avx::G2AffinePoint;
+    using Point = blst::avx::G2Point;
+
+    const std::vector<Point> points = {
+        Point::infinity(),
+        avx_point<Point>(1),
+        avx_point<Point>(2),
+        Point::infinity(),
+        avx_point<Point>(17),
+        avx_point<Point>(255),
+    };
+    std::vector<Affine> actual(points.size());
+    std::vector<Point::Field_type> prefix_products(points.size());
+    Point::to_affine_batch(
+        std::span<Affine>(actual),
+        std::span<const Point>(points),
+        std::span<Point::Field_type>(prefix_products));
+
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        Affine expected = {};
+        Point::to_affine(expected, points[i]);
+        EXPECT_TRUE(Affine::equal(expected, actual[i])) << "G2 index " << i;
+    }
+
+    std::vector<Point> all_infinity(4, Point::infinity());
+    actual.assign(all_infinity.size(), Affine::generator());
+    prefix_products.resize(all_infinity.size());
+    Point::to_affine_batch(
+        std::span<Affine>(actual),
+        std::span<const Point>(all_infinity),
+        std::span<Point::Field_type>(prefix_products));
+    for (const Affine& point : actual) {
+        EXPECT_TRUE(Affine::is_inf(point));
+    }
+
+    Point::to_affine_batch({}, {}, {});
+}
+
 TEST(MiddleProductMultipair, AvxPortableMatchesFft)
 {
     const std::vector<std::size_t> sizes = { 3, 5, 9, 16 };
@@ -571,6 +663,42 @@ TEST(MiddleProductAlgorithm, AvxPortableFftMatchesExplicitFft)
             std::span<const G1Point>(a),
             std::span<const G2Point>(b),
             MiddleProductAlgorithm::Fft);
+    }
+}
+
+TEST(MiddleProductAlgorithm, AvxPreparedLinesPreserveInfinitySemantics)
+{
+    constexpr std::size_t n = 8;
+    const std::vector<G1Point> finite_a = make_g1_data(n);
+    const std::vector<G2Point> zero_b(2 * n, G2Point::infinity());
+    const auto zero_b_precomputed =
+        fft_precompute_for_context<blst::MiddleProductAvxContext>(zero_b, n, nullptr);
+
+    ASSERT_EQ(zero_b_precomputed.prepared_lines.size(), zero_b_precomputed.fft_size);
+    ASSERT_EQ(zero_b_precomputed.b_fft_is_zero.size(), zero_b_precomputed.fft_size);
+    for (uint8_t is_zero : zero_b_precomputed.b_fft_is_zero) {
+        EXPECT_NE(is_zero, 0);
+    }
+
+    std::vector<GT> out(n, GT::identity());
+    fft_middle_product_for_context<blst::MiddleProductAvxContext>(
+        finite_a,
+        zero_b_precomputed,
+        out);
+    for (const GT& value : out) {
+        EXPECT_TRUE(GT::equal(value, GT::identity()));
+    }
+
+    const std::vector<G1Point> zero_a(n, G1Point::infinity());
+    const std::vector<G2Point> finite_b = make_g2_data(n);
+    const auto finite_b_precomputed =
+        fft_precompute_for_context<blst::MiddleProductAvxContext>(finite_b, n, nullptr);
+    fft_middle_product_for_context<blst::MiddleProductAvxContext>(
+        zero_a,
+        finite_b_precomputed,
+        out);
+    for (const GT& value : out) {
+        EXPECT_TRUE(GT::equal(value, GT::identity()));
     }
 }
 

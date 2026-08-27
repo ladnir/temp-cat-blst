@@ -875,7 +875,31 @@ namespace
 		}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-        static void bench_middle_product_avx_detailed(benchmark::State& state)
+	static void bench_middle_product_avx(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
+		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
+		const auto precomputed_b = precompute_middle_product_b_avx(
+			std::span<const G2Point>(B_orig), n);
+		std::vector<GT> out(n, GT::identity());
+		MiddleProductWorkspaceAvx workspace;
+
+		for (auto _ : state) {
+			benchmark::DoNotOptimize(out.data());
+			middle_product_avx(
+				std::span<const G1Point>(A_orig),
+				precomputed_b,
+				std::span<GT>(out),
+				workspace);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+	}
+
+	static void bench_middle_product_avx_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
@@ -1392,6 +1416,11 @@ MIDDLE_PROD_SIZES
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 BENCHMARK(bench_middle_product_avx_detailed)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_avx)
 MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

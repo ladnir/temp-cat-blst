@@ -358,9 +358,23 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
     std::vector<AvxCtx::GtFftElement> avx_c_fft(
         avx_precomputed.fft_size,
         AvxCtx::identity());
+    std::vector<AvxCtx::G1AffinePoint> avx_a_fft_affine(
+        avx_precomputed.fft_size);
+    std::vector<AvxCtx::G1Point::Field_type> avx_affine_prefix_products(
+        avx_precomputed.fft_size);
+    AvxCtx::batch_to_affine_g1(
+        std::span<AvxCtx::G1AffinePoint>(avx_a_fft_affine),
+        std::span<const AvxCtx::G1Point>(avx_a_fft),
+        std::span<AvxCtx::G1Point::Field_type>(avx_affine_prefix_products));
     for (std::size_t i = 0; i < scalar_precomputed.fft_size; ++i) {
         scalar_c_fft[i] = ScalarCtx::pointwise_pair_direct(scalar_a_fft[i], scalar_precomputed.b_fft[i]);
-        avx_c_fft[i] = AvxCtx::pointwise_pair_direct(avx_a_fft[i], avx_precomputed.b_fft[i]);
+        if (avx_precomputed.b_fft_is_zero[i] != 0 ||
+            AvxCtx::G1AffinePoint::is_inf(avx_a_fft_affine[i]) != 0) {
+            avx_c_fft[i] = AvxCtx::identity();
+        } else {
+            avx_c_fft[i] = AvxCtx::pointwise_pair_prepared(
+                avx_a_fft_affine[i], avx_precomputed.prepared_lines[i]);
+        }
         EXPECT_TRUE(GT::equal(ScalarCtx::to_public_gt(scalar_c_fft[i]), AvxCtx::to_public_gt(avx_c_fft[i])))
             << "Scalar/AVX reduced pointwise mismatch at fft index " << i;
     }
@@ -721,9 +735,23 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
     std::vector<AvxCtx::GtFftElement> avx_stage(
         avx_precomputed.fft_size,
         AvxCtx::identity());
+    std::vector<AvxCtx::G1AffinePoint> avx_a_fft_affine(
+        avx_precomputed.fft_size);
+    std::vector<AvxCtx::G1Point::Field_type> avx_affine_prefix_products(
+        avx_precomputed.fft_size);
+    AvxCtx::batch_to_affine_g1(
+        std::span<AvxCtx::G1AffinePoint>(avx_a_fft_affine),
+        std::span<const AvxCtx::G1Point>(avx_a_fft),
+        std::span<AvxCtx::G1Point::Field_type>(avx_affine_prefix_products));
     for (std::size_t i = 0; i < scalar_precomputed.fft_size; ++i) {
         scalar_stage[i] = ScalarCtx::pointwise_pair_direct(scalar_a_fft[i], scalar_precomputed.b_fft[i]);
-        avx_stage[i] = AvxCtx::pointwise_pair_direct(avx_a_fft[i], avx_precomputed.b_fft[i]);
+        if (avx_precomputed.b_fft_is_zero[i] != 0 ||
+            AvxCtx::G1AffinePoint::is_inf(avx_a_fft_affine[i]) != 0) {
+            avx_stage[i] = AvxCtx::identity();
+        } else {
+            avx_stage[i] = AvxCtx::pointwise_pair_prepared(
+                avx_a_fft_affine[i], avx_precomputed.prepared_lines[i]);
+        }
     }
 
     bit_reverse(std::span<ScalarCtx::GtFftElement>(scalar_stage));

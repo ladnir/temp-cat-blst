@@ -204,13 +204,21 @@ namespace
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbeaa0000ULL + batch_size);
 
+        benchmark::DoNotOptimize(FinalizeBatchDecryption(
+            ctx.params,
+            ctx.prepared_public_parameters,
+            ctx.btx_precomputation,
+            ctx.aggregate_predecryption_key));
+
         std::vector<blst::GT> out(batch_size, blst::GT::identity());
+        blst::MiddleProductWorkspaceMultipair workspace;
 
         for (auto _ : state) {
-            blst::update(
+            blst::update_multipair(
                 ctx.aggregate_predecryption_key,
                 ctx.prepared_public_parameters.alpha_precomputed_b_by_batch_size[batch_size],
-                std::span<blst::GT>(out.data(), out.size()));
+                std::span<blst::GT>(out.data(), out.size()),
+                workspace);
             benchmark::DoNotOptimize(out.data());
             benchmark::ClobberMemory();
         }

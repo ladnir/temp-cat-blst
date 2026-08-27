@@ -73,9 +73,11 @@ pub use avx::{
     blst_avx_p2_sizeof, blst_avx_p2_to_affine, blst_avx_p2_uncompress,
     blst_avx_p2s_in_g2, blst_avx_p2s_mult_pippenger,
     blst_avx_p2s_mult_pippenger_scratch_sizeof, blst_avx_pairing, blst_avx_pairing_n,
+    blst_avx_pairing_prepared_g2, blst_avx_prepared_g2_lines_alignof,
+    blst_avx_prepared_g2_lines_init, blst_avx_prepared_g2_lines_sizeof,
     blst_avx_random_bytes_fn, blst_fp12_from_avx, blst_p1_affine_from_avx,
     blst_p1_from_avx, blst_p2_affine_from_avx, blst_p2_from_avx, gt_msm,
-    AvxMsmError,
+    AvxMsmError, NativeAvxPreparedG2Lines,
 };
 pub use middle_product::{
     blst_middle_product_precomputed_b, blst_middle_product_precomputed_b_avx,

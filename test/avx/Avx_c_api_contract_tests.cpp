@@ -1135,4 +1135,34 @@ TEST(AvxCApiContract, RetainedG1GlvScratchAndWindowHooksMatchScalar)
     EXPECT_TRUE(G1::equal(expected, actual_window));
 }
 
+TEST(AvxCApiContract, PreparedG2LinesMatchDirectPairing)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    const size_t storage_bytes = blst_avx_prepared_g2_lines_sizeof();
+    const size_t storage_alignment = blst_avx_prepared_g2_lines_alignof();
+    ASSERT_GT(storage_bytes, 0u);
+    ASSERT_LE(storage_alignment, alignof(blst_avx_fp12));
+
+    std::vector<blst_avx_fp12> storage(
+        (storage_bytes + sizeof(blst_avx_fp12) - 1) /
+        sizeof(blst_avx_fp12));
+    ASSERT_TRUE(blst_avx_prepared_g2_lines_init(
+        storage.data(),
+        storage.size() * sizeof(blst_avx_fp12),
+        blst_avx_p2_generator()));
+
+    blst_avx_fp12 prepared = {};
+    ASSERT_TRUE(blst_avx_pairing_prepared_g2(
+        &prepared,
+        storage.data(),
+        storage.size() * sizeof(blst_avx_fp12),
+        blst_avx_p1_generator()));
+
+    blst_avx_fp12 direct = {};
+    ASSERT_TRUE(blst_avx_pairing(
+        &direct, blst_avx_p1_generator(), blst_avx_p2_generator()));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&prepared, &direct));
+}
+
 } // namespace
