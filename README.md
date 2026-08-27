@@ -14,7 +14,12 @@ signature operations, together with FFT, multi-scalar multiplication, and
 middle-product facilities. C, native C++, and Rust are the supported language
 surfaces.
 
-The current source release is **1.0.0**.
+The current source release is **1.0.0**. Its Rust package uses the compatibility
+version `0.3.15+cat.1` because a Cargo graph may contain only one package with
+`links = "blst"`, while established consumers such as `c-kzg` constrain that
+package to the `0.3` series. The build-metadata suffix identifies Category's
+hardened API variant without claiming that every removed upstream entry point
+has been restored.
 
 ## Backends and platforms
 

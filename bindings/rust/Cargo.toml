@@ -1,6 +1,6 @@
 [package]
 name = "blst"
-version = "1.0.0"
+version = "0.3.15+cat.1"
 authors = ["Category Labs"]
 edition = "2018"
 rust-version = "1.78"
@@ -41,6 +41,10 @@ avx = []
 # Enable ADX even if the host CPU doesn't support it.
 # Binary can be executed on Broadwell+ and Ryzen+ systems.
 force-adx = []
+# Deprecated compatibility selector retained for older downstream manifests.
+# Category-blst does not spawn worker threads in its production Rust API, so
+# this feature has no effect.
+no-threads = []
 # Keep the full high-level Rust wrapper surface feature-gated while
 # the smaller middle-product-first surface remains the default.
 full-rust-bindings = []

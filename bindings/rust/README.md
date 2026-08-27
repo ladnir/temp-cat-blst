@@ -2,6 +2,9 @@
 
 The `blst` crate provides category-blst's Rust interface. The package and crate
 names remain `blst` for compatibility with existing source-tree consumers.
+The package version is `0.3.15+cat.1`: the `0.3.15` compatibility component
+allows one `links = "blst"` package to satisfy established Cargo dependents,
+and the build metadata identifies Category's hardened API variant.
 
 ## Build
 [bindgen](https://github.com/rust-lang/rust-bindgen) generates FFI bindings from
@@ -32,6 +35,9 @@ Relevant Cargo features:
   - enables the portable scalar build
 - `force-adx`
   - forces ADX on supported x86_64 targets
+- `no-threads`
+  - deprecated no-op retained for older manifests; the production Rust API
+    does not create worker threads regardless of this feature
 
 Apple Silicon macOS is supported without an experimental override. Other
 ARM64 and Morello/CHERI builds are retained experimental but are not fully
