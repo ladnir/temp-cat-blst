@@ -6,6 +6,17 @@ The package version is `0.3.15+cat.1`: the `0.3.15` compatibility component
 allows one `links = "blst"` package to satisfy established Cargo dependents,
 and the build metadata identifies Category's hardened API variant.
 
+New Category consumers should alias the package as `catblst` in Cargo and use
+that namespace in source:
+
+```toml
+catblst = { package = "blst", version = "=0.3.15" }
+```
+
+The package name remains transitional so existing `links = "blst"` dependents
+resolve one native library. The intended long-term Rust namespace is
+`catblst`.
+
 ## Build
 [bindgen](https://github.com/rust-lang/rust-bindgen) generates FFI bindings from
 the C headers under `bindings/`. The local [build.rs](build.rs) then invokes
@@ -94,6 +105,11 @@ The Rust crate is split by surface area:
   - crate entry point and top-level re-exports
 - `src/primitives.rs`
   - thin helpers around the scalar C ABI
+- `src/scalar.rs`
+  - lean, allocation-free, `blstrs`-inspired types over the scalar backend
+- `src/avx.rs`
+  - native AVX representations; these are intentionally distinct from scalar
+    curve types
 - `src/middle_product.rs`
   - `precompute(b)`, `middle_product(a, precomputed_b, out)`,
     `update(a0, precomputed_b, out)`, and `combine(mid, cnst, out)`
@@ -105,32 +121,48 @@ The Rust crate is split by surface area:
 Additional narrative docs live in `docs/`:
 
 - `docs/overview.md`
+- `docs/scalar.md`
 - `docs/middle_product.md`
 - `docs/full_bindings.md`
 
 ## Usage
-There are three primary ways to use the crate.
+There are four primary ways to use the crate.
+
+Lean scalar curve use:
+```rust
+use catblst::Scalar;
+use catblst::scalar::{G1Projective, G2Projective, Gt};
+
+let exponent = Scalar::from(7u64);
+let point = G1Projective::generator() * exponent;
+let target = Gt::generator() * exponent;
+```
+
+This surface is inspired by `blstrs`, but is not a compatibility clone. It does
+not implement the `ff`, `group`, or `pairing` ecosystems, create worker threads,
+or hide heap allocation. Its wrappers contain category-blst's native scalar
+representations and expose explicit raw borrows for kernel interoperation.
 
 Low-level/raw use:
 ```rust
-use blst::{blst_fp12, blst_p1, blst_p2};
+use catblst::{blst_fp12, blst_p1, blst_p2};
 ```
 
 Middle-product use:
 ```rust
-use blst::{combine, middle_product, precompute_middle_product_b, update};
+use catblst::{combine, middle_product, precompute_middle_product_b, update};
 ```
 
 High-level signature use:
 
 For minimal-pubkey-size operations:
 ```rust
-use blst::min_pk::*;
+use catblst::min_pk::*;
 ```
 
 For minimal-signature-size operations:
 ```rust
-use blst::min_sig::*;
+use catblst::min_sig::*;
 ```
 
 There are five structs with inherent implementations that provide the BLS12-381 signature functionality.
@@ -144,7 +176,7 @@ AggregateSignature
 
 A simple example for generating a key, signing a message, and verifying the message:
 ```rust
-use blst::min_pk::SecretKey;
+use catblst::min_pk::SecretKey;
 
 let mut rng = rand::thread_rng();
 let mut ikm = [0u8; 32];
@@ -158,7 +190,7 @@ let msg = b"blst is such a blast";
 let sig = sk.sign(msg, dst, &[]);
 
 let err = sig.verify(true, msg, dst, &[], &pk, true);
-assert_eq!(err, blst::BLST_ERROR::BLST_SUCCESS);
+assert_eq!(err, catblst::BLST_ERROR::BLST_SUCCESS);
 ```
 
 See:

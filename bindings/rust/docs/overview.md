@@ -17,6 +17,11 @@ Current structure:
     `update(a0, precomputed_b, out)`, and `combine(mid, cnst, out)` wrappers
 - `src/primitives.rs`
   - low-level scalar-ABI helpers for points, Fp12, and scalar hashing
+- `src/scalar.rs`
+  - lean, `blstrs`-inspired scalar-field, G1, G2, Miller-loop, and GT types
+  - transparent access to the native scalar ABI without representation bridges
+- `src/avx.rs`
+  - distinct native AVX representations, operations, and explicit workspaces
 - `src/pairing.rs`
   - owned pairing context and uniqueness helpers
 - `src/pippenger.rs`
@@ -25,6 +30,10 @@ Current structure:
 High-level policy:
 
 - The scalar ABI is the stable public Rust boundary.
+- The `scalar` and `avx` modules name distinct backend representations. They do
+  not implicitly convert points or GT elements between backends.
+- `Scalar` is shared at the crate root because both backends consume the same
+  scalar field. Backend kernels may borrow its native `blst_fr` directly.
 - AVX remains an expert/native C surface and is not reinterpreted as a different
   meaning for `blst_p1`, `blst_p2`, or `blst_fp12`.
 - Middle product is intentionally isolated so it can evolve without dragging the
@@ -53,8 +62,19 @@ pairing state, decoding, FFT, and middle product now state their reviewed
 preconditions and postconditions. Unreviewed raw declarations inherit the C
 contract and remain pending until their owning files are reviewed.
 
+The exact lean scalar type surface and its deliberate omissions are documented
+in [`scalar.md`](scalar.md).
+
 Recommended entry points:
 
+- Lean scalar curve API:
+  - import `Scalar` from the crate root
+  - import `G1Affine`, `G1Projective`, `G2Affine`, `G2Projective`, `Gt`, and
+    `MillerLoopResult` from `catblst::scalar`
+  - the API is inspired by the useful typed surface of `blstrs`, but deliberately
+    omits its `ff`, `group`, and `pairing` trait integration
+  - operations run synchronously on the calling thread and allocate no heap
+    storage
 - Low-level/raw use:
   - import concrete `blst_*` POD types from the crate root
   - call raw FFI functions or the small helper methods on `blst_fp12`
@@ -64,7 +84,7 @@ Recommended entry points:
   - `update`
   - `combine`
 - FFT and interpolation:
-  - use the explicit `blst::fft` module
+  - use the explicit `catblst::fft` module
   - prefer prepared domains for repeated transforms
   - provide caller-owned scratch for FFT-domain suffix interpolation
 - High-level signature API:

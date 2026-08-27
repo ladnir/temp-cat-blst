@@ -27,12 +27,22 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use zeroize::Zeroize;
 
 include!("bindings.rs");
-mod avx;
+/// Native AVX-512 representations and operations.
+///
+/// These types have a different representation from [`scalar`] types. Choose
+/// one backend for an operation and retain that backend's native values; use
+/// canonical encodings only at serialization and compatibility boundaries.
+pub mod avx;
 /// Scalar-field FFT and interpolation operations.
 pub mod fft;
 mod middle_product;
 mod pairing;
 mod primitives;
+/// Lean, allocation-free Rust curve types over the scalar backend.
+pub mod scalar;
+
+/// The scalar-field type shared by scalar and native AVX protocol code.
+pub use scalar::Scalar;
 
 pub use avx::{
     avx_p1s_in_g1, avx_p2s_in_g2, blst_avx_enabled, blst_avx_fp12,
