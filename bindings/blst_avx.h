@@ -367,6 +367,13 @@ bool blst_avx_p1s_mult_pippenger(
     size_t nbits,
     blst_limb_t* scratch);
 /**
+ * Writes the canonical AVX G1 identity to caller-owned storage.
+ *
+ * `out` must be non-null and suitably aligned. The operation allocates
+ * nothing and performs no scalar multiplication.
+ */
+bool blst_avx_p1_identity(blst_avx_p1* out);
+/**
  * Returns the AVX G1 generator.
  *
  * Return value:
@@ -508,6 +515,13 @@ bool blst_avx_p2s_mult_pippenger(
     size_t nbits,
     blst_limb_t* scratch);
 /**
+ * Writes the canonical AVX G2 identity to caller-owned storage.
+ *
+ * `out` must be non-null and suitably aligned. The operation allocates
+ * nothing and performs no scalar multiplication.
+ */
+bool blst_avx_p2_identity(blst_avx_p2* out);
+/**
  * Returns the AVX G2 generator.
  *
  * Return value:
@@ -535,6 +549,21 @@ bool blst_avx_gt_serialize(blst_byte out[576], const blst_avx_gt* in);
  * variable-time with public input. No allocation is performed.
  */
 bool blst_avx_gt_deserialize(blst_avx_gt* out, const blst_byte in[576]);
+/**
+ * Constant-time scalar multiplication of a validated AVX GT element.
+ *
+ * `scalar` names `ceil(nbits/8)` readable little-endian bytes and may be null
+ * only when `nbits` is zero. `nbits` must not exceed 256. Runtime and memory
+ * access are independent of a canonical scalar's contents for fixed public
+ * `nbits`; noncanonical scalars are accepted modulo r, but reduction timing
+ * may reveal that reduction was required. `ret` may exactly alias `a`; partial
+ * overlap is unsupported. The function allocates nothing.
+ */
+bool blst_avx_gt_mult(
+    blst_avx_gt* ret,
+    const blst_avx_gt* a,
+    const blst_byte* scalar,
+    size_t nbits);
 /**
  * Multiplies two well-formed AVX Fp12 values and writes the generic field
  * product to `ret`. GT membership is neither required nor established.

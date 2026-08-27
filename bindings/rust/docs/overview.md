@@ -34,8 +34,9 @@ High-level policy:
   not implicitly convert points or GT elements between backends.
 - `Scalar` is shared at the crate root because both backends consume the same
   scalar field. Backend kernels may borrow its native `blst_fr` directly.
-- AVX remains an expert/native C surface and is not reinterpreted as a different
-  meaning for `blst_p1`, `blst_p2`, or `blst_fp12`.
+- AVX exposes both its expert/native C surface and a lean safe typed layer. The
+  typed layer wraps the distinct `blst_avx_*` representations; it does not
+  reinterpret `blst_p1`, `blst_p2`, or `blst_fp12`.
 - Middle product is intentionally isolated so it can evolve without dragging the
   rest of the crate with it.
 - FFT and interpolation are intentionally module-scoped rather than re-exported
@@ -64,6 +65,8 @@ contract and remain pending until their owning files are reviewed.
 
 The exact lean scalar type surface and its deliberate omissions are documented
 in [`scalar.md`](scalar.md).
+The typed native AVX surface, timing rules, and reusable-workspace contracts are
+documented in [`avx.md`](avx.md).
 
 Recommended entry points:
 
@@ -75,6 +78,13 @@ Recommended entry points:
     omits its `ff`, `group`, and `pairing` trait integration
   - operations run synchronously on the calling thread and allocate no heap
     storage
+- Lean native AVX curve API:
+  - import backend-specific `G1Projective`, `G2Projective`, and `Gt` from
+    `catblst::avx`
+  - allocate prepared-line, batched-pairing, MSM, and middle-product workspaces
+    before entering a hot loop
+  - retain native values until canonical serialization; do not convert through
+    scalar point or GT storage
 - Low-level/raw use:
   - import concrete `blst_*` POD types from the crate root
   - call raw FFI functions or the small helper methods on `blst_fp12`

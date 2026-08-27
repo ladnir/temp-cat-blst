@@ -355,6 +355,11 @@ pub struct NativeAvxMiddleProductPrecomputedB {
     n: usize,
 }
 
+// The native allocation is immutable after construction. Evaluation accepts
+// it through a const pointer, and destruction requires exclusive ownership.
+unsafe impl Send for NativeAvxMiddleProductPrecomputedB {}
+unsafe impl Sync for NativeAvxMiddleProductPrecomputedB {}
+
 impl NativeAvxMiddleProductPrecomputedB {
     pub fn new(b: &[blst_avx_p2]) -> Result<Self, MiddleProductError> {
         validate_precompute_input(b)?;
@@ -364,6 +369,14 @@ impl NativeAvxMiddleProductPrecomputedB {
             return Err(MiddleProductError::PrecomputeFailed);
         }
         Ok(Self { raw, n })
+    }
+
+    /// Precomputes directly from typed AVX G2 values without representation
+    /// conversion.
+    pub fn new_typed(
+        b: &[crate::avx::G2Projective],
+    ) -> Result<Self, MiddleProductError> {
+        Self::new(crate::avx::G2Projective::as_raw_slice(b))
     }
 
     pub fn len(&self) -> usize {
@@ -405,6 +418,24 @@ impl NativeAvxMiddleProductWorkspace {
             raw,
             n: precomputed_b.n,
         })
+    }
+
+    /// Evaluates directly over typed native AVX inputs and outputs.
+    ///
+    /// The call performs no allocation and does not cross the scalar
+    /// representation. `out` must contain at least `a.len()` elements.
+    pub fn evaluate_into(
+        &mut self,
+        a: &[crate::avx::G1Projective],
+        precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+        out: &mut [crate::avx::Gt],
+    ) -> Result<(), MiddleProductError> {
+        middle_product_avx_native_with_workspace(
+            crate::avx::G1Projective::as_raw_slice(a),
+            precomputed_b,
+            self,
+            crate::avx::Gt::as_raw_slice_mut(out),
+        )
     }
 }
 

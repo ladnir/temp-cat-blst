@@ -10,6 +10,7 @@
 //! modifying the bytes requires understanding the selected AVX representation;
 //! arbitrary contents need not satisfy the bounds or algebraic preconditions
 //! of any operation other than an explicitly documented validator.
+#![doc = include_str!("../docs/avx.md")]
 
 use crate::*;
 use alloc::alloc::{alloc, dealloc};
@@ -17,6 +18,7 @@ use alloc::vec::Vec;
 use core::alloc::Layout;
 use core::mem::{size_of, MaybeUninit};
 use core::ptr::{self, NonNull};
+use core::sync::atomic::{compiler_fence, Ordering};
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
@@ -65,18 +67,35 @@ pub struct NativeAvxPreparedG2Lines {
     layout: Layout,
 }
 
+/// Construction failure for a raw native prepared-G2 table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeAvxPreparedG2LinesError {
+    /// This build or host cannot execute the CatBLST AVX backend.
+    Unavailable,
+    /// The backend reported an invalid storage size or alignment.
+    InvalidLayout,
+    /// Allocation of the immutable native table failed.
+    AllocationFailed,
+    /// Native line preparation rejected the validated input or storage.
+    InitializationFailed,
+}
+
 impl NativeAvxPreparedG2Lines {
-    pub fn new(g2: &blst_avx_p2) -> Result<Self, ()> {
+    pub fn new(
+        g2: &blst_avx_p2,
+    ) -> Result<Self, NativeAvxPreparedG2LinesError> {
         if !unsafe { blst_avx_enabled() } {
-            return Err(());
+            return Err(NativeAvxPreparedG2LinesError::Unavailable);
         }
         let size = unsafe { blst_avx_prepared_g2_lines_sizeof() };
         let align = unsafe { blst_avx_prepared_g2_lines_alignof() };
-        let layout = Layout::from_size_align(size, align).map_err(|_| ())?;
+        let layout = Layout::from_size_align(size, align)
+            .map_err(|_| NativeAvxPreparedG2LinesError::InvalidLayout)?;
         if size == 0 {
-            return Err(());
+            return Err(NativeAvxPreparedG2LinesError::InvalidLayout);
         }
-        let storage = NonNull::new(unsafe { alloc(layout) }).ok_or(())?;
+        let storage = NonNull::new(unsafe { alloc(layout) })
+            .ok_or(NativeAvxPreparedG2LinesError::AllocationFailed)?;
         if !unsafe {
             blst_avx_prepared_g2_lines_init(
                 storage.as_ptr().cast::<core::ffi::c_void>(),
@@ -85,7 +104,7 @@ impl NativeAvxPreparedG2Lines {
             )
         } {
             unsafe { dealloc(storage.as_ptr(), layout) };
-            return Err(());
+            return Err(NativeAvxPreparedG2LinesError::InitializationFailed);
         }
         Ok(Self { storage, layout })
     }
@@ -94,7 +113,7 @@ impl NativeAvxPreparedG2Lines {
         &self,
         out: &mut blst_avx_fp12,
         g1: &blst_avx_p1,
-    ) -> Result<(), ()> {
+    ) -> Result<(), Error> {
         if unsafe {
             blst_avx_pairing_prepared_g2(
                 out,
@@ -105,7 +124,7 @@ impl NativeAvxPreparedG2Lines {
         } {
             Ok(())
         } else {
-            Err(())
+            Err(Error::BackendFailure)
         }
     }
 
@@ -299,6 +318,771 @@ impl PartialEq for blst_avx_fp12 {
     }
 }
 
+const SCALAR_BITS: usize = 255;
+const SCRATCH_ALIGNMENT: usize = 64;
+
+#[inline]
+fn wipe_scalar_bytes(bytes: &mut [u8; 32]) {
+    for byte in bytes {
+        unsafe { ptr::write_volatile(byte, 0) };
+    }
+    compiler_fence(Ordering::SeqCst);
+}
+
+/// Failure from the safe, backend-native AVX curve API.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    /// This build or host cannot execute the CatBLST AVX backend.
+    Unavailable,
+    /// A canonical point or target-group encoding was malformed.
+    InvalidEncoding,
+    /// A decoded curve point was not in the prime-order subgroup.
+    InvalidSubgroup,
+    /// Point and scalar counts differed.
+    MsmLengthMismatch { points: usize, scalars: usize },
+    /// The typed MSM API does not accept an empty input.
+    EmptyMsm,
+    /// Caller-owned scratch was too small for the requested operation.
+    ScratchTooSmall { required: usize, available: usize },
+    /// A fixed-capacity pairing workspace cannot accept another pair.
+    PairingCapacityExceeded { required: usize, capacity: usize },
+    /// A required allocation failed while constructing reusable storage.
+    AllocationFailed,
+    /// A native CatBLST operation rejected its inputs or failed.
+    BackendFailure,
+}
+
+#[allow(non_upper_case_globals)]
+impl Error {
+    /// Compatibility name for the former Monad-local generic kernel failure.
+    #[deprecated(note = "use Error::BackendFailure")]
+    pub const KernelFailure: Self = Self::BackendFailure;
+
+    /// Compatibility name for the former Monad-local middle-product failure.
+    #[deprecated(note = "use Error::BackendFailure")]
+    pub const MiddleProductFailure: Self = Self::BackendFailure;
+}
+
+impl core::fmt::Display for Error {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        match self {
+            Self::Unavailable => formatter.write_str("the CatBLST AVX backend is unavailable"),
+            Self::InvalidEncoding => formatter.write_str("invalid canonical group encoding"),
+            Self::InvalidSubgroup => formatter.write_str("point is outside the prime-order subgroup"),
+            Self::MsmLengthMismatch { points, scalars } => {
+                write!(formatter, "MSM length mismatch: points={points}, scalars={scalars}")
+            }
+            Self::EmptyMsm => formatter.write_str("MSM input must not be empty"),
+            Self::ScratchTooSmall { required, available } => write!(
+                formatter,
+                "MSM scratch is too small: required={required}, available={available}"
+            ),
+            Self::PairingCapacityExceeded { required, capacity } => write!(
+                formatter,
+                "pairing capacity exceeded: required={required}, capacity={capacity}"
+            ),
+            Self::AllocationFailed => formatter.write_str("reusable AVX storage allocation failed"),
+            Self::BackendFailure => formatter.write_str("CatBLST AVX operation failed"),
+        }
+    }
+}
+
+#[cfg(blst_std)]
+impl std::error::Error for Error {}
+
+/// Returns whether the native AVX implementation is available.
+#[inline]
+pub fn is_available() -> bool {
+    unsafe { blst_avx_enabled() }
+}
+
+#[inline]
+fn ensure_available() -> Result<(), Error> {
+    if is_available() {
+        Ok(())
+    } else {
+        Err(Error::Unavailable)
+    }
+}
+
+/// Backend-native G1 projective point.
+///
+/// The representation is opaque, 64-byte aligned, and incompatible with
+/// [`crate::scalar::G1Projective`]. Canonical encoding is the only supported
+/// interchange boundary between backends.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct G1Projective(blst_avx_p1);
+
+const _: () = {
+    assert!(size_of::<G1Projective>() == size_of::<blst_avx_p1>());
+    assert!(
+        core::mem::align_of::<G1Projective>()
+            == core::mem::align_of::<blst_avx_p1>()
+    );
+};
+
+impl G1Projective {
+    /// Returns the G1 identity without allocating.
+    pub fn identity() -> Result<Self, Error> {
+        ensure_available()?;
+        let mut point = MaybeUninit::<blst_avx_p1>::uninit();
+        if unsafe { blst_avx_p1_identity(point.as_mut_ptr()) } {
+            Ok(Self(unsafe { point.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns the canonical G1 generator.
+    pub fn generator() -> Result<Self, Error> {
+        ensure_available()?;
+        let generator = unsafe { blst_avx_p1_generator() };
+        if generator.is_null() {
+            return Err(Error::Unavailable);
+        }
+        let mut point = MaybeUninit::<blst_avx_p1>::uninit();
+        // Copy bytes because portable AVX builds may expose static generator
+        // storage with weaker alignment than the opaque public shell.
+        unsafe {
+            ptr::copy_nonoverlapping(
+                generator.cast::<u8>(),
+                point.as_mut_ptr().cast::<u8>(),
+                size_of::<blst_avx_p1>(),
+            );
+        }
+        Ok(Self(unsafe { point.assume_init() }))
+    }
+
+    /// Strictly decodes a compressed point and checks G1 subgroup membership.
+    pub fn from_compressed(encoded: &[u8; 48]) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut point = MaybeUninit::<blst_avx_p1>::uninit();
+        if unsafe {
+            blst_avx_p1_uncompress(point.as_mut_ptr(), encoded.as_ptr())
+        } != BLST_ERROR::BLST_SUCCESS
+        {
+            return Err(Error::InvalidEncoding);
+        }
+        let point = unsafe { point.assume_init() };
+        if !unsafe { blst_avx_p1_in_g1(&point) } {
+            return Err(Error::InvalidSubgroup);
+        }
+        Ok(Self(point))
+    }
+
+    /// Returns the canonical 48-byte compressed encoding.
+    pub fn to_compressed(&self) -> Result<[u8; 48], Error> {
+        let mut encoded = MaybeUninit::<[u8; 48]>::uninit();
+        if unsafe { blst_avx_p1_compress(encoded.as_mut_ptr().cast(), &self.0) }
+        {
+            Ok(unsafe { encoded.assume_init() })
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Multiplies by a typed canonical scalar in constant time.
+    ///
+    /// The operation allocates nothing. Runtime is independent of the scalar
+    /// contents for the fixed 255-bit width.
+    pub fn multiply(&self, scalar: &Scalar) -> Result<Self, Error> {
+        let mut scalar_le = scalar.to_bytes_le();
+        let mut out = MaybeUninit::<blst_avx_p1>::uninit();
+        let succeeded = unsafe {
+            blst_avx_p1_mult(
+                out.as_mut_ptr(),
+                &self.0,
+                scalar_le.as_ptr(),
+                SCALAR_BITS,
+            )
+        };
+        wipe_scalar_bytes(&mut scalar_le);
+        if succeeded {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Adds two validated G1 points without allocating.
+    pub fn add(&self, other: &Self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_p1>::uninit();
+        if unsafe { blst_avx_p1_add(out.as_mut_ptr(), &self.0, &other.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns whether this point is the identity.
+    #[inline]
+    pub fn is_identity(&self) -> bool {
+        unsafe { blst_avx_p1_is_inf(&self.0) }
+    }
+
+    fn as_raw_affine(&self) -> Result<blst_avx_p1_affine, Error> {
+        let mut affine = MaybeUninit::<blst_avx_p1_affine>::uninit();
+        if unsafe { blst_avx_p1_to_affine(affine.as_mut_ptr(), &self.0) } {
+            Ok(unsafe { affine.assume_init() })
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn as_raw(&self) -> &blst_avx_p1 {
+        &self.0
+    }
+
+    #[inline]
+    pub(crate) fn as_raw_slice(points: &[Self]) -> &[blst_avx_p1] {
+        unsafe {
+            core::slice::from_raw_parts(points.as_ptr().cast(), points.len())
+        }
+    }
+}
+
+impl core::fmt::Debug for G1Projective {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        formatter
+            .debug_tuple("G1Projective")
+            .field(&"<native-avx>")
+            .finish()
+    }
+}
+
+impl PartialEq for G1Projective {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { blst_avx_p1_is_equal(&self.0, &other.0) }
+    }
+}
+
+impl Eq for G1Projective {}
+
+/// Backend-native G2 projective point.
+///
+/// The representation is opaque, 64-byte aligned, and incompatible with
+/// [`crate::scalar::G2Projective`].
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct G2Projective(blst_avx_p2);
+
+const _: () = {
+    assert!(size_of::<G2Projective>() == size_of::<blst_avx_p2>());
+    assert!(
+        core::mem::align_of::<G2Projective>()
+            == core::mem::align_of::<blst_avx_p2>()
+    );
+};
+
+impl G2Projective {
+    /// Returns the G2 identity without allocating.
+    pub fn identity() -> Result<Self, Error> {
+        ensure_available()?;
+        let mut point = MaybeUninit::<blst_avx_p2>::uninit();
+        if unsafe { blst_avx_p2_identity(point.as_mut_ptr()) } {
+            Ok(Self(unsafe { point.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns the canonical G2 generator.
+    pub fn generator() -> Result<Self, Error> {
+        ensure_available()?;
+        let generator = unsafe { blst_avx_p2_generator() };
+        if generator.is_null() {
+            return Err(Error::Unavailable);
+        }
+        let mut point = MaybeUninit::<blst_avx_p2>::uninit();
+        unsafe {
+            ptr::copy_nonoverlapping(
+                generator.cast::<u8>(),
+                point.as_mut_ptr().cast::<u8>(),
+                size_of::<blst_avx_p2>(),
+            );
+        }
+        Ok(Self(unsafe { point.assume_init() }))
+    }
+
+    /// Strictly decodes a compressed point and checks G2 subgroup membership.
+    pub fn from_compressed(encoded: &[u8; 96]) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut point = MaybeUninit::<blst_avx_p2>::uninit();
+        if unsafe {
+            blst_avx_p2_uncompress(point.as_mut_ptr(), encoded.as_ptr())
+        } != BLST_ERROR::BLST_SUCCESS
+        {
+            return Err(Error::InvalidEncoding);
+        }
+        let point = unsafe { point.assume_init() };
+        if !unsafe { blst_avx_p2_in_g2(&point) } {
+            return Err(Error::InvalidSubgroup);
+        }
+        Ok(Self(point))
+    }
+
+    /// Returns the canonical 96-byte compressed encoding.
+    pub fn to_compressed(&self) -> Result<[u8; 96], Error> {
+        let mut encoded = MaybeUninit::<[u8; 96]>::uninit();
+        if unsafe { blst_avx_p2_compress(encoded.as_mut_ptr().cast(), &self.0) }
+        {
+            Ok(unsafe { encoded.assume_init() })
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Multiplies by a typed canonical scalar in constant time.
+    pub fn multiply(&self, scalar: &Scalar) -> Result<Self, Error> {
+        let mut scalar_le = scalar.to_bytes_le();
+        let mut out = MaybeUninit::<blst_avx_p2>::uninit();
+        let succeeded = unsafe {
+            blst_avx_p2_mult(
+                out.as_mut_ptr(),
+                &self.0,
+                scalar_le.as_ptr(),
+                SCALAR_BITS,
+            )
+        };
+        wipe_scalar_bytes(&mut scalar_le);
+        if succeeded {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Adds two validated G2 points without allocating.
+    pub fn add(&self, other: &Self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_p2>::uninit();
+        if unsafe { blst_avx_p2_add(out.as_mut_ptr(), &self.0, &other.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns whether this point is the identity.
+    #[inline]
+    pub fn is_identity(&self) -> bool {
+        unsafe { blst_avx_p2_is_inf(&self.0) }
+    }
+
+    fn as_raw_affine(&self) -> Result<blst_avx_p2_affine, Error> {
+        let mut affine = MaybeUninit::<blst_avx_p2_affine>::uninit();
+        if unsafe { blst_avx_p2_to_affine(affine.as_mut_ptr(), &self.0) } {
+            Ok(unsafe { affine.assume_init() })
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn as_raw(&self) -> &blst_avx_p2 {
+        &self.0
+    }
+
+    #[inline]
+    pub(crate) fn as_raw_slice(points: &[Self]) -> &[blst_avx_p2] {
+        unsafe {
+            core::slice::from_raw_parts(points.as_ptr().cast(), points.len())
+        }
+    }
+}
+
+impl core::fmt::Debug for G2Projective {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        formatter
+            .debug_tuple("G2Projective")
+            .field(&"<native-avx>")
+            .finish()
+    }
+}
+
+impl PartialEq for G2Projective {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { blst_avx_p2_is_equal(&self.0, &other.0) }
+    }
+}
+
+impl Eq for G2Projective {}
+
+/// Backend-native target-group element.
+///
+/// The representation is opaque and incompatible with [`crate::scalar::Gt`].
+/// Serialization uses CatBLST's shared canonical twelve-coefficient encoding.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct Gt(blst_avx_gt);
+
+const _: () = {
+    assert!(size_of::<Gt>() == size_of::<blst_avx_gt>());
+    assert!(
+        core::mem::align_of::<Gt>() == core::mem::align_of::<blst_avx_gt>()
+    );
+};
+
+impl Gt {
+    /// Returns the target-group identity.
+    pub fn identity() -> Result<Self, Error> {
+        ensure_available()?;
+        let identity = unsafe { blst_avx_fp12_one() };
+        if identity.is_null() {
+            return Err(Error::Unavailable);
+        }
+        let mut value = MaybeUninit::<blst_avx_gt>::uninit();
+        unsafe {
+            ptr::copy_nonoverlapping(
+                identity.cast::<u8>(),
+                value.as_mut_ptr().cast::<u8>(),
+                size_of::<blst_avx_gt>(),
+            );
+        }
+        Ok(Self(unsafe { value.assume_init() }))
+    }
+
+    /// Strictly decodes CatBLST's canonical 576-byte GT encoding.
+    pub fn from_bytes_be(encoded: &[u8; 576]) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut value = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe {
+            blst_avx_gt_deserialize(value.as_mut_ptr(), encoded.as_ptr())
+        } {
+            Ok(Self(unsafe { value.assume_init() }))
+        } else {
+            Err(Error::InvalidEncoding)
+        }
+    }
+
+    /// Returns CatBLST's canonical 576-byte GT encoding.
+    pub fn to_bytes_be(&self) -> Result<[u8; 576], Error> {
+        let mut encoded = MaybeUninit::<[u8; 576]>::uninit();
+        if unsafe {
+            blst_avx_gt_serialize(encoded.as_mut_ptr().cast(), &self.0)
+        } {
+            Ok(unsafe { encoded.assume_init() })
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Computes one pairing into caller-owned native GT storage.
+    pub fn pairing_into(
+        out: &mut Self,
+        g1: &G1Projective,
+        g2: &G2Projective,
+    ) -> Result<(), Error> {
+        if unsafe { blst_avx_pairing(&mut out.0, g1.as_raw(), g2.as_raw()) } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Computes one pairing directly into native GT storage.
+    pub fn pairing(
+        g1: &G1Projective,
+        g2: &G2Projective,
+    ) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe {
+            blst_avx_pairing(out.as_mut_ptr(), g1.as_raw(), g2.as_raw())
+        } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Multiplies two target-group elements without allocating.
+    pub fn multiply(&self, other: &Self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe { blst_avx_fp12_mul(out.as_mut_ptr(), &self.0, &other.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Squares a target-group element without allocating.
+    pub fn square(&self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe { blst_avx_fp12_sqr(out.as_mut_ptr(), &self.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns the target-group inverse without allocating.
+    pub fn inverse(&self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe { blst_avx_gt_inverse(out.as_mut_ptr(), &self.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Raises this element to a typed canonical scalar in constant time.
+    ///
+    /// Runtime and memory access are independent of the scalar contents at the
+    /// fixed 255-bit width. The operation allocates nothing.
+    pub fn pow(&self, scalar: &Scalar) -> Result<Self, Error> {
+        let mut scalar_le = scalar.to_bytes_le();
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        let succeeded = unsafe {
+            blst_avx_gt_mult(
+                out.as_mut_ptr(),
+                &self.0,
+                scalar_le.as_ptr(),
+                SCALAR_BITS,
+            )
+        };
+        wipe_scalar_bytes(&mut scalar_le);
+        if succeeded {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn as_raw_slice_mut(values: &mut [Self]) -> &mut [blst_avx_gt] {
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                values.as_mut_ptr().cast(),
+                values.len(),
+            )
+        }
+    }
+}
+
+impl core::fmt::Debug for Gt {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        formatter.debug_tuple("Gt").field(&"<native-avx>").finish()
+    }
+}
+
+impl PartialEq for Gt {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { blst_avx_fp12_is_equal(&self.0, &other.0) }
+    }
+}
+
+impl Eq for Gt {}
+
+/// Immutable native Miller lines for one validated G2 point.
+#[derive(Debug)]
+pub struct PreparedG2Lines {
+    inner: NativeAvxPreparedG2Lines,
+}
+
+impl PreparedG2Lines {
+    /// Allocates and prepares one immutable native line table.
+    pub fn new(g2: &G2Projective) -> Result<Self, Error> {
+        let inner =
+            NativeAvxPreparedG2Lines::new(g2.as_raw()).map_err(|error| {
+                match error {
+                    NativeAvxPreparedG2LinesError::Unavailable => {
+                        Error::Unavailable
+                    }
+                    NativeAvxPreparedG2LinesError::AllocationFailed => {
+                        Error::AllocationFailed
+                    }
+                    NativeAvxPreparedG2LinesError::InvalidLayout
+                    | NativeAvxPreparedG2LinesError::InitializationFailed => {
+                        Error::BackendFailure
+                    }
+                }
+            })?;
+        Ok(Self { inner })
+    }
+
+    /// Evaluates a pairing with the prepared G2 operand without allocating.
+    pub fn pairing(&self, g1: &G1Projective) -> Result<Gt, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe {
+            blst_avx_pairing_prepared_g2(
+                out.as_mut_ptr(),
+                self.inner.storage.as_ptr().cast::<core::ffi::c_void>(),
+                self.inner.layout.size(),
+                g1.as_raw(),
+            )
+        } {
+            Ok(Gt(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns the owned native table size in bytes.
+    pub fn storage_bytes(&self) -> usize {
+        self.inner.storage_bytes()
+    }
+}
+
+/// Caller-owned affine staging for allocation-free batched pairings.
+#[derive(Debug)]
+pub struct PairingWorkspace {
+    g1: Vec<blst_avx_p1_affine>,
+    g2: Vec<blst_avx_p2_affine>,
+    max_pairs: usize,
+}
+
+impl PairingWorkspace {
+    /// Allocates fixed capacity outside the evaluation hot path.
+    pub fn for_pairs(max_pairs: usize) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut g1 = Vec::new();
+        let mut g2 = Vec::new();
+        g1.try_reserve_exact(max_pairs)
+            .map_err(|_| Error::AllocationFailed)?;
+        g2.try_reserve_exact(max_pairs)
+            .map_err(|_| Error::AllocationFailed)?;
+        Ok(Self { g1, g2, max_pairs })
+    }
+
+    /// Removes staged pairs while retaining all allocation.
+    pub fn clear(&mut self) {
+        self.g1.clear();
+        self.g2.clear();
+    }
+
+    /// Converts and stages one pair without allocating.
+    pub fn push(
+        &mut self,
+        g1: &G1Projective,
+        g2: &G2Projective,
+    ) -> Result<(), Error> {
+        let required = self.g1.len() + 1;
+        if required > self.max_pairs {
+            return Err(Error::PairingCapacityExceeded {
+                required,
+                capacity: self.max_pairs,
+            });
+        }
+        let g1 = g1.as_raw_affine()?;
+        let g2 = g2.as_raw_affine()?;
+        self.g1.push(g1);
+        self.g2.push(g2);
+        Ok(())
+    }
+
+    /// Evaluates all staged pairs without allocating; an empty product is one.
+    pub fn evaluate(&self) -> Result<Gt, Error> {
+        if self.g1.len() != self.g2.len() {
+            return Err(Error::BackendFailure);
+        }
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        let (g1, g2) = if self.g1.is_empty() {
+            (ptr::null(), ptr::null())
+        } else {
+            (self.g1.as_ptr(), self.g2.as_ptr())
+        };
+        if unsafe {
+            blst_avx_pairing_n(out.as_mut_ptr(), g1, g2, self.g1.len())
+        } {
+            Ok(Gt(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+}
+
+#[repr(C, align(64))]
+#[derive(Clone, Copy, Debug)]
+struct AlignedScratchBlock([u8; SCRATCH_ALIGNMENT]);
+
+/// Caller-owned, reusable scratch for native projective G1 Pippenger MSM.
+#[derive(Debug)]
+pub struct G1MsmWorkspace {
+    scratch: Vec<MaybeUninit<AlignedScratchBlock>>,
+}
+
+impl G1MsmWorkspace {
+    /// Allocates enough aligned scratch for at most `max_points` points.
+    pub fn for_points(max_points: usize) -> Result<Self, Error> {
+        ensure_available()?;
+        let required =
+            unsafe { blst_avx_p1s_mult_pippenger_scratch_sizeof(max_points) };
+        let blocks = required.div_ceil(SCRATCH_ALIGNMENT);
+        let mut scratch = Vec::new();
+        scratch
+            .try_reserve_exact(blocks)
+            .map_err(|_| Error::AllocationFailed)?;
+        scratch.resize_with(blocks, MaybeUninit::uninit);
+        Ok(Self { scratch })
+    }
+
+    /// Returns the reusable scratch capacity in bytes.
+    pub fn capacity_bytes(&self) -> usize {
+        self.scratch.len() * SCRATCH_ALIGNMENT
+    }
+
+    /// Computes one MSM into caller-owned output without allocating.
+    ///
+    /// The Pippenger kernel is variable-time, so every scalar must be public.
+    pub fn msm_into(
+        &mut self,
+        out: &mut G1Projective,
+        points: &[G1Projective],
+        scalars_le: &[[u8; 32]],
+    ) -> Result<(), Error> {
+        if points.len() != scalars_le.len() {
+            return Err(Error::MsmLengthMismatch {
+                points: points.len(),
+                scalars: scalars_le.len(),
+            });
+        }
+        if points.is_empty() {
+            return Err(Error::EmptyMsm);
+        }
+        let required =
+            unsafe { blst_avx_p1s_mult_pippenger_scratch_sizeof(points.len()) };
+        let available = self.capacity_bytes();
+        if available < required {
+            return Err(Error::ScratchTooSmall {
+                required,
+                available,
+            });
+        }
+        let scratch = if self.scratch.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.scratch.as_mut_ptr().cast::<blst_limb_t>()
+        };
+        if unsafe {
+            blst_avx_p1s_mult_pippenger(
+                &mut out.0,
+                G1Projective::as_raw_slice(points).as_ptr(),
+                points.len(),
+                scalars_le.as_ptr().cast::<u8>(),
+                SCALAR_BITS,
+                scratch,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+}
+
 extern "C" {
     pub fn blst_avx_enabled() -> bool;
     pub fn blst_avx_p1_sizeof() -> usize;
@@ -450,6 +1234,7 @@ extern "C" {
         fill_random: blst_avx_random_bytes_fn,
         random_context: *mut core::ffi::c_void,
     ) -> bool;
+    pub fn blst_avx_p1_identity(out: *mut blst_avx_p1) -> bool;
     pub fn blst_avx_p1_generator() -> *const blst_avx_p1;
 
     pub fn blst_avx_p2_add(
@@ -547,6 +1332,7 @@ extern "C" {
         nbits: usize,
         scratch: *mut blst_limb_t,
     ) -> bool;
+    pub fn blst_avx_p2_identity(out: *mut blst_avx_p2) -> bool;
     pub fn blst_avx_p2_generator() -> *const blst_avx_p2;
 
     pub fn blst_avx_fp12_is_equal(
@@ -580,6 +1366,17 @@ extern "C" {
     pub fn blst_avx_gt_deserialize(
         out: *mut blst_avx_gt,
         input: *const blst_byte,
+    ) -> bool;
+    /// Multiplies a validated AVX GT element by a little-endian scalar.
+    ///
+    /// Runtime and memory access are independent of a canonical scalar's
+    /// contents for fixed public `nbits`. `nbits` must not exceed 256, and the
+    /// operation allocates nothing. Exact output/input aliasing is supported.
+    pub fn blst_avx_gt_mult(
+        out: *mut blst_avx_gt,
+        input: *const blst_avx_gt,
+        scalar: *const blst_byte,
+        nbits: usize,
     ) -> bool;
     pub fn blst_avx_fp12_mul(
         out: *mut blst_avx_fp12,
@@ -810,7 +1607,10 @@ mod tests {
                 >= unsafe { blst_avx_fp12_alignof() }
         );
         if unsafe { blst_avx_enabled() } {
-            assert_eq!(unsafe { blst_avx_prepared_g2_lines_sizeof() }, 68 * 1024);
+            assert_eq!(
+                unsafe { blst_avx_prepared_g2_lines_sizeof() },
+                68 * 1024
+            );
             assert_eq!(unsafe { blst_avx_prepared_g2_lines_alignof() }, 64);
         }
     }
@@ -845,9 +1645,13 @@ mod tests {
         assert!(unsafe { blst_avx_gt_inverse(inverse.as_mut_ptr(), &value) });
         let inverse = unsafe { inverse.assume_init() };
         let mut product = core::mem::MaybeUninit::<blst_avx_gt>::uninit();
-        assert!(unsafe { blst_avx_fp12_mul(product.as_mut_ptr(), &value, &inverse) });
+        assert!(unsafe {
+            blst_avx_fp12_mul(product.as_mut_ptr(), &value, &inverse)
+        });
         let product = unsafe { product.assume_init() };
-        assert!(unsafe { blst_avx_fp12_is_equal(&product, blst_avx_fp12_one()) });
+        assert!(unsafe {
+            blst_avx_fp12_is_equal(&product, blst_avx_fp12_one())
+        });
 
         let invalid = [0u8; 576];
         let mut invalid_out = MaybeUninit::<blst_avx_gt>::uninit();
@@ -864,10 +1668,14 @@ mod tests {
         let mut g1_affine = [blst_avx_p1_affine::default(); 2];
         let mut g2_affine = [blst_avx_p2_affine::default(); 2];
         for point in &mut g1_affine {
-            assert!(unsafe { blst_avx_p1_to_affine(point, blst_avx_p1_generator()) });
+            assert!(unsafe {
+                blst_avx_p1_to_affine(point, blst_avx_p1_generator())
+            });
         }
         for point in &mut g2_affine {
-            assert!(unsafe { blst_avx_p2_to_affine(point, blst_avx_p2_generator()) });
+            assert!(unsafe {
+                blst_avx_p2_to_affine(point, blst_avx_p2_generator())
+            });
         }
         let mut batched = MaybeUninit::<blst_avx_gt>::uninit();
         assert!(unsafe {
@@ -889,12 +1697,20 @@ mod tests {
         });
         let single = unsafe { single.assume_init() };
         let mut expected = MaybeUninit::<blst_avx_gt>::uninit();
-        assert!(unsafe { blst_avx_fp12_mul(expected.as_mut_ptr(), &single, &single) });
-        assert!(unsafe { blst_avx_fp12_is_equal(&batched, &expected.assume_init()) });
+        assert!(unsafe {
+            blst_avx_fp12_mul(expected.as_mut_ptr(), &single, &single)
+        });
+        assert!(unsafe {
+            blst_avx_fp12_is_equal(&batched, &expected.assume_init())
+        });
 
         let mut empty = MaybeUninit::<blst_avx_gt>::uninit();
-        assert!(unsafe { blst_avx_pairing_n(empty.as_mut_ptr(), ptr::null(), ptr::null(), 0) });
-        assert!(unsafe { blst_avx_fp12_is_equal(&empty.assume_init(), blst_avx_fp12_one()) });
+        assert!(unsafe {
+            blst_avx_pairing_n(empty.as_mut_ptr(), ptr::null(), ptr::null(), 0)
+        });
+        assert!(unsafe {
+            blst_avx_fp12_is_equal(&empty.assume_init(), blst_avx_fp12_one())
+        });
     }
 
     #[test]
@@ -959,6 +1775,91 @@ mod tests {
         let mut different = fp12;
         different.b[0] = 1;
         assert_ne!(fp12, different);
+    }
+
+    #[test]
+    fn typed_curve_roundtrips_and_matches_scalar_wire_encodings() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let g2 = G2Projective::generator().unwrap();
+        let g1_bytes = g1.to_compressed().unwrap();
+        let g2_bytes = g2.to_compressed().unwrap();
+        assert_eq!(G1Projective::from_compressed(&g1_bytes).unwrap(), g1);
+        assert_eq!(G2Projective::from_compressed(&g2_bytes).unwrap(), g2);
+        assert_eq!(
+            g1_bytes,
+            crate::scalar::G1Affine::generator().to_compressed()
+        );
+        assert_eq!(
+            g2_bytes,
+            crate::scalar::G2Affine::generator().to_compressed()
+        );
+
+        let gt = Gt::pairing(&g1, &g2).unwrap();
+        let gt_bytes = gt.to_bytes_be().unwrap();
+        assert_eq!(Gt::from_bytes_be(&gt_bytes).unwrap(), gt);
+        assert_eq!(
+            gt_bytes,
+            crate::scalar::pairing(
+                &crate::scalar::G1Affine::generator(),
+                &crate::scalar::G2Affine::generator(),
+            )
+            .to_bytes_be()
+        );
+    }
+
+    #[test]
+    fn typed_gt_pow_matches_constant_time_scalar_backend() {
+        if !is_available() {
+            return;
+        }
+
+        let scalar = crate::Scalar::from(7u64);
+        let native = Gt::pairing(
+            &G1Projective::generator().unwrap(),
+            &G2Projective::generator().unwrap(),
+        )
+        .unwrap()
+        .pow(&scalar)
+        .unwrap();
+        let portable = crate::scalar::pairing(
+            &crate::scalar::G1Affine::generator(),
+            &crate::scalar::G2Affine::generator(),
+        ) * scalar;
+        assert_eq!(native.to_bytes_be().unwrap(), portable.to_bytes_be());
+    }
+
+    #[test]
+    fn typed_workspaces_reuse_fixed_capacity() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let g2 = G2Projective::generator().unwrap();
+        let mut pairing = PairingWorkspace::for_pairs(1).unwrap();
+        pairing.push(&g1, &g2).unwrap();
+        assert_eq!(pairing.evaluate().unwrap(), Gt::pairing(&g1, &g2).unwrap());
+        assert_eq!(
+            pairing.push(&g1, &g2),
+            Err(Error::PairingCapacityExceeded {
+                required: 2,
+                capacity: 1,
+            })
+        );
+        pairing.clear();
+        pairing.push(&g1, &g2).unwrap();
+
+        let mut msm = G1MsmWorkspace::for_points(1).unwrap();
+        let capacity = msm.capacity_bytes();
+        let mut out = G1Projective::identity().unwrap();
+        let one = crate::Scalar::from(1u64).to_bytes_le();
+        msm.msm_into(&mut out, &[g1], &[one]).unwrap();
+        assert_eq!(out, g1);
+        assert_eq!(msm.capacity_bytes(), capacity);
     }
 
     #[cfg(debug_assertions)]

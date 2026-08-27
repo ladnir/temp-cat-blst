@@ -122,6 +122,7 @@ Additional narrative docs live in `docs/`:
 
 - `docs/overview.md`
 - `docs/scalar.md`
+- `docs/avx.md`
 - `docs/middle_product.md`
 - `docs/full_bindings.md`
 
@@ -142,6 +143,13 @@ This surface is inspired by `blstrs`, but is not a compatibility clone. It does
 not implement the `ff`, `group`, or `pairing` ecosystems, create worker threads,
 or hide heap allocation. Its wrappers contain category-blst's native scalar
 representations and expose explicit raw borrows for kernel interoperation.
+
+Lean native AVX use imports the corresponding types from `catblst::avx`.
+The AVX types have distinct sizes and alignment and remain native through
+arithmetic; canonical point and GT encodings are the compatibility boundary.
+Reusable prepared-pairing, batched-pairing, G1 MSM, and middle-product
+workspaces keep allocation outside hot loops. See `docs/avx.md` for exact
+validation, timing, allocation, and failure contracts.
 
 Low-level/raw use:
 ```rust

@@ -1492,6 +1492,20 @@ bool blst_avx_p1s_mult_pippenger(
 #endif
 }
 
+bool blst_avx_p1_identity(blst_avx_p1* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr) {
+        return false;
+    }
+    *as_avx(out) = AvxG1::identity();
+    return true;
+#else
+    (void)out;
+    return false;
+#endif
+}
+
 const blst_avx_p1* blst_avx_p1_generator(void)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -1977,6 +1991,20 @@ bool blst_avx_p2s_mult_pippenger(
 #endif
 }
 
+bool blst_avx_p2_identity(blst_avx_p2* out)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr) {
+        return false;
+    }
+    *as_avx(out) = AvxG2::identity();
+    return true;
+#else
+    (void)out;
+    return false;
+#endif
+}
+
 const blst_avx_p2* blst_avx_p2_generator(void)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -2046,6 +2074,31 @@ bool blst_avx_gt_deserialize(blst_avx_gt* out, const byte in[12 * 48])
 #else
     (void)out;
     (void)in;
+    return false;
+#endif
+}
+
+bool blst_avx_gt_mult(
+    blst_avx_gt* ret,
+    const blst_avx_gt* a,
+    const byte* scalar,
+    size_t nbits)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (ret == nullptr || a == nullptr || nbits > 256 ||
+        (nbits != 0 && scalar == nullptr)) {
+        return false;
+    }
+#ifndef NDEBUG
+    BLST_ASSERT(AvxGt::in_group(*as_avx(a)));
+#endif
+    AvxGt::mult(*as_avx(ret), *as_avx(a), scalar, nbits);
+    return true;
+#else
+    (void)ret;
+    (void)a;
+    (void)scalar;
+    (void)nbits;
     return false;
 #endif
 }

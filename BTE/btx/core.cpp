@@ -7,6 +7,7 @@
 #include "BTE/building_blocks/blst_cpp.h"
 #include "BTE/building_blocks/hkdf_sha256.h"
 #include "BTE/building_blocks/lagrange.h"
+#include "blst/common/vect.h"
 #if BLST_DEFAULT_AVX
 #include "blst/avx/curve/map_to_G.h"
 #endif
@@ -188,6 +189,28 @@ namespace bte::btx
 #else
             return scalar_out;
 #endif
+        }
+
+        // Secret-share coefficients must not enter the variable-time
+        // Pippenger kernel. Both fixed-width multiplication and Jacobian dadd
+        // are constant-time for validated points. The loop count is public.
+        blst::G1Point secret_msm_sum_g1(
+            const std::span<const blst::G1Point> points,
+            const std::span<const blst::Fr> scalars)
+        {
+            if (points.size() != scalars.size()) {
+                throw std::invalid_argument("BTX secret MSM inputs must have matching lengths");
+            }
+
+            blst::G1Point out = blst::G1Point::infinity();
+            for (std::size_t i = 0; i < points.size(); ++i) {
+                std::array<std::uint8_t, 32> scalar_bytes = fr_to_scalar_bytes(scalars[i]);
+                blst::G1Point term{};
+                blst::G1Point::mult(term, points[i], scalar_bytes.data(), 255);
+                blst::vec_zero(scalar_bytes.data(), scalar_bytes.size());
+                blst::G1Point::dadd(out, out, term);
+            }
+            return out;
         }
 
         blst::G2Point scale_g2(const blst::G2Point& point, const blst::Fr& scalar)
@@ -606,7 +629,7 @@ namespace bte::btx
 
         PartialDecryptionShare share{};
         share.index = secret_share.index;
-        share.value = G1MultiScalarMultiply(
+        share.value = secret_msm_sum_g1(
             std::span<const blst::G1Point>(request.ordered_c1.data(), request.ordered_c1.size()),
             std::span<const blst::Fr>(
                 secret_share.tau_power_shares.data(),
