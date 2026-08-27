@@ -516,9 +516,13 @@ compressed/uncompressed decode, separate validation, and Serde. `AUD-094` and
 relation evaluators whose caller-controlled rows may intentionally contain zero
 rounds or all-zero rows. `AUD-161` adds separate friendly
 `p1s_in_g1`/`p2s_in_g2` validation boundaries that own the challenge width,
-uniform ternary coefficients, and subgroup shift. Focused portable
-correctness/failure tests and compile checks pass; supported native runtime and
-performance evidence remain before validation.
+coefficient distribution, and subgroup shift. G1 uses 81 uniform ternary rows.
+G2 uses 22 rows with coefficients uniform in `{-6,...,+6}` and caller-owned
+workspace. Focused portable correctness/failure tests and compile checks pass.
+Native Peach Clang 21.1.8 AVX-512/IFMA Release passes all 11 AVX C API contract
+tests. Five sequential benchmark repetitions measure the G2 check at 16.5 ms
+for 2,048 points and 144 ms for 18,432 points; decode plus the check measures
+71.2 ms and 636 ms, respectively.
 
 ## Selected-facade cleanup
 

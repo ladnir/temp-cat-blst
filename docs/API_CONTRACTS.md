@@ -82,12 +82,15 @@ incidental full-curve behavior from an advanced implementation and does not
 create parallel unchecked families for it. The exact cross-language policy is
 recorded in `audit/POINT_DOMAIN_MATRIX.md`.
 
-The AVX batch-membership APIs are probabilistic validators. The friendly
-`blst_avx_p1s_in_g1` and `blst_avx_p2s_in_g2` entries own challenge width,
-uniform ternary coefficient derivation, and the subgroup shift, and require one
-fresh unpredictable seed after the immutable batch is fixed. The expert
-`batch_subgroup_check` entries expose those choices directly and are relation
-evaluators, not misuse-resistant validation boundaries.
+The standard AVX batch-membership APIs are probabilistic validators. The
+`blst_avx_p1s_in_g1` entry derives 81 uniform ternary rows. The friendly
+`blst_avx_p2s_in_g2` entry derives 22 rows with coefficients uniform in
+`{-6,...,+6}` and requires caller-owned workspace. Both entries own the
+challenge width and subgroup shift. Both require one fresh unpredictable seed
+after the immutable batch is fixed. Under the SHA-256 PRF assumption, their
+false-accept bounds are below `2^-128` and `2^-81.4`, respectively. The expert
+`batch_subgroup_check` entries expose the relation inputs directly; they are
+not misuse-resistant validation boundaries.
 
 ## Fp12, cyclotomic, and GT domains
 

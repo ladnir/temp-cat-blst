@@ -55,6 +55,11 @@ typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_FP12_
 /** Semantic alias for AVX Fp12 storage known to contain a GT element. */
 typedef blst_avx_fp12 blst_avx_gt;
 
+/** Immutable prepared-G2 batch. Contents are owned by CatBLST. */
+typedef struct blst_avx_prepared_g2_batch blst_avx_prepared_g2_batch;
+/** Mutable scratch for evaluating a prepared-G2 batch. */
+typedef struct blst_avx_prepared_g2_batch_workspace blst_avx_prepared_g2_batch_workspace;
+
 /**
  * Fills exactly `out_len` bytes from a cryptographically secure random source.
  * Returns false on entropy failure. The callback must not throw across the C
@@ -414,16 +419,37 @@ bool blst_avx_p2_batch_subgroup_check(
     const blst_byte* coefficients,
     size_t width,
     const blst_avx_p2* shift);
+/** Returns the caller-owned workspace size required by `blst_avx_p2s_in_g2`. */
+size_t blst_avx_p2s_in_g2_workspace_sizeof(void);
+
 /**
- * Tests whether every point belongs to G2 using the same internally
- * constructed randomized batch check and assumptions as
- * `blst_avx_p1s_in_g1`.
+ * Tests whether every point belongs to the prime-order BLS12-381 G2 subgroup.
+ *
+ * For a nonempty batch, `fill_random` must provide one fresh, unpredictable
+ * 32-byte seed after the batch has been fixed. The pointed-to values must
+ * remain unchanged for the duration of the call. CatBLST derives 22 rows whose
+ * coefficients are uniform in {-6,...,+6}. It checks one random linear
+ * combination per row with a fixed G2 shift.
+ *
+ * Because 13 is the smallest prime divisor of the BLS12-381 G2 cofactor, a
+ * fixed invalid batch passes one ideal row with probability at most 1/13.
+ * Under the SHA-256 PRF assumption, one invocation therefore has false-accept
+ * probability at most 13^-22 plus the PRF distinguishing advantage. The
+ * concrete term 13^-22 is less than 2^-81.4.
+ *
+ * `workspace` must provide at least the queried byte count, must not overlap
+ * any candidate point, and is modified. The function allocates no memory.
+ * Empty input succeeds without entropy or workspace. An unavailable AVX
+ * backend, invalid shape, off-curve point, entropy failure, insufficient
+ * workspace, or failed subgroup relation returns false.
  */
 bool blst_avx_p2s_in_g2(
     const blst_avx_p2* const* points,
     size_t count,
     blst_avx_random_bytes_fn fill_random,
-    void* random_context);
+    void* random_context,
+    void* workspace,
+    size_t workspace_bytes);
 
 /**
  * Multiplies an AVX G2 projective subgroup point by an unsigned
@@ -685,6 +711,79 @@ bool blst_avx_pairing_prepared_g2(
     const void* storage,
     size_t storage_size,
     const blst_avx_p1* g1);
+
+/**
+ * Prepares one Miller-line table for every point in `g2[0..count)`.
+ *
+ * Construction is a cold-path allocating operation. Inputs must be
+ * library-produced, subgroup-validated native points; infinity is accepted
+ * and is recorded as the pairing identity. The returned object is immutable
+ * and may be shared across threads. Returns null for unavailable AVX support,
+ * invalid input, an empty batch, or allocation failure.
+ */
+blst_avx_prepared_g2_batch* blst_avx_prepared_g2_batch_new(
+    const blst_avx_p2* g2,
+    size_t count);
+
+/** Returns the logical number of prepared G2 operands, or zero for null. */
+size_t blst_avx_prepared_g2_batch_len(const blst_avx_prepared_g2_batch* batch);
+
+/**
+ * Returns an implementation-accounting estimate of owned bytes, including
+ * line tables and identity flags but excluding allocator bookkeeping.
+ */
+size_t blst_avx_prepared_g2_batch_storage_bytes(
+    const blst_avx_prepared_g2_batch* batch);
+
+/** Releases one immutable prepared batch. Null is accepted. */
+void blst_avx_prepared_g2_batch_free(blst_avx_prepared_g2_batch* batch);
+
+/**
+ * Allocates evaluation scratch sized for the complete prepared batch.
+ * The workspace may subsequently evaluate any prefix of that batch without
+ * allocating. A workspace is mutable, is not thread-safe, and must not be used
+ * concurrently. Returns null for invalid input or allocation failure.
+ */
+blst_avx_prepared_g2_batch_workspace*
+blst_avx_prepared_g2_batch_workspace_new(
+    const blst_avx_prepared_g2_batch* batch);
+
+/** Releases one prepared-batch workspace. Null is accepted. */
+void blst_avx_prepared_g2_batch_workspace_free(
+    blst_avx_prepared_g2_batch_workspace* workspace);
+
+/**
+ * Computes `out[i] = e(g1, prepared_g2[i])` for `0 <= i < count`.
+ *
+ * `count` may be any prefix length through the prepared batch length. The
+ * output has exactly `count` native GT elements and must not overlap `g1` or
+ * either owned object. The workspace must have capacity for `count`. This
+ * operation converts `g1` to affine once, batches final exponentiation across
+ * the prefix, and allocates no memory. Inputs must already satisfy the native
+ * point invariants. On failure, output contents are unspecified.
+ */
+bool blst_avx_prepared_g2_batch_pairing_prefix(
+    blst_avx_gt* out,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace);
+
+/**
+ * Computes `out[i] = e(g1, prepared_g2[indices[i]])` for `0 <= i < count`.
+ *
+ * Every index must be less than the prepared batch length. Repetition is
+ * allowed. The output has exactly `count` native GT elements. This is the
+ * sparse counterpart to the prefix evaluator and has the same ownership,
+ * validation, and allocation-free workspace requirements.
+ */
+bool blst_avx_prepared_g2_batch_pairing_indices(
+    blst_avx_gt* out,
+    const size_t* indices,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace);
 
 #ifdef __cplusplus
 }

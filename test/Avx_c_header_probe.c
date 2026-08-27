@@ -21,8 +21,12 @@ bool blst_avx_batch_membership_c_header_probe(
     const blst_avx_p1* const* p1_points,
     const blst_avx_p2* const* p2_points,
     size_t count,
-    blst_byte* seed)
+    blst_byte* seed,
+    void* p2_workspace,
+    size_t p2_workspace_bytes)
 {
     return blst_avx_p1s_in_g1(p1_points, count, fill_random, seed) &&
-        blst_avx_p2s_in_g2(p2_points, count, fill_random, seed);
+        blst_avx_p2s_in_g2(
+            p2_points, count, fill_random, seed,
+            p2_workspace, p2_workspace_bytes);
 }

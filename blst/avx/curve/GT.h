@@ -573,6 +573,18 @@ struct GT
             f1_inverses_.reserve(n);
         }
 
+        /**
+         * Establish both capacity and logical scratch size for `n` elements.
+         * This is a cold-path operation and may allocate and initialize newly
+         * exposed vector elements. Calls to `final_exp_n` through this size
+         * subsequently perform neither growth nor initialization.
+         */
+        void prepare(size_t n)
+        {
+            reserve(n);
+            ensure_size(n);
+        }
+
         /** Return true when a batch of `n` needs no scratch growth. */
         [[nodiscard]] bool has_capacity(size_t n) const noexcept
         {

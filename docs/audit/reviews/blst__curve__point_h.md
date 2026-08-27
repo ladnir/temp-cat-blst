@@ -167,7 +167,8 @@ call and scans every fixed-window table entry.
 ## Residual risk and decision
 
 The selected facade review is complete. The owning AVX implementation file
-remains pending its Phase 16 full-file review; native AVX-512 hardware codegen,
-sanitizer/fuzz, Apple, and full-matrix evidence remain milestone gates. The
-friendly/expert batch subgroup-check separation is fixed under `AUD-161`, with
-supported native runtime and performance evidence still pending.
+remains pending its Phase 16 full-file review. Sanitizer/fuzz, Apple, and
+full-matrix evidence remain milestone gates. The
+friendly/expert batch subgroup-check separation is fixed and validated under
+`AUD-161`. The later native Peach packet passes the AVX C API contracts and
+records the promoted G2 check's runtime.

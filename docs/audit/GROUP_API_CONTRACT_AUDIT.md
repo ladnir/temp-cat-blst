@@ -93,14 +93,25 @@ these entries are not general validation boundaries.
 
 `blst_avx_p1s_in_g1` and `blst_avx_p2s_in_g2` provide the friendly boundary.
 They validate every curve equation, obtain one fresh unpredictable 32-byte seed
-after the immutable batch is fixed, and derive 81 independent uniform ternary
-rows with domain-separated SHA-256. CatBLST fixes the subgroup shift. Because
-the selected curves have no nontrivial 2-torsion, conditioning on all other
-coefficients leaves at most one coefficient in {-1,0,+1} that can cancel a
-fixed nonzero quotient component. Under the SHA-256 PRF model, false acceptance
-is therefore at most `(1/3)^81 < 2^-128`. `AUD-161` is validated. Native Peach
-AVX-512/IFMA Release passes the friendly acceptance, rejection, entropy, and
-identity-MSM cases; the focused G1/G2 contract test averages 6.53 milliseconds.
+after the immutable batch is fixed, derive domain-separated challenges, and
+fix the subgroup shift.
+
+The G1 validator derives 81 rows with coefficients uniform in `{-1,0,+1}`.
+Because the G1 curve has no nontrivial 2-torsion, one ideal row accepts a fixed
+invalid batch with probability at most `1/3`. Under the SHA-256 PRF assumption,
+the complete G1 check has false-accept probability at most `(1/3)^81` plus the
+PRF distinguishing advantage; the concrete term is below `2^-128`.
+
+The G2 validator derives 22 rows with coefficients uniform in
+`{-6,...,+6}`. Thirteen is the smallest prime divisor of the BLS12-381 G2
+cofactor. After conditioning on the other coefficients, at most one of the 13
+remaining coefficients can cancel a fixed nonzero quotient component. Under
+the SHA-256 PRF assumption, the complete G2 check has false-accept probability
+at most `13^-22` plus the PRF distinguishing advantage; the concrete term is
+below `2^-81.4`. The G2 kernel uses caller-owned workspace and allocates no
+memory. Native Peach Clang 21.1.8 AVX-512/IFMA Release passes all 11 AVX C API
+contract tests. Five sequential benchmark repetitions measure the G2 check at
+16.5 ms for 2,048 points and 144 ms for 18,432 points. `AUD-161` is validated.
 
 The normal safe sequence for adversarial point bytes is:
 
@@ -329,7 +340,7 @@ and is not merely a mathematical precondition.
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
 | `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | validated |
-| `AUD-161` | Expert AVX batch soundness is caller-controlled; friendly G1/G2 APIs now own fresh seeded challenge construction and target a false-accept bound below 2^-128. | validated |
+| `AUD-161` | Expert AVX batch soundness is caller-controlled; friendly G1/G2 APIs now own fresh seeded challenge construction. The G1 concrete false-accept term is below 2^-128; the G2 term is below 2^-81.4. | validated |
 
 ## Incremental public documentation control
 

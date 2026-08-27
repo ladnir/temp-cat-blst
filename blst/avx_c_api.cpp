@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <new>
 #include <type_traits>
 
@@ -179,6 +180,15 @@ constexpr size_t kBatchSubgroupSeedBytes = 32;
 // produces independent uniform rows, so a bad batch passes with probability at
 // most (1/3)^81 < 2^-128.
 constexpr size_t kBatchSubgroupRounds = 81;
+// BLS12-381 G2's cofactor has smallest prime divisor 13. Uniform integer
+// coefficients in {-6,...,+6} therefore give at most 1/13 false acceptance
+// per row after the candidate points are fixed. Under the SHA-256 PRF model,
+// twenty-two rows give at most 13^-22 < 2^-81.4 false acceptance. This is
+// deliberately G2-specific; G1 retains the generic ternary construction.
+constexpr size_t kG2BatchSubgroupRounds = 22;
+constexpr size_t kG2BatchSubgroupMagnitudeBuckets = 6;
+constexpr size_t kG2BatchSubgroupBucketCount =
+    2 * kG2BatchSubgroupMagnitudeBuckets;
 
 inline void store_be64(byte out[8], std::uint64_t value)
 {
@@ -272,6 +282,155 @@ public:
         offset_ = sizeof(digest_);
     }
 };
+
+class G2BatchSubgroupChallengeStream {
+    static constexpr char domain[] =
+        "CatBLST G2 batch subgroup mod13 challenge v1";
+
+    const byte* seed_;
+    std::uint64_t count_;
+    std::uint64_t block_ = 0;
+    byte digest_[32] = {};
+    size_t offset_ = sizeof(digest_);
+
+    void refill()
+    {
+        byte metadata[16];
+        store_be64(metadata, count_);
+        store_be64(metadata + 8, block_++);
+
+        blst::Sha256Context ctx;
+        blst::sha256_init(&ctx);
+        blst::sha256_update(&ctx, domain, sizeof(domain) - 1);
+        blst::sha256_update(&ctx, seed_, kBatchSubgroupSeedBytes);
+        blst::sha256_update(&ctx, metadata, sizeof(metadata));
+        blst::sha256_final(digest_, &ctx);
+        blst::sha256_clear(&ctx);
+        blst::vec_zero(metadata, sizeof(metadata));
+        offset_ = 0;
+    }
+
+public:
+    G2BatchSubgroupChallengeStream(
+        const byte seed[kBatchSubgroupSeedBytes],
+        size_t count)
+        : seed_(seed), count_(static_cast<std::uint64_t>(count))
+    {
+        static_assert(sizeof(size_t) == sizeof(std::uint64_t));
+    }
+
+    byte next()
+    {
+        // 247 = 19 * 13. Rejecting 247..255 avoids the modulo bias that
+        // would otherwise weaken the exact 1/13 per-row soundness bound.
+        for (;;) {
+            if (offset_ == sizeof(digest_)) {
+                BLST_ASSERT(block_ != (std::numeric_limits<std::uint64_t>::max)());
+                refill();
+            }
+            const byte candidate = digest_[offset_++];
+            if (candidate < 247) {
+                return static_cast<byte>(candidate % 13);
+            }
+        }
+    }
+
+    void clear() noexcept
+    {
+        blst::vec_zero(digest_, sizeof(digest_));
+        seed_ = nullptr;
+        count_ = 0;
+        block_ = 0;
+        offset_ = sizeof(digest_);
+    }
+};
+
+template<typename Point, typename AddComplete>
+inline Point integrate_g2_batch_buckets(Point* buckets, AddComplete add_complete)
+{
+    Point running = buckets[kG2BatchSubgroupMagnitudeBuckets - 1];
+    Point out = running;
+    buckets[kG2BatchSubgroupMagnitudeBuckets - 1] = Point::identity();
+    for (size_t i = kG2BatchSubgroupMagnitudeBuckets - 1; i-- > 0;) {
+        running = add_complete(running, buckets[i]);
+        out = add_complete(out, running);
+        buckets[i] = Point::identity();
+    }
+    return out;
+}
+
+inline bool friendly_g2_batch_subgroup_check(
+    const AvxG2* const* points,
+    const size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context,
+    void* workspace,
+    const size_t workspace_bytes)
+{
+    if (count == 0) {
+        return true;
+    }
+    const size_t required_workspace =
+        sizeof(AvxG2) * kG2BatchSubgroupBucketCount + alignof(AvxG2) - 1;
+    if (points == nullptr || fill_random == nullptr || workspace == nullptr ||
+        workspace_bytes < required_workspace) {
+        return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (points[i] == nullptr || !AvxG2::on_curve(*points[i])) {
+            return false;
+        }
+    }
+
+    byte seed[kBatchSubgroupSeedBytes] = {};
+    if (!fill_random_seed(fill_random, random_context, seed)) {
+        blst::vec_zero(seed, sizeof(seed));
+        return false;
+    }
+
+    auto address = reinterpret_cast<std::uintptr_t>(workspace);
+    address = (address + alignof(AvxG2) - 1) &
+        ~(static_cast<std::uintptr_t>(alignof(AvxG2)) - 1);
+    auto* buckets = reinterpret_cast<AvxG2*>(address);
+    for (size_t i = 0; i < kG2BatchSubgroupBucketCount; ++i) {
+        buckets[i] = AvxG2::identity();
+    }
+
+    G2BatchSubgroupChallengeStream challenges(seed, count);
+    bool accepted = true;
+    for (size_t round = 0; round < kG2BatchSubgroupRounds; ++round) {
+        for (size_t i = 0; i < count; ++i) {
+            const byte coefficient = challenges.next();
+            if (coefficient == 0) {
+                continue;
+            }
+            // Use the balanced representative -6..6. Separate positive and
+            // negative bucket banks avoid copying and negating a native G2
+            // point for approximately half of the inputs.
+            const bool negative = coefficient > kG2BatchSubgroupMagnitudeBuckets;
+            const size_t magnitude = negative ? 13 - coefficient : coefficient;
+            const size_t bucket =
+                (negative ? kG2BatchSubgroupMagnitudeBuckets : 0) + magnitude - 1;
+            buckets[bucket] = g2_add_complete(buckets[bucket], *points[i]);
+        }
+
+        AvxG2 positive = integrate_g2_batch_buckets<AvxG2>(
+            buckets, g2_add_complete);
+        AvxG2 negative = integrate_g2_batch_buckets<AvxG2>(
+            buckets + kG2BatchSubgroupMagnitudeBuckets, g2_add_complete);
+        AvxG2::neg(negative, negative);
+        AvxG2 sum = g2_add_complete(AvxG2::generator(), positive);
+        sum = g2_add_complete(sum, negative);
+        if (!AvxG2::in_subgroup(sum)) {
+            accepted = false;
+            break;
+        }
+    }
+
+    challenges.clear();
+    blst::vec_zero(seed, sizeof(seed));
+    return accepted;
+}
 
 template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
 inline bool friendly_batch_subgroup_check_projective(
@@ -779,6 +938,39 @@ inline void avx_fp12_final_exp(AvxGt& out, const AvxGt& a)
 #endif
 
 } // namespace
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+struct blst_avx_prepared_g2_batch {
+    std::size_t count;
+    std::unique_ptr<AvxPreparedG2Lines[]> prepared_lines;
+    std::unique_ptr<std::uint8_t[]> g2_is_zero;
+
+    explicit blst_avx_prepared_g2_batch(std::size_t count_in)
+        : count(count_in),
+          // Default-initialize rather than value-initialize: every nonidentity
+          // table is fully overwritten by precompute_lines before publication.
+          prepared_lines(new AvxPreparedG2Lines[count_in]),
+          g2_is_zero(new std::uint8_t[count_in])
+    {}
+};
+
+struct blst_avx_prepared_g2_batch_workspace {
+    std::size_t max_count;
+    std::unique_ptr<AvxMillerResult[]> millers;
+    AvxGt::FinalExpScratch final_exp_scratch;
+
+    explicit blst_avx_prepared_g2_batch_workspace(std::size_t count)
+        : max_count(count), millers(new AvxMillerResult[count])
+    {
+        // Grow and initialize all vector-backed scratch here so even the first
+        // evaluation performs no hidden capacity or size establishment.
+        final_exp_scratch.prepare(count);
+    }
+};
+#else
+struct blst_avx_prepared_g2_batch {};
+struct blst_avx_prepared_g2_batch_workspace {};
+#endif
 
 extern "C" {
 
@@ -1780,25 +1972,35 @@ bool blst_avx_p2s_in_g2(
     const blst_avx_p2* const* points,
     size_t count,
     blst_avx_random_bytes_fn fill_random,
-    void* random_context)
+    void* random_context,
+    void* workspace,
+    size_t workspace_bytes)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    return friendly_batch_subgroup_check_projective<AvxG2>(
+    return friendly_g2_batch_subgroup_check(
         reinterpret_cast<const AvxG2* const*>(points),
         count,
         fill_random,
         random_context,
-        AvxG2::generator(),
-        2,
-        g2_add_complete,
-        [](const AvxG2& point) { return AvxG2::on_curve(point); },
-        [](const AvxG2& point) { return AvxG2::in_subgroup(point); });
+        workspace,
+        workspace_bytes);
 #else
     (void)points;
     (void)count;
     (void)fill_random;
     (void)random_context;
+    (void)workspace;
+    (void)workspace_bytes;
     return false;
+#endif
+}
+
+size_t blst_avx_p2s_in_g2_workspace_sizeof(void)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return sizeof(AvxG2) * kG2BatchSubgroupBucketCount + alignof(AvxG2) - 1;
+#else
+    return 0;
 #endif
 }
 
@@ -2403,6 +2605,200 @@ bool blst_avx_pairing_prepared_g2(
     (void)storage;
     (void)storage_size;
     (void)g1;
+    return false;
+#endif
+}
+
+blst_avx_prepared_g2_batch* blst_avx_prepared_g2_batch_new(
+    const blst_avx_p2* g2,
+    size_t count)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (g2 == nullptr || count == 0) {
+        return nullptr;
+    }
+    try {
+        auto batch = std::make_unique<blst_avx_prepared_g2_batch>(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            const bool is_zero = AvxG2::is_inf(*as_avx(&g2[i])) != 0;
+            batch->g2_is_zero[i] = static_cast<std::uint8_t>(is_zero);
+            if (is_zero) {
+                continue;
+            }
+            AvxG2Affine affine;
+            AvxG2::to_affine(affine, *as_avx(&g2[i]));
+            AvxGt::precompute_lines(batch->prepared_lines[i].lines, affine);
+        }
+        return batch.release();
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)g2;
+    (void)count;
+    return nullptr;
+#endif
+}
+
+size_t blst_avx_prepared_g2_batch_len(const blst_avx_prepared_g2_batch* batch)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return batch == nullptr ? 0 : batch->count;
+#else
+    (void)batch;
+    return 0;
+#endif
+}
+
+size_t blst_avx_prepared_g2_batch_storage_bytes(
+    const blst_avx_prepared_g2_batch* batch)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr ||
+        batch->count > (std::numeric_limits<std::size_t>::max() - sizeof(*batch)) /
+            (sizeof(AvxPreparedG2Lines) + sizeof(std::uint8_t))) {
+        return 0;
+    }
+    return sizeof(*batch) +
+        batch->count * (sizeof(AvxPreparedG2Lines) + sizeof(std::uint8_t));
+#else
+    (void)batch;
+    return 0;
+#endif
+}
+
+void blst_avx_prepared_g2_batch_free(blst_avx_prepared_g2_batch* batch)
+{
+    delete batch;
+}
+
+blst_avx_prepared_g2_batch_workspace*
+blst_avx_prepared_g2_batch_workspace_new(
+    const blst_avx_prepared_g2_batch* batch)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr || batch->count == 0) {
+        return nullptr;
+    }
+    try {
+        return new blst_avx_prepared_g2_batch_workspace(batch->count);
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)batch;
+    return nullptr;
+#endif
+}
+
+void blst_avx_prepared_g2_batch_workspace_free(
+    blst_avx_prepared_g2_batch_workspace* workspace)
+{
+    delete workspace;
+}
+
+bool blst_avx_prepared_g2_batch_pairing_prefix(
+    blst_avx_gt* out,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr || workspace == nullptr || g1 == nullptr ||
+        count > batch->count || count > workspace->max_count ||
+        (count != 0 && out == nullptr)) {
+        return false;
+    }
+    if (count == 0) {
+        return true;
+    }
+    try {
+        AvxG1Affine affine;
+        AvxG1::to_affine(affine, *as_avx(g1));
+        const bool g1_is_zero = AvxG1Affine::is_inf(affine) != 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            if (g1_is_zero || batch->g2_is_zero[i] != 0) {
+                workspace->millers[i] = AvxMillerResult::identity();
+            } else {
+                AvxGt::miller_loop_lines_finite(
+                    workspace->millers[i],
+                    batch->prepared_lines[i].lines,
+                    affine);
+            }
+        }
+        AvxGt::final_exp_n(
+            reinterpret_cast<AvxGt*>(out),
+            workspace->millers.get(),
+            count,
+            workspace->final_exp_scratch);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)out;
+    (void)count;
+    (void)g1;
+    (void)batch;
+    (void)workspace;
+    return false;
+#endif
+}
+
+bool blst_avx_prepared_g2_batch_pairing_indices(
+    blst_avx_gt* out,
+    const size_t* indices,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr || workspace == nullptr || g1 == nullptr ||
+        count > workspace->max_count ||
+        (count != 0 && (out == nullptr || indices == nullptr))) {
+        return false;
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        if (indices[i] >= batch->count) {
+            return false;
+        }
+    }
+    if (count == 0) {
+        return true;
+    }
+    try {
+        AvxG1Affine affine;
+        AvxG1::to_affine(affine, *as_avx(g1));
+        const bool g1_is_zero = AvxG1Affine::is_inf(affine) != 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::size_t index = indices[i];
+            if (g1_is_zero || batch->g2_is_zero[index] != 0) {
+                workspace->millers[i] = AvxMillerResult::identity();
+            } else {
+                AvxGt::miller_loop_lines_finite(
+                    workspace->millers[i],
+                    batch->prepared_lines[index].lines,
+                    affine);
+            }
+        }
+        AvxGt::final_exp_n(
+            reinterpret_cast<AvxGt*>(out),
+            workspace->millers.get(),
+            count,
+            workspace->final_exp_scratch);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)out;
+    (void)indices;
+    (void)count;
+    (void)g1;
+    (void)batch;
+    (void)workspace;
     return false;
 #endif
 }

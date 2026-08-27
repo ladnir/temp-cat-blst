@@ -58,6 +58,16 @@ pub struct blst_avx_fp12 {
 /// Semantic alias for AVX Fp12 storage known to contain a GT element.
 pub type blst_avx_gt = blst_avx_fp12;
 
+#[repr(C)]
+pub struct blst_avx_prepared_g2_batch {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct blst_avx_prepared_g2_batch_workspace {
+    _private: [u8; 0],
+}
+
 /// Owned, immutable native G2 Miller-line table.
 ///
 /// Allocation and line preparation happen once during construction. Pairing
@@ -202,13 +212,20 @@ pub fn avx_p1s_in_g1(
     accepted
 }
 
-/// Tests whether every AVX point belongs to G2 using CatBLST-owned challenges.
+/// Tests whether every AVX point belongs to the prime-order BLS12-381 G2
+/// subgroup.
 ///
-/// The random-seed requirements and empty-input behavior match
-/// [`avx_p1s_in_g1`].
+/// `random_seed` must be freshly sampled after the batch is fixed. Under the
+/// SHA-256 PRF assumption, a fixed invalid batch passes with probability at
+/// most `13^-22` plus the PRF distinguishing advantage. `workspace` must have
+/// at least [`blst_avx_p2s_in_g2_workspace_sizeof`] bytes and must be disjoint
+/// from the points. Empty input succeeds without consulting either buffer when
+/// the AVX backend is available. Pointer-list allocation failure returns
+/// `false` rather than panicking.
 pub fn avx_p2s_in_g2(
     points: &[&blst_avx_p2],
     mut random_seed: [blst_byte; 32],
+    workspace: &mut [u8],
 ) -> bool {
     let mut pointers = Vec::new();
     if pointers.try_reserve_exact(points.len()).is_err() {
@@ -222,6 +239,8 @@ pub fn avx_p2s_in_g2(
             pointers.len(),
             Some(copy_batch_membership_seed),
             random_seed.as_mut_ptr().cast(),
+            workspace.as_mut_ptr().cast(),
+            workspace.len(),
         )
     };
     random_seed.zeroize();
@@ -342,6 +361,12 @@ pub enum Error {
     MsmLengthMismatch { points: usize, scalars: usize },
     /// The typed MSM API does not accept an empty input.
     EmptyMsm,
+    /// Prepared-G2 batch construction requires at least one operand.
+    EmptyPreparedBatch,
+    /// Sparse prepared-pairing index and output counts differed.
+    PairingLengthMismatch { indices: usize, outputs: usize },
+    /// A sparse prepared-pairing index exceeded the immutable batch.
+    PreparedIndexOutOfRange { index: usize, len: usize },
     /// Caller-owned scratch was too small for the requested operation.
     ScratchTooSmall { required: usize, available: usize },
     /// A fixed-capacity pairing workspace cannot accept another pair.
@@ -376,6 +401,17 @@ impl core::fmt::Display for Error {
                 write!(formatter, "MSM length mismatch: points={points}, scalars={scalars}")
             }
             Self::EmptyMsm => formatter.write_str("MSM input must not be empty"),
+            Self::EmptyPreparedBatch => {
+                formatter.write_str("prepared G2 batch must not be empty")
+            }
+            Self::PairingLengthMismatch { indices, outputs } => write!(
+                formatter,
+                "prepared pairing length mismatch: indices={indices}, outputs={outputs}"
+            ),
+            Self::PreparedIndexOutOfRange { index, len } => write!(
+                formatter,
+                "prepared pairing index {index} is outside batch length {len}"
+            ),
             Self::ScratchTooSmall { required, available } => write!(
                 formatter,
                 "MSM scratch is too small: required={required}, available={available}"
@@ -936,6 +972,209 @@ impl PreparedG2Lines {
     }
 }
 
+/// Immutable native Miller-line tables for a sequence of validated G2 points.
+///
+/// Construction allocates and prepares every operand. Evaluations use a
+/// distinct [`PreparedG2BatchWorkspace`], so this object may be shared by
+/// concurrent workers.
+pub struct PreparedG2Batch {
+    inner: NonNull<blst_avx_prepared_g2_batch>,
+    len: usize,
+    storage_bytes: usize,
+}
+
+impl PreparedG2Batch {
+    /// Allocates and prepares one native line table per input point.
+    pub fn new(g2: &[G2Projective]) -> Result<Self, Error> {
+        ensure_available()?;
+        if g2.is_empty() {
+            return Err(Error::EmptyPreparedBatch);
+        }
+        let inner = NonNull::new(unsafe {
+            blst_avx_prepared_g2_batch_new(
+                G2Projective::as_raw_slice(g2).as_ptr(),
+                g2.len(),
+            )
+        })
+        .ok_or(Error::AllocationFailed)?;
+        let len = unsafe { blst_avx_prepared_g2_batch_len(inner.as_ptr()) };
+        if len != g2.len() {
+            unsafe { blst_avx_prepared_g2_batch_free(inner.as_ptr()) };
+            return Err(Error::BackendFailure);
+        }
+        let storage_bytes =
+            unsafe { blst_avx_prepared_g2_batch_storage_bytes(inner.as_ptr()) };
+        Ok(Self {
+            inner,
+            len,
+            storage_bytes,
+        })
+    }
+
+    /// Returns the number of prepared operands.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns whether the prepared sequence is empty. Construction rejects
+    /// empty input, so this is always false for a live object.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Returns CatBLST's accounting estimate for immutable owned storage.
+    #[inline]
+    pub fn storage_bytes(&self) -> usize {
+        self.storage_bytes
+    }
+}
+
+impl core::fmt::Debug for PreparedG2Batch {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PreparedG2Batch")
+            .field("len", &self.len)
+            .field("storage_bytes", &self.storage_bytes)
+            .finish()
+    }
+}
+
+impl Drop for PreparedG2Batch {
+    fn drop(&mut self) {
+        unsafe { blst_avx_prepared_g2_batch_free(self.inner.as_ptr()) };
+    }
+}
+
+// SAFETY: the native object is immutable after successful construction.
+unsafe impl Send for PreparedG2Batch {}
+unsafe impl Sync for PreparedG2Batch {}
+
+/// Caller-owned scratch for allocation-free prepared-G2 batch evaluation.
+///
+/// A workspace is mutable and must be used by only one evaluation at a time.
+pub struct PreparedG2BatchWorkspace {
+    inner: NonNull<blst_avx_prepared_g2_batch_workspace>,
+    capacity: usize,
+}
+
+impl PreparedG2BatchWorkspace {
+    /// Allocates all Miller and batch-final-exponentiation scratch required by
+    /// `batch`. No subsequent prefix evaluation allocates.
+    pub fn new(batch: &PreparedG2Batch) -> Result<Self, Error> {
+        let inner = NonNull::new(unsafe {
+            blst_avx_prepared_g2_batch_workspace_new(batch.inner.as_ptr())
+        })
+        .ok_or(Error::AllocationFailed)?;
+        Ok(Self {
+            inner,
+            capacity: batch.len,
+        })
+    }
+
+    /// Evaluates the prepared prefix selected by `out.len()`.
+    ///
+    /// The shared G1 operand is converted to affine once. The output slice may
+    /// be empty and must not overlap the inputs or owned native objects.
+    pub fn pairing_prefix_into(
+        &mut self,
+        g1: &G1Projective,
+        batch: &PreparedG2Batch,
+        out: &mut [Gt],
+    ) -> Result<(), Error> {
+        if out.len() > batch.len || out.len() > self.capacity {
+            return Err(Error::PairingCapacityExceeded {
+                required: out.len(),
+                capacity: core::cmp::min(batch.len, self.capacity),
+            });
+        }
+        if unsafe {
+            blst_avx_prepared_g2_batch_pairing_prefix(
+                Gt::as_raw_slice_mut(out).as_mut_ptr(),
+                out.len(),
+                g1.as_raw(),
+                batch.inner.as_ptr(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Evaluates selected prepared operands in `indices` order.
+    ///
+    /// The output length must equal the index count. Repeated indices are
+    /// permitted. Bounds are checked before the native call publishes output.
+    pub fn pairing_indices_into(
+        &mut self,
+        g1: &G1Projective,
+        batch: &PreparedG2Batch,
+        indices: &[usize],
+        out: &mut [Gt],
+    ) -> Result<(), Error> {
+        if indices.len() != out.len() {
+            return Err(Error::PairingLengthMismatch {
+                indices: indices.len(),
+                outputs: out.len(),
+            });
+        }
+        if indices.len() > self.capacity {
+            return Err(Error::PairingCapacityExceeded {
+                required: indices.len(),
+                capacity: self.capacity,
+            });
+        }
+        if let Some(&index) = indices.iter().find(|&&index| index >= batch.len)
+        {
+            return Err(Error::PreparedIndexOutOfRange {
+                index,
+                len: batch.len,
+            });
+        }
+        if unsafe {
+            blst_avx_prepared_g2_batch_pairing_indices(
+                Gt::as_raw_slice_mut(out).as_mut_ptr(),
+                indices.as_ptr(),
+                indices.len(),
+                g1.as_raw(),
+                batch.inner.as_ptr(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Returns the maximum prefix length this workspace can evaluate.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+}
+
+impl core::fmt::Debug for PreparedG2BatchWorkspace {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PreparedG2BatchWorkspace")
+            .field("capacity", &self.capacity)
+            .finish()
+    }
+}
+
+impl Drop for PreparedG2BatchWorkspace {
+    fn drop(&mut self) {
+        unsafe {
+            blst_avx_prepared_g2_batch_workspace_free(self.inner.as_ptr())
+        };
+    }
+}
+
+// SAFETY: ownership is unique and the workspace is not Sync.
+unsafe impl Send for PreparedG2BatchWorkspace {}
+
 /// Caller-owned affine staging for allocation-free batched pairings.
 #[derive(Debug)]
 pub struct PairingWorkspace {
@@ -1275,7 +1514,10 @@ extern "C" {
         count: usize,
         fill_random: blst_avx_random_bytes_fn,
         random_context: *mut core::ffi::c_void,
+        workspace: *mut core::ffi::c_void,
+        workspace_bytes: usize,
     ) -> bool;
+    pub fn blst_avx_p2s_in_g2_workspace_sizeof() -> usize;
     pub fn blst_avx_p2_mult(
         out: *mut blst_avx_p2,
         p: *const blst_avx_p2,
@@ -1434,6 +1676,40 @@ extern "C" {
         storage: *const core::ffi::c_void,
         storage_size: usize,
         g1: *const blst_avx_p1,
+    ) -> bool;
+    pub fn blst_avx_prepared_g2_batch_new(
+        g2: *const blst_avx_p2,
+        count: usize,
+    ) -> *mut blst_avx_prepared_g2_batch;
+    pub fn blst_avx_prepared_g2_batch_len(
+        batch: *const blst_avx_prepared_g2_batch,
+    ) -> usize;
+    pub fn blst_avx_prepared_g2_batch_storage_bytes(
+        batch: *const blst_avx_prepared_g2_batch,
+    ) -> usize;
+    pub fn blst_avx_prepared_g2_batch_free(
+        batch: *mut blst_avx_prepared_g2_batch,
+    );
+    pub fn blst_avx_prepared_g2_batch_workspace_new(
+        batch: *const blst_avx_prepared_g2_batch,
+    ) -> *mut blst_avx_prepared_g2_batch_workspace;
+    pub fn blst_avx_prepared_g2_batch_workspace_free(
+        workspace: *mut blst_avx_prepared_g2_batch_workspace,
+    );
+    pub fn blst_avx_prepared_g2_batch_pairing_prefix(
+        out: *mut blst_avx_gt,
+        count: usize,
+        g1: *const blst_avx_p1,
+        batch: *const blst_avx_prepared_g2_batch,
+        workspace: *mut blst_avx_prepared_g2_batch_workspace,
+    ) -> bool;
+    pub fn blst_avx_prepared_g2_batch_pairing_indices(
+        out: *mut blst_avx_gt,
+        indices: *const usize,
+        count: usize,
+        g1: *const blst_avx_p1,
+        batch: *const blst_avx_prepared_g2_batch,
+        workspace: *mut blst_avx_prepared_g2_batch_workspace,
     ) -> bool;
 }
 
@@ -1728,6 +2004,84 @@ mod tests {
         let mut expected = blst_avx_fp12::default();
         assert!(unsafe { blst_avx_pairing(&mut expected, g1, g2) });
         assert!(unsafe { blst_avx_fp12_is_equal(&actual, &expected) });
+    }
+
+    #[test]
+    fn prepared_g2_batch_matches_direct_pairings_for_prefixes() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let generator = G2Projective::generator().unwrap();
+        let doubled = generator.multiply(&Scalar::from(2u64)).unwrap();
+        let identity = G2Projective::identity().unwrap();
+        let points = [generator, doubled, identity];
+        let batch = PreparedG2Batch::new(&points).unwrap();
+        assert_eq!(batch.len(), points.len());
+        assert!(batch.storage_bytes() >= points.len() * 68 * 1024);
+
+        let mut workspace = PreparedG2BatchWorkspace::new(&batch).unwrap();
+        let gt_identity = Gt::identity().unwrap();
+        let mut out = [gt_identity; 3];
+        workspace
+            .pairing_prefix_into(&g1, &batch, &mut out[..2])
+            .unwrap();
+        assert_eq!(out[0], Gt::pairing(&g1, &points[0]).unwrap());
+        assert_eq!(out[1], Gt::pairing(&g1, &points[1]).unwrap());
+
+        workspace
+            .pairing_prefix_into(&g1, &batch, &mut out)
+            .unwrap();
+        assert_eq!(out[2], gt_identity);
+        workspace
+            .pairing_indices_into(&g1, &batch, &[1, 0], &mut out[..2])
+            .unwrap();
+        assert_eq!(out[0], Gt::pairing(&g1, &points[1]).unwrap());
+        assert_eq!(out[1], Gt::pairing(&g1, &points[0]).unwrap());
+        workspace.pairing_prefix_into(&g1, &batch, &mut []).unwrap();
+
+        let g1_identity = G1Projective::identity().unwrap();
+        workspace
+            .pairing_prefix_into(&g1_identity, &batch, &mut out)
+            .unwrap();
+        assert_eq!(out, [gt_identity; 3]);
+    }
+
+    #[test]
+    fn prepared_g2_batch_workspace_rejects_an_oversized_prefix() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let batch = PreparedG2Batch::new(&[G2Projective::generator().unwrap()])
+            .unwrap();
+        let mut workspace = PreparedG2BatchWorkspace::new(&batch).unwrap();
+        let identity = Gt::identity().unwrap();
+        let mut out = [identity; 2];
+        assert_eq!(
+            workspace.pairing_prefix_into(&g1, &batch, &mut out),
+            Err(Error::PairingCapacityExceeded {
+                required: 2,
+                capacity: 1,
+            })
+        );
+        assert_eq!(
+            workspace.pairing_indices_into(&g1, &batch, &[0], &mut out),
+            Err(Error::PairingLengthMismatch {
+                indices: 1,
+                outputs: 2,
+            })
+        );
+        assert_eq!(
+            workspace.pairing_indices_into(&g1, &batch, &[1], &mut out[..1]),
+            Err(Error::PreparedIndexOutOfRange { index: 1, len: 1 })
+        );
+        assert!(matches!(
+            PreparedG2Batch::new(&[]),
+            Err(Error::EmptyPreparedBatch)
+        ));
     }
 
     #[test]

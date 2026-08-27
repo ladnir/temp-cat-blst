@@ -229,8 +229,12 @@ namespace catblst::fuzz::adapter
             const blst_avx_p2* g2_points[]{&avx_g2};
             require(::blst_avx_p1s_in_g1(
                 g1_points, 1, fill_random, &random));
+            std::vector<blst_byte> g2_membership_workspace(
+                ::blst_avx_p2s_in_g2_workspace_sizeof());
             require(::blst_avx_p2s_in_g2(
-                g2_points, 1, fill_random, &random));
+                g2_points, 1, fill_random, &random,
+                g2_membership_workspace.data(),
+                g2_membership_workspace.size()));
             const std::array<blst_byte, 1> coefficients{1};
             require(::blst_avx_p1_batch_subgroup_check(
                 g1_points, 1, coefficients.data(), 1,

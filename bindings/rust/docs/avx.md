@@ -41,6 +41,7 @@ consumers:
   multiplication, pairing, canonical encoding, strict decoding, and equality;
 - immutable prepared-G2 line tables;
 - a fixed-capacity batched-pairing workspace;
+- caller-owned scratch for randomized G2 batch subgroup validation;
 - a caller-owned projective G1 MSM workspace; and
 - typed native middle-product precomputation and evaluation.
 
@@ -85,14 +86,22 @@ addition instead of this MSM interface.
 ## Allocation and workspaces
 
 Single point, GT, and pairing operations use stack or caller-provided output
-storage and allocate nothing. `PreparedG2Lines::new`,
-`PairingWorkspace::for_pairs`, `G1MsmWorkspace::for_points`, and native
-middle-product constructors allocate reusable storage outside the hot path.
-They report allocation failure.
+storage and allocate nothing. `PreparedG2Lines::new`, `PreparedG2Batch::new`,
+`PreparedG2BatchWorkspace::new`, `PairingWorkspace::for_pairs`,
+`G1MsmWorkspace::for_points`, and native middle-product constructors allocate
+reusable storage outside the hot path. They report allocation failure.
+
+`avx_p2s_in_g2` requires a mutable byte slice of at least
+`blst_avx_p2s_in_g2_workspace_sizeof()` bytes. The native validation kernel
+does not allocate. The safe wrapper may allocate its temporary pointer list;
+the infrequent public-parameter admission path is not a resident arithmetic
+hot loop.
 
 After construction:
 
 - `PreparedG2Lines::pairing` allocates nothing;
+- `PreparedG2BatchWorkspace::pairing_prefix_into` and
+  `pairing_indices_into` allocate nothing;
 - `PairingWorkspace::clear`, `push`, and `evaluate` allocate nothing;
 - `G1MsmWorkspace::msm_into` allocates nothing; and
 - typed native middle-product evaluation allocates nothing.
@@ -107,6 +116,29 @@ kernel initializes every bucket before its first read. Callers use one mutable
 workspace per concurrent operation.
 Immutable prepared line tables and native middle-product precomputations may be
 shared after construction.
+
+`PreparedG2Batch` owns one 68-line native Miller table and one identity flag
+per G2 operand. Construction default-initializes the large table allocation
+without clearing it, then completely overwrites every nonidentity table before
+publication. Identity entries are never read as line tables. The
+`storage_bytes` result accounts for the object, tables, and flags but not
+allocator metadata. At the current AVX ABI, line storage is approximately
+68 KiB per operand; callers must choose the prepared batch extent as a public
+parameter and account for that resident memory.
+
+`PreparedG2BatchWorkspace` owns one Miller-result slot per prepared operand and
+establishes the capacity and logical size of all six structure-of-arrays
+buffers used by batch final exponentiation. Thus even the first evaluation
+does not grow or initialize those buffers. Prefix evaluation maps output
+position `i` to prepared operand
+`i`. Indexed evaluation maps output position `i` to the public index supplied
+at `indices[i]`; repeated indices are permitted. Both operations convert the
+shared G1 operand to affine once, test its identity status once, run only the
+finite-point Miller inner loop for nonidentity pairs, and batch final
+exponentiation over the requested result count. A workspace may be reused with
+another prepared batch only when its recorded capacity covers the request.
+One immutable batch may be shared, but each concurrent evaluation requires a
+distinct mutable workspace and output slice.
 
 ## Failure and validation
 
@@ -124,6 +156,12 @@ Raw prepared-G2 construction reports backend unavailability, invalid native
 layout, allocation failure, and initialization failure separately. The safe
 prepared-line wrapper preserves unavailability and allocation errors and maps
 native layout or initialization rejection to `Error::BackendFailure`.
+Prepared-batch construction reports `EmptyPreparedBatch` for empty input and
+reports native allocation or preparation failure separately. The safe
+evaluators report pairing length, workspace capacity, and out-of-range index
+errors before entering the native kernel.
+The C boundary likewise validates all sparse indices before publishing output;
+after a backend exception, output contents are unspecified.
 
 ## Deliberate omissions
 

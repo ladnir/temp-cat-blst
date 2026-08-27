@@ -315,6 +315,6 @@ pub fn exercise_state(data: &[u8]) {
     assert!(blst::uniq(&[message]));
     let seed = [0x42; 32];
     let _ = avx_p1s_in_g1(&[], seed);
-    let _ = avx_p2s_in_g2(&[], seed);
+    let _ = avx_p2s_in_g2(&[], seed, &mut []);
     let _ = gt_msm(&[], &[]);
 }

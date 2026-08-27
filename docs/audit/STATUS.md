@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-24
+Last updated: 2026-08-27
 
 The canonical finding register now has no `open`, `fixed`,
 `fix_in_progress`, or `needs_decision` entries. `AUD-016`, `AUD-030`,
@@ -12,8 +12,8 @@ focused friendly-membership and identity-MSM cases. The dense nonidentity
 G1+G2 MSM loop measures 3.731 seconds before the sentinel observations and
 3.727 seconds after over 1,000 repetitions. Fuzzing is the current audit
 program, not unfinished finding remediation. Phases 0 through 5 are implemented
-on `codex/fuzzing`. The generated ledger classifies 342 C declarations, 484
-reviewed native C++ methods or free functions, 342 raw Rust FFI mappings, and
+on `codex/fuzzing`. The current ledger classifies 343 C declarations, 484
+reviewed native C++ methods or free functions, 343 raw Rust FFI mappings, and
 158 safe Rust functions or methods. Structural gates bind direct C, unique
 C++, and safe Rust rows to executable evidence. Private domain carriers,
 reviewed refinements, and typed call frames enforce documented preconditions.
@@ -515,11 +515,13 @@ focused scalar C/native, portable-AVX Debug, and both safe Rust variant flows,
 including compressed/uncompressed decoding, Serde, complete validators, and
 the approved basic primitive set; `AUD-094` and `AUD-160` are validated.
 `AUD-161` preserves the caller-controlled AVX batch predicate as an expert
-relation evaluator and adds friendly G1/G2 membership APIs that own 81
-domain-separated uniform ternary rows and the subgroup shift from one fresh
-unpredictable seed. Portable-AVX Debug low-order and failure-path tests, C99
-header compilation, Rust checking, and native MSVC compilation pass. The
-finding is validated by the later native Peach runtime and timing packet.
+relation evaluator and adds friendly G1/G2 membership APIs that own their
+domain-separated challenge distributions and subgroup shifts from one fresh
+unpredictable seed. G1 uses 81 uniform ternary rows. G2 uses 22 rows with
+coefficients uniform in `{-6,...,+6}` and caller-owned workspace. Portable-AVX
+Debug low-order and failure-path tests, C99 header compilation, Rust checking,
+and native MSVC compilation pass. The finding is validated by the later native
+Peach runtime and timing packet.
 `AUD-162` and `AUD-163` remove the empty pairing facade and unused
 scalar fixed-window re-export facade. The selected `blst/curve/point.h` review
 is complete at `5d18e42`: `AUD-164` adds true AVX exact-scalar G1/G2 methods,

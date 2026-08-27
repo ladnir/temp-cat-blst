@@ -138,7 +138,13 @@ TEST(AvxCApiContract, FriendlyBatchMembershipOwnsChallengeConstruction)
     ASSERT_TRUE(blst_avx_enabled());
 
     EXPECT_TRUE(blst_avx_p1s_in_g1(nullptr, 0, nullptr, nullptr));
-    EXPECT_TRUE(blst_avx_p2s_in_g2(nullptr, 0, nullptr, nullptr));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(
+        nullptr, 0, nullptr, nullptr, nullptr, 0));
+
+    const size_t g2_workspace_bytes =
+        blst_avx_p2s_in_g2_workspace_sizeof();
+    ASSERT_GT(g2_workspace_bytes, 0u);
+    std::vector<blst_byte> g2_workspace(g2_workspace_bytes);
 
     FixedRandomSource random;
     random.seed[0] = 0xa5;
@@ -146,29 +152,40 @@ TEST(AvxCApiContract, FriendlyBatchMembershipOwnsChallengeConstruction)
 
     const blst_avx_p1* g1_points[] = {blst_avx_p1_generator()};
     const blst_avx_p2* g2_points[] = {blst_avx_p2_generator()};
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random, nullptr, 0));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size() - 1));
+    EXPECT_EQ(random.calls, 0u);
     EXPECT_FALSE(blst_avx_p1s_in_g1(nullptr, 1, fill_fixed_random, &random));
-    EXPECT_FALSE(blst_avx_p2s_in_g2(nullptr, 1, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        nullptr, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 0u);
 
     random.succeeds = false;
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         g1_points, 1, fill_fixed_random, &random));
     EXPECT_FALSE(blst_avx_p2s_in_g2(
-        g2_points, 1, fill_fixed_random, &random));
+        g2_points, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 2u);
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         g1_points, 1, throw_from_random_callback, nullptr));
     EXPECT_FALSE(blst_avx_p2s_in_g2(
-        g2_points, 1, throw_from_random_callback, nullptr));
+        g2_points, 1, throw_from_random_callback, nullptr,
+        g2_workspace.data(), g2_workspace.size()));
 #endif
 
     random.succeeds = true;
     EXPECT_TRUE(blst_avx_p1s_in_g1(
         g1_points, 1, fill_fixed_random, &random));
     EXPECT_TRUE(blst_avx_p2s_in_g2(
-        g2_points, 1, fill_fixed_random, &random));
+        g2_points, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 4u);
 }
 
@@ -200,10 +217,15 @@ TEST(AvxCApiContract, FriendlyBatchMembershipRejectsLowOrderPoints)
     random.seed.fill(0);
     const blst_avx_p1* g1_points[] = {&avx_g1};
     const blst_avx_p2* g2_points[] = {&avx_g2};
+    const size_t g2_workspace_bytes =
+        blst_avx_p2s_in_g2_workspace_sizeof();
+    ASSERT_GT(g2_workspace_bytes, 0u);
+    std::vector<blst_byte> g2_workspace(g2_workspace_bytes);
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         g1_points, 1, fill_fixed_random, &random));
     EXPECT_FALSE(blst_avx_p2s_in_g2(
-        g2_points, 1, fill_fixed_random, &random));
+        g2_points, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 2u);
 
     const blst_avx_p1* mixed_g1_points[] = {
@@ -213,7 +235,8 @@ TEST(AvxCApiContract, FriendlyBatchMembershipRejectsLowOrderPoints)
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         mixed_g1_points, 3, fill_fixed_random, &random));
     EXPECT_FALSE(blst_avx_p2s_in_g2(
-        mixed_g2_points, 3, fill_fixed_random, &random));
+        mixed_g2_points, 3, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 4u);
 }
 
@@ -504,11 +527,14 @@ TEST(AvxCApiContract, MembershipAndBatchChecksRejectOffCurveInputs)
     const blst_byte coefficient = 0;
     const blst_avx_p1* g1_points[] = {&avx_off_curve_g1};
     const blst_avx_p2* g2_points[] = {&avx_off_curve_g2};
+    std::vector<blst_byte> g2_workspace(
+        blst_avx_p2s_in_g2_workspace_sizeof());
     FixedRandomSource random;
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         g1_points, 1, fill_fixed_random, &random));
     EXPECT_FALSE(blst_avx_p2s_in_g2(
-        g2_points, 1, fill_fixed_random, &random));
+        g2_points, 1, fill_fixed_random, &random,
+        g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 0u);
     EXPECT_FALSE(blst_avx_p1_batch_subgroup_check(
         g1_points, 1, &coefficient, 1, blst_avx_p1_generator()));
