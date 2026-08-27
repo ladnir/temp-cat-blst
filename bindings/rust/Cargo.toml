@@ -1,6 +1,6 @@
 [package]
 name = "blst"
-version = "0.3.15"
+version = "1.0.0"
 authors = ["Category Labs"]
 edition = "2018"
 rust-version = "1.78"
@@ -32,7 +32,7 @@ links = "blst"
 [features]
 # By default, compile with ADX extension if the host supports it.
 # Binary can be executed on systems similar to the host.
-default = ["full-rust-bindings"]
+default = []
 # Compile in portable mode, without ISA extensions.
 # Binary can be executed on all systems.
 portable = []
@@ -41,10 +41,6 @@ avx = []
 # Enable ADX even if the host CPU doesn't support it.
 # Binary can be executed on Broadwell+ and Ryzen+ systems.
 force-adx = []
-# Compatibility feature used by downstream BLST consumers. CatBLST's current
-# Rust boundary does not introduce a thread-pool dependency, so selecting it
-# requires no additional build change.
-no-threads = []
 # Keep the full high-level Rust wrapper surface feature-gated while
 # the smaller middle-product-first surface remains the default.
 full-rust-bindings = []
