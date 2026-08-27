@@ -1,6 +1,6 @@
 [package]
 name = "blst"
-version = "1.0.0"
+version = "0.3.15"
 authors = ["Category Labs"]
 edition = "2018"
 rust-version = "1.78"

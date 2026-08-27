@@ -14,7 +14,9 @@ signature operations, together with FFT, multi-scalar multiplication, and
 middle-product facilities. C, native C++, and Rust are the supported language
 surfaces.
 
-The current source release is **1.0.0**.
+The current source release is **1.0.0**. The Rust package retains version
+`0.3.15` so downstream crates such as `blstrs` can replace crates.io `blst`
+with this repository as one ABI-compatible Cargo instance.
 
 ## Backends and platforms
 
