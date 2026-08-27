@@ -787,7 +787,9 @@ struct GT
 
     /**
      * Serialize a GT element as twelve canonical big-endian 48-byte field
-     * coefficients. `serialized` points to 576 writable bytes.
+     * coefficients. Wire order is Fp2 index, then Fp6 half, then Fp
+     * component, matching scalar `Fp12::to_bendian`; it is independent of the
+     * native MatrixNoK layout. `serialized` points to 576 writable bytes.
      */
     static void serialize(unsigned char serialized[12 * 48], const GT& p)
     {
@@ -802,9 +804,10 @@ struct GT
     }
 
     /**
-     * Decode twelve canonical big-endian field coefficients and require GT
-     * membership. `serialized` points to 576 readable bytes. Failure leaves
-     * `out` unchanged; input bytes may overlap `out`. Membership validation is
+     * Decode twelve canonical big-endian field coefficients in the scalar
+     * CatBLST order and require GT membership. The identity is accepted.
+     * `serialized` points to 576 readable bytes. Failure leaves `out`
+     * unchanged; input bytes may overlap `out`. Membership validation is
      * variable-time with respect to this public input.
      */
     [[nodiscard]] static bool deserialize(

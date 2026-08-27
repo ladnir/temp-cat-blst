@@ -410,7 +410,13 @@ void blst_gt_mult_vartime(blst_fp12* out, const blst_fp12* p, const blst_byte* s
  * validation is performed. Both pointers must be non-null.
  */
 bool blst_fp12_finalverify(const blst_fp12* gt1, const blst_fp12* gt2);
-/** Encodes an Fp12 value into a 576-byte big-endian string. */
+/**
+ * Encodes an Fp12 value as twelve canonical 48-byte big-endian Fp
+ * coefficients. The coefficient order is Fp2 index, then Fp6 half, then Fp
+ * component. This explicit order is independent of the in-memory `blst_fp12`
+ * layout and is shared by the scalar and AVX APIs. `out` and `a` must be
+ * non-null. No allocation is performed.
+ */
 void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
 
 /**

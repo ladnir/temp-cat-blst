@@ -561,10 +561,22 @@ extern "C" {
         out: *mut blst_fp12,
         input: *const blst_avx_fp12,
     ) -> bool;
+    /// Serializes a validated AVX GT value in the same canonical coefficient
+    /// order as [`crate::scalar::Gt::to_bytes_be`].
+    ///
+    /// The 576-byte output contains twelve canonical 48-byte big-endian Fp
+    /// coefficients ordered by Fp2 index, then Fp6 half, then Fp component.
+    /// Both pointers must be non-null. The operation allocates nothing.
     pub fn blst_avx_gt_serialize(
         out: *mut blst_byte,
         input: *const blst_avx_gt,
     ) -> bool;
+    /// Strictly decodes the canonical CatBLST GT coefficient order.
+    ///
+    /// Every Fp coefficient must be canonical and the assembled value must lie
+    /// in GT; the identity is accepted. Failure returns `false` and leaves
+    /// `out` unchanged. Input may overlap output. Validation is variable-time
+    /// with respect to the public bytes, and the operation allocates nothing.
     pub fn blst_avx_gt_deserialize(
         out: *mut blst_avx_gt,
         input: *const blst_byte,

@@ -964,7 +964,11 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
-    #[doc = " Encodes an Fp12 value into a 576-byte big-endian string."]
+    #[doc = " Encodes an Fp12 value as twelve canonical 48-byte big-endian Fp
+ coefficients. The coefficient order is Fp2 index, then Fp6 half, then Fp
+ component. This explicit order is independent of the in-memory `blst_fp12`
+ layout and is shared by the scalar and AVX APIs. `out` and `a` must be
+ non-null. No allocation is performed."]
     pub fn blst_bendian_from_fp12(out: *mut blst_byte, a: *const blst_fp12);
 }
 extern "C" {

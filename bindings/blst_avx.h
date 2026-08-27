@@ -520,9 +520,20 @@ const blst_avx_p2* blst_avx_p2_generator(void);
 bool blst_avx_fp12_from_scalar(blst_avx_fp12* out, const blst_fp12* in);
 /** Converts an AVX GT/Fp12 value into the scalar/public layout. */
 bool blst_fp12_from_avx(blst_fp12* out, const blst_avx_fp12* in);
-/** Serializes a validated AVX GT value to twelve canonical big-endian Fp coefficients. */
+/**
+ * Serializes a validated AVX GT value as twelve canonical 48-byte big-endian
+ * Fp coefficients. The coefficient order is Fp2 index, then Fp6 half, then Fp
+ * component, exactly matching `blst_bendian_from_fp12`. `out` and `in` must be
+ * non-null. No allocation is performed.
+ */
 bool blst_avx_gt_serialize(blst_byte out[576], const blst_avx_gt* in);
-/** Decodes twelve canonical big-endian Fp coefficients and requires GT membership. */
+/**
+ * Decodes the same twelve-coefficient order and requires every coefficient to
+ * be canonical and the assembled Fp12 value to lie in GT. The identity is
+ * accepted. Failure returns false and leaves `out` unchanged. Input bytes may
+ * overlap `out`; both pointers must be non-null. Membership validation is
+ * variable-time with public input. No allocation is performed.
+ */
 bool blst_avx_gt_deserialize(blst_avx_gt* out, const blst_byte in[576]);
 /**
  * Multiplies two well-formed AVX Fp12 values and writes the generic field
