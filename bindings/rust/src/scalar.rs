@@ -10,6 +10,49 @@
 //! synchronous, allocation-free, and expose raw borrows for zero-conversion
 //! kernel interoperation.
 //!
+//! # Safe-type invariants
+//!
+//! - [`Scalar`] contains a reduced element of the BLS12-381 scalar field in
+//!   Montgomery form. Zero is valid.
+//! - G1 and G2 wrappers contain an on-curve point in the prime-order subgroup.
+//!   The group identity is valid.
+//! - [`crate::scalar::MillerLoopResult`] contains a nonzero product of
+//!   Miller-loop outputs from validated subgroup points. It is not a
+//!   [`crate::scalar::Gt`] value before final exponentiation.
+//! - [`crate::scalar::Gt`] contains an element of the BLS12-381 pairing target
+//!   group. The target-group identity is valid.
+//!
+//! Safe constructors establish these invariants, and safe arithmetic preserves
+//! them. Raw mutable access and unchecked raw construction transfer the stated
+//! invariant to the caller. A caller must restore the invariant before a raw
+//! mutable borrow ends. Passing an invalid wrapper to a safe method can violate
+//! the preconditions of the underlying native operation.
+//!
+//! # Timing and storage
+//!
+//! Scalar-field addition, subtraction, multiplication, and negation, plus the
+//! unsuffixed point and target-group multiplication methods, are intended to be
+//! constant-time with respect to valid scalar and group values. Scalar
+//! multiplication uses a fixed 256-bit width. Methods with a `_vartime` suffix
+//! require public scalars. No constant-time guarantee is made for validation,
+//! decoding, encoding, equality, zero or identity tests, affine conversion,
+//! pairing, or other methods unless their documentation says otherwise.
+//!
+//! Every operation in this module uses stack or caller-owned storage and
+//! allocates nothing. The types contain no pointers and own no external
+//! resources. Independent operations on disjoint mutable values are safe to run
+//! concurrently. Immutable values may be shared under Rust's ordinary aliasing
+//! rules. Safe methods enforce their aliasing requirements through Rust
+//! borrows; an unsafe caller passing raw pointers to a native kernel remains
+//! responsible for that kernel's aliasing contract.
+//!
+//! # Encoding boundary
+//!
+//! Scalar decoders distinguish strict canonical decoding from wide modular
+//! reduction. Point decoders check the encoding, curve equation, and prime-order
+//! subgroup; they accept the identity. Target-group decoding checks all twelve
+//! base-field coefficients and target-group membership.
+//!
 //! The types in this module are not representation-compatible with the native
 //! types in [`crate::avx`]. A protocol instance should retain one backend's
 //! native point and target-group types. Canonical encodings are the compatibility
@@ -23,17 +66,27 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A reduced scalar-field element in category-blst's native Montgomery form.
 ///
-/// This type permits zero and is distinct from [`blst_scalar`], the canonical
-/// non-Montgomery byte representation used by the raw secret-key API.
+/// Let `r` denote the BLS12-381 scalar-field order. The represented value lies
+/// in `Fr = Z/rZ`; its native limbs contain the reduced Montgomery encoding of
+/// that value. This type permits zero and is distinct from [`blst_scalar`], the
+/// canonical non-Montgomery byte representation used by the raw secret-key API.
+///
+/// Addition, subtraction, multiplication, and negation are intended to be
+/// constant-time with respect to field values. These operations allocate
+/// nothing. [`Default`] returns [`Scalar::ZERO`], and sums of empty iterators
+/// return zero. [`Debug`](fmt::Debug) deliberately redacts the scalar value.
 #[repr(transparent)]
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Scalar(blst_fr);
 
 impl Scalar {
-    /// The additive identity.
+    /// The additive identity `0` in `Fr`.
     pub const ZERO: Self = Self(blst_fr { l: [0; 4] });
 
-    /// The multiplicative identity in category-blst's Montgomery representation.
+    /// The multiplicative identity `1` in `Fr`.
+    ///
+    /// The stored limbs are the category-blst Montgomery representation, not the
+    /// conventional integer limbs of one.
     pub const ONE: Self = Self(blst_fr {
         l: [
             0x0000_0001_ffff_fffe,
@@ -43,7 +96,10 @@ impl Scalar {
         ],
     });
 
-    /// Borrows the native Montgomery-form value without conversion.
+    /// Borrows the reduced native Montgomery-form value without conversion.
+    ///
+    /// The returned reference is valid for the lifetime of `self`. Reading it
+    /// does not alter the scalar invariant and allocates nothing.
     #[inline]
     pub const fn as_raw(&self) -> &blst_fr {
         &self.0
@@ -51,9 +107,15 @@ impl Scalar {
 
     /// Mutably borrows the native Montgomery-form value without conversion.
     ///
+    /// This accessor is intended for native kernels that write one reduced
+    /// `blst_fr` result into caller-owned storage. It allocates and converts
+    /// nothing.
+    ///
     /// # Safety
     ///
-    /// The caller must leave a reduced field element in the object.
+    /// Before the borrow ends, the caller must write a reduced Montgomery-form
+    /// element of `Fr`. Uninitialized, unreduced, or conventional-form limbs do
+    /// not satisfy [`Scalar`]'s invariant.
     #[inline]
     pub unsafe fn as_raw_mut(&mut self) -> &mut blst_fr {
         &mut self.0
@@ -61,27 +123,40 @@ impl Scalar {
 
     /// Wraps a reduced native Montgomery-form scalar without conversion.
     ///
+    /// This constructor performs no validation, reduction, or allocation.
+    ///
     /// # Safety
     ///
-    /// `raw` must be reduced modulo the BLS12-381 scalar-field order.
+    /// `raw` must contain a reduced Montgomery-form element of `Fr`. A canonical
+    /// integer or [`blst_scalar`] representation is not a valid input.
     #[inline]
     pub const unsafe fn from_raw_unchecked(raw: blst_fr) -> Self {
         Self(raw)
     }
 
-    /// Returns the native Montgomery-form value without conversion.
+    /// Consumes this wrapper and returns its reduced native Montgomery-form value.
+    ///
+    /// This operation copies no additional representation and allocates nothing.
     #[inline]
     pub const fn into_raw(self) -> blst_fr {
         self.0
     }
 
-    /// Returns `true` when this scalar is zero.
+    /// Returns `true` exactly when this scalar represents `0` in `Fr`.
+    ///
+    /// This observation allocates nothing. No constant-time guarantee is made.
     #[inline]
     pub fn is_zero(&self) -> bool {
         self.0 == Self::ZERO.0
     }
 
     /// Strictly decodes a canonical 32-byte big-endian scalar.
+    ///
+    /// The byte string represents an unsigned integer. This method returns
+    /// `Some` exactly when that integer lies in `[0, r)`, including zero. It does
+    /// not reduce a noncanonical integer. Success converts the value to native
+    /// Montgomery form; failure returns `None` and exposes no partial value.
+    /// The operation allocates nothing.
     #[inline]
     pub fn from_bytes_be(bytes: &[u8; 32]) -> Option<Self> {
         unsafe {
@@ -98,6 +173,12 @@ impl Scalar {
     }
 
     /// Strictly decodes a canonical 32-byte little-endian scalar.
+    ///
+    /// The byte string represents an unsigned integer. This method returns
+    /// `Some` exactly when that integer lies in `[0, r)`, including zero. It does
+    /// not reduce a noncanonical integer. Success converts the value to native
+    /// Montgomery form; failure returns `None` and exposes no partial value.
+    /// The operation allocates nothing.
     #[inline]
     pub fn from_bytes_le(bytes: &[u8; 32]) -> Option<Self> {
         unsafe {
@@ -113,7 +194,12 @@ impl Scalar {
         }
     }
 
-    /// Reduces a 64-byte big-endian integer modulo the scalar-field order.
+    /// Reduces a 64-byte big-endian unsigned integer modulo `r`.
+    ///
+    /// Every 64-byte input succeeds, and zero is a valid result. This method is
+    /// deterministic modular reduction, not strict decoding or rejection
+    /// sampling. A protocol should use it only when its scalar-derivation rule
+    /// specifies wide reduction. The operation allocates nothing.
     #[inline]
     pub fn from_bytes_wide_be(bytes: &[u8; 64]) -> Self {
         unsafe {
@@ -130,7 +216,12 @@ impl Scalar {
         }
     }
 
-    /// Reduces a 64-byte little-endian integer modulo the scalar-field order.
+    /// Reduces a 64-byte little-endian unsigned integer modulo `r`.
+    ///
+    /// Every 64-byte input succeeds, and zero is a valid result. This method is
+    /// deterministic modular reduction, not strict decoding or rejection
+    /// sampling. A protocol should use it only when its scalar-derivation rule
+    /// specifies wide reduction. The operation allocates nothing.
     #[inline]
     pub fn from_bytes_wide_le(bytes: &[u8; 64]) -> Self {
         unsafe {
@@ -147,7 +238,9 @@ impl Scalar {
         }
     }
 
-    /// Encodes this scalar canonically in big-endian order.
+    /// Encodes this scalar as the unique 32-byte big-endian integer in `[0, r)`.
+    ///
+    /// This operation converts from Montgomery form and allocates nothing.
     #[inline]
     pub fn to_bytes_be(&self) -> [u8; 32] {
         unsafe {
@@ -160,7 +253,9 @@ impl Scalar {
         }
     }
 
-    /// Encodes this scalar canonically in little-endian order.
+    /// Encodes this scalar as the unique 32-byte little-endian integer in `[0, r)`.
+    ///
+    /// This operation converts from Montgomery form and allocates nothing.
     #[inline]
     pub fn to_bytes_le(&self) -> [u8; 32] {
         unsafe {
@@ -173,7 +268,14 @@ impl Scalar {
         }
     }
 
-    /// Computes the multiplicative inverse, or returns `None` for zero.
+    /// Computes the multiplicative inverse in `Fr`.
+    ///
+    /// For nonzero `self`, the returned value is the unique scalar `x` such that
+    /// `self * x == Scalar::ONE`. Zero returns `None` before calling the native
+    /// inverse, whose domain excludes zero. The native inversion on the nonzero
+    /// path is intended to be constant-time, but this method necessarily
+    /// exposes whether the input is zero through its return value and initial
+    /// zero test. It allocates nothing.
     #[inline]
     pub fn invert(&self) -> Option<Self> {
         if self.is_zero() {
@@ -333,22 +435,50 @@ impl<'a> Sum<&'a Scalar> for Scalar {
     }
 }
 
-/// A prime-order G1 point in the scalar backend's projective representation.
+/// A G1 point in the prime-order subgroup, stored in scalar-backend projective
+/// coordinates.
+///
+/// The identity is valid. The coordinates are native arithmetic storage: they
+/// are not unique and are not a wire encoding. Equality compares mathematical
+/// points rather than coordinate limbs. [`Default`] and an empty iterator sum
+/// return the identity. Group addition and subtraction are complete for safe
+/// values, and multiplication by [`Scalar`] uses the fixed-width
+/// constant-time entry point. Operations allocate nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Projective(blst_p1);
 
-/// A prime-order G1 point in the scalar backend's affine representation.
+/// A G1 point in the prime-order subgroup, stored in scalar-backend affine
+/// coordinates.
+///
+/// The identity is valid. This native arithmetic representation is not a wire
+/// encoding. Safe decoding checks both the curve equation and subgroup
+/// membership. Equality compares mathematical points. Operations allocate
+/// nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct G1Affine(blst_p1_affine);
 
-/// A prime-order G2 point in the scalar backend's projective representation.
+/// A G2 point in the prime-order subgroup, stored in scalar-backend projective
+/// coordinates.
+///
+/// The identity is valid. The coordinates are native arithmetic storage: they
+/// are not unique and are not a wire encoding. Equality compares mathematical
+/// points rather than coordinate limbs. [`Default`] and an empty iterator sum
+/// return the identity. Group addition and subtraction are complete for safe
+/// values, and multiplication by [`Scalar`] uses the fixed-width
+/// constant-time entry point. Operations allocate nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct G2Projective(blst_p2);
 
-/// A prime-order G2 point in the scalar backend's affine representation.
+/// A G2 point in the prime-order subgroup, stored in scalar-backend affine
+/// coordinates.
+///
+/// The identity is valid. This native arithmetic representation is not a wire
+/// encoding. Safe decoding checks both the curve equation and subgroup
+/// membership. Equality compares mathematical points. Operations allocate
+/// nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct G2Affine(blst_p2_affine);
@@ -387,29 +517,43 @@ macro_rules! impl_scalar_curve_group {
         $deserialize:ident
     ) => {
         impl $projective {
-            /// Returns the group identity.
+            /// Returns the group identity in native projective form.
+            ///
+            /// This operation allocates nothing.
             #[inline]
             pub fn identity() -> Self {
                 Self(<$raw_projective>::default())
             }
 
-            /// Returns the standard group generator.
+            /// Returns the category-blst standard generator.
+            ///
+            /// The returned point is nonidentity and generates the prime-order
+            /// subgroup. This operation allocates nothing.
             #[inline]
             pub fn generator() -> Self {
                 unsafe { Self(*$generator()) }
             }
 
-            /// Borrows the native scalar-backend representation without conversion.
+            /// Borrows the native scalar-backend projective representation.
+            ///
+            /// This is a zero-conversion borrow. The coordinates are not a
+            /// canonical encoding and must not be serialized directly.
             #[inline]
             pub const fn as_raw(&self) -> &$raw_projective {
                 &self.0
             }
 
-            /// Mutably borrows the native representation without conversion.
+            /// Mutably borrows the native projective representation.
+            ///
+            /// This accessor is intended for a native kernel that writes a
+            /// projective subgroup point into caller-owned storage. It performs
+            /// no validation, conversion, or allocation.
             ///
             /// # Safety
             ///
-            /// The caller must preserve the on-curve, prime-order subgroup invariant.
+            /// Before the borrow ends, the caller must leave a valid native
+            /// projective representation of an on-curve point in the
+            /// prime-order subgroup. The identity is permitted.
             #[inline]
             pub unsafe fn as_raw_mut(&mut self) -> &mut $raw_projective {
                 &mut self.0
@@ -417,9 +561,13 @@ macro_rules! impl_scalar_curve_group {
 
             /// Wraps a native projective subgroup point without conversion.
             ///
+            /// This constructor performs no validation or allocation.
+            ///
             /// # Safety
             ///
-            /// `raw` must be on-curve and in the prime-order subgroup.
+            /// `raw` must be a valid native projective representation of an
+            /// on-curve point in the prime-order subgroup. The identity is
+            /// permitted.
             #[inline]
             pub const unsafe fn from_raw_unchecked(
                 raw: $raw_projective,
@@ -427,37 +575,56 @@ macro_rules! impl_scalar_curve_group {
                 Self(raw)
             }
 
-            /// Returns the native projective value without conversion.
+            /// Consumes the wrapper and returns its native projective storage.
+            ///
+            /// The returned coordinates retain the subgroup invariant but are
+            /// not a canonical encoding. This operation allocates nothing.
             #[inline]
             pub const fn into_raw(self) -> $raw_projective {
                 self.0
             }
 
-            /// Returns `true` when this point is the group identity.
+            /// Returns `true` exactly when this point is the group identity.
+            ///
+            /// This observation performs no validation and allocates nothing.
             #[inline]
             pub fn is_identity(&self) -> bool {
                 unsafe { $is_inf(&self.0) }
             }
 
-            /// Returns `true` when the underlying value lies on the curve.
+            /// Returns `true` when the native representation lies on the curve.
+            ///
+            /// Safe values already satisfy this property. This method is useful
+            /// as a defensive assertion after unsafe native interoperation; it
+            /// does not establish the complete wrapper invariant by itself.
             #[inline]
             pub fn is_on_curve(&self) -> bool {
                 unsafe { $on_curve(&self.0) }
             }
 
-            /// Returns `true` when the underlying value lies in the prime-order subgroup.
+            /// Returns `true` when the native point lies in the prime-order subgroup.
+            ///
+            /// Safe values already satisfy this property. This observation does
+            /// not alter or re-wrap the point and allocates nothing.
             #[inline]
             pub fn is_in_subgroup(&self) -> bool {
                 unsafe { $in_group(&self.0) }
             }
 
             /// `blstrs`-inspired spelling for [`Self::is_in_subgroup`].
+            ///
+            /// This is an exact alias, including its preconditions and timing
+            /// behavior.
             #[inline]
             pub fn is_torsion_free(&self) -> bool {
                 self.is_in_subgroup()
             }
 
-            /// Doubles this point.
+            /// Returns `self + self`.
+            ///
+            /// Safe inputs require no curve or subgroup validation. The result
+            /// remains in the prime-order subgroup. This operation allocates
+            /// nothing.
             #[inline]
             pub fn double(&self) -> Self {
                 unsafe {
@@ -469,6 +636,11 @@ macro_rules! impl_scalar_curve_group {
 
             /// Multiplies by a possibly secret scalar using the fixed-width
             /// constant-time scalar multiplication entry point.
+            ///
+            /// This computes `[scalar] self`. The scalar is encoded canonically
+            /// into a 256-bit stack buffer before the native call. The result
+            /// remains in the prime-order subgroup, including when either input
+            /// is zero or the identity. The operation allocates nothing.
             #[inline]
             pub fn multiply(&self, scalar: &Scalar) -> Self {
                 let encoded = scalar.to_bytes_le();
@@ -480,6 +652,11 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Multiplies by a public scalar using the variable-time entry point.
+            ///
+            /// This computes `[scalar] self` using a fixed 256-bit canonical
+            /// scalar encoding. `scalar` must be public because execution time
+            /// and memory access may depend on it. The result remains in the
+            /// prime-order subgroup. The operation allocates nothing.
             #[inline]
             pub fn multiply_vartime(&self, scalar: &Scalar) -> Self {
                 let encoded = scalar.to_bytes_le();
@@ -495,7 +672,11 @@ macro_rules! impl_scalar_curve_group {
                 }
             }
 
-            /// Converts this point to affine form.
+            /// Converts this point to the equivalent affine representation.
+            ///
+            /// The identity remains the identity. This operation performs no
+            /// validation and allocates nothing. No constant-time guarantee is
+            /// made for this conversion.
             #[inline]
             pub fn to_affine(&self) -> $affine {
                 unsafe {
@@ -506,6 +687,10 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Encodes this point in canonical compressed form.
+            ///
+            /// The fixed-size output is the unique category-blst compressed
+            /// encoding of the mathematical point. The identity is encodable.
+            /// This operation allocates nothing.
             #[inline]
             pub fn to_compressed(&self) -> [u8; $compressed_size] {
                 unsafe {
@@ -517,6 +702,10 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Encodes this point in canonical uncompressed form.
+            ///
+            /// The fixed-size output is the unique category-blst uncompressed
+            /// encoding of the mathematical point. The identity is encodable.
+            /// This operation allocates nothing.
             #[inline]
             pub fn to_uncompressed(&self) -> [u8; $uncompressed_size] {
                 unsafe {
@@ -528,6 +717,10 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Strictly decodes and subgroup-validates a compressed point.
+            ///
+            /// This has the same accepted encodings and errors as the
+            /// corresponding affine decoder, followed by an allocation-free
+            /// affine-to-projective conversion. The identity is accepted.
             #[inline]
             pub fn from_compressed(
                 encoded: &[u8; $compressed_size],
@@ -536,6 +729,10 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Strictly decodes and subgroup-validates an uncompressed point.
+            ///
+            /// This has the same accepted encodings and errors as the
+            /// corresponding affine decoder, followed by an allocation-free
+            /// affine-to-projective conversion. The identity is accepted.
             #[inline]
             pub fn from_uncompressed(
                 encoded: &[u8; $uncompressed_size],
@@ -563,29 +760,43 @@ macro_rules! impl_scalar_curve_group {
         }
 
         impl $affine {
-            /// Returns the affine encoding of the group identity.
+            /// Returns the group identity in native affine form.
+            ///
+            /// This operation allocates nothing.
             #[inline]
             pub fn identity() -> Self {
                 Self(<$raw_affine>::default())
             }
 
-            /// Returns the standard affine group generator.
+            /// Returns the category-blst standard generator in affine form.
+            ///
+            /// The returned point is nonidentity and generates the prime-order
+            /// subgroup. This operation allocates nothing.
             #[inline]
             pub fn generator() -> Self {
                 unsafe { Self(*$affine_generator()) }
             }
 
-            /// Borrows the native scalar-backend representation without conversion.
+            /// Borrows the native scalar-backend affine representation.
+            ///
+            /// This is a zero-conversion borrow. The native coordinates are not
+            /// a canonical encoding and must not be serialized directly.
             #[inline]
             pub const fn as_raw(&self) -> &$raw_affine {
                 &self.0
             }
 
-            /// Mutably borrows the native representation without conversion.
+            /// Mutably borrows the native affine representation.
+            ///
+            /// This accessor is intended for a native kernel that writes an
+            /// affine subgroup point into caller-owned storage. It performs no
+            /// validation, conversion, or allocation.
             ///
             /// # Safety
             ///
-            /// The caller must preserve the on-curve, prime-order subgroup invariant.
+            /// Before the borrow ends, the caller must leave a valid native
+            /// affine representation of an on-curve point in the prime-order
+            /// subgroup. The identity is permitted.
             #[inline]
             pub unsafe fn as_raw_mut(&mut self) -> &mut $raw_affine {
                 &mut self.0
@@ -593,45 +804,68 @@ macro_rules! impl_scalar_curve_group {
 
             /// Wraps a native affine subgroup point without conversion.
             ///
+            /// This constructor performs no validation or allocation.
+            ///
             /// # Safety
             ///
-            /// `raw` must be on-curve and in the prime-order subgroup.
+            /// `raw` must be a valid native affine representation of an
+            /// on-curve point in the prime-order subgroup. The identity is
+            /// permitted.
             #[inline]
             pub const unsafe fn from_raw_unchecked(raw: $raw_affine) -> Self {
                 Self(raw)
             }
 
-            /// Returns the native affine value without conversion.
+            /// Consumes the wrapper and returns its native affine storage.
+            ///
+            /// The returned coordinates retain the subgroup invariant but are
+            /// not a canonical encoding. This operation allocates nothing.
             #[inline]
             pub const fn into_raw(self) -> $raw_affine {
                 self.0
             }
 
-            /// Returns `true` when this point is the group identity.
+            /// Returns `true` exactly when this point is the group identity.
+            ///
+            /// This observation performs no validation and allocates nothing.
             #[inline]
             pub fn is_identity(&self) -> bool {
                 unsafe { $affine_is_inf(&self.0) }
             }
 
-            /// Returns `true` when the underlying value lies on the curve.
+            /// Returns `true` when the native representation lies on the curve.
+            ///
+            /// Safe values already satisfy this property. This method is useful
+            /// as a defensive assertion after unsafe native interoperation; it
+            /// does not establish the complete wrapper invariant by itself.
             #[inline]
             pub fn is_on_curve(&self) -> bool {
                 unsafe { $affine_on_curve(&self.0) }
             }
 
-            /// Returns `true` when the underlying value lies in the prime-order subgroup.
+            /// Returns `true` when the native point lies in the prime-order subgroup.
+            ///
+            /// Safe values already satisfy this property. This observation does
+            /// not alter or re-wrap the point and allocates nothing.
             #[inline]
             pub fn is_in_subgroup(&self) -> bool {
                 unsafe { $affine_in_group(&self.0) }
             }
 
             /// `blstrs`-inspired spelling for [`Self::is_in_subgroup`].
+            ///
+            /// This is an exact alias, including its preconditions and timing
+            /// behavior.
             #[inline]
             pub fn is_torsion_free(&self) -> bool {
                 self.is_in_subgroup()
             }
 
             /// Encodes this point in canonical compressed form.
+            ///
+            /// The fixed-size output is the unique category-blst compressed
+            /// encoding of the mathematical point. The identity is encodable.
+            /// This operation allocates nothing.
             #[inline]
             pub fn to_compressed(&self) -> [u8; $compressed_size] {
                 unsafe {
@@ -643,6 +877,10 @@ macro_rules! impl_scalar_curve_group {
             }
 
             /// Encodes this point in canonical uncompressed form.
+            ///
+            /// The fixed-size output is the unique category-blst uncompressed
+            /// encoding of the mathematical point. The identity is encodable.
+            /// This operation allocates nothing.
             #[inline]
             pub fn to_uncompressed(&self) -> [u8; $uncompressed_size] {
                 unsafe {
@@ -655,6 +893,13 @@ macro_rules! impl_scalar_curve_group {
 
             /// Strictly decodes a canonical compressed point and establishes
             /// prime-order subgroup membership.
+            ///
+            /// The native decoder checks compressed-format flags, canonical
+            /// field elements, and the curve equation. Its exact [`BLST_ERROR`]
+            /// is returned on failure. A decoded point outside the prime-order
+            /// subgroup returns [`BLST_ERROR::BLST_POINT_NOT_IN_GROUP`]. The
+            /// canonical identity encoding is accepted. Failure exposes no
+            /// partially decoded point, and the operation allocates nothing.
             #[inline]
             pub fn from_compressed(
                 encoded: &[u8; $compressed_size],
@@ -675,6 +920,13 @@ macro_rules! impl_scalar_curve_group {
 
             /// Strictly decodes a canonical uncompressed point and establishes
             /// prime-order subgroup membership.
+            ///
+            /// The native decoder checks uncompressed-format flags, canonical
+            /// field elements, and the curve equation. Its exact [`BLST_ERROR`]
+            /// is returned on failure. A decoded point outside the prime-order
+            /// subgroup returns [`BLST_ERROR::BLST_POINT_NOT_IN_GROUP`]. The
+            /// canonical identity encoding is accepted. Failure exposes no
+            /// partially decoded point, and the operation allocates nothing.
             #[inline]
             pub fn from_uncompressed(
                 encoded: &[u8; $uncompressed_size],
@@ -983,19 +1235,32 @@ impl_scalar_curve_group!(
 /// A product of Miller loops that has not yet undergone final exponentiation.
 ///
 /// This is deliberately distinct from [`Gt`]. The shared `blst_fp12` storage
-/// does not by itself establish target-group membership.
+/// does not by itself establish target-group membership. Safe values are
+/// nonzero products of Miller-loop contributions evaluated on G1 and G2
+/// prime-order subgroup points. Multiplication combines products, [`Default`]
+/// is the empty product, and all operations allocate nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct MillerLoopResult(blst_fp12);
 
 impl MillerLoopResult {
-    /// Returns the empty Miller-loop product.
+    /// Returns the empty Miller-loop product, the multiplicative Fp12 identity.
+    ///
+    /// This nonzero value is a valid input to final exponentiation. This
+    /// operation allocates nothing.
     #[inline]
     pub fn identity() -> Self {
         unsafe { Self(*blst_fp12_one()) }
     }
 
-    /// Computes one Miller loop from validated subgroup points.
+    /// Computes one Miller-loop contribution from validated subgroup points.
+    ///
+    /// This computes the unfinalized contribution for `e(g1, g2)`. The type
+    /// invariants of `g1` and `g2` satisfy the native routine's curve and
+    /// subgroup preconditions; this method performs no additional validation.
+    /// If either point is the identity, the contribution is the empty product.
+    /// The operation does not perform final exponentiation and allocates
+    /// nothing.
     #[inline]
     pub fn from_pair(g1: &G1Affine, g2: &G2Affine) -> Self {
         unsafe {
@@ -1007,8 +1272,18 @@ impl MillerLoopResult {
 
     /// Computes the product of Miller loops over corresponding affine slices.
     ///
-    /// This operation uses fixed-size descriptor storage on the stack and does
-    /// not allocate. It returns an error when the slice lengths differ.
+    /// Element `i` of `g1` is paired with element `i` of `g2`. Both slices must
+    /// have the same length; the output is the product of their unfinalized
+    /// pairing contributions. A mismatch returns
+    /// [`PairingError::LengthMismatch`] before any native call. Empty slices
+    /// return the empty product.
+    ///
+    /// The point wrappers satisfy the native routine's curve and subgroup
+    /// preconditions, so this method performs no per-point validation. One
+    /// batched native call processes every pair. The two fixed-size descriptor
+    /// arrays live on the stack; the operation does not allocate or create
+    /// pointer arrays proportional to the batch size. It does not perform final
+    /// exponentiation.
     #[inline]
     pub fn from_pairs(
         g1: &[G1Affine],
@@ -1042,7 +1317,11 @@ impl MillerLoopResult {
         }
     }
 
-    /// Applies final exponentiation and returns a target-group element.
+    /// Applies final exponentiation and returns the corresponding [`Gt`] value.
+    ///
+    /// A safe [`MillerLoopResult`] is nonzero and therefore satisfies the native
+    /// final-exponentiation precondition. The operation performs no validation
+    /// and allocates nothing. No constant-time guarantee is made.
     #[inline]
     pub fn final_exponentiation(&self) -> Gt {
         unsafe {
@@ -1053,6 +1332,9 @@ impl MillerLoopResult {
     }
 
     /// Borrows the native Fp12 Miller-loop storage without conversion.
+    ///
+    /// The returned Fp12 value is not necessarily in [`Gt`] before final
+    /// exponentiation. It must not be reinterpreted as a target-group value.
     #[inline]
     pub const fn as_raw(&self) -> &blst_fp12 {
         &self.0
@@ -1060,9 +1342,14 @@ impl MillerLoopResult {
 
     /// Wraps a trusted native Miller-loop result without conversion.
     ///
+    /// This constructor performs no nonzero, provenance, or subgroup check.
+    ///
     /// # Safety
     ///
-    /// `raw` must be a nonzero product of valid Miller-loop contributions.
+    /// `raw` must be nonzero and must equal a product of Miller-loop
+    /// contributions computed from G1 and G2 prime-order subgroup points. A
+    /// general Fp12 value does not satisfy this contract merely because it is
+    /// nonzero.
     #[inline]
     pub const unsafe fn from_raw_unchecked(raw: blst_fp12) -> Self {
         Self(raw)
@@ -1109,34 +1396,53 @@ impl MulAssign for MillerLoopResult {
     }
 }
 
-/// A validated element of the BLS12-381 pairing target group.
+/// A validated element of the order-`r` BLS12-381 pairing target group.
 ///
 /// Group operations use the additive conventions familiar from `blstrs` even
-/// though the underlying Fp12 group law is multiplication.
+/// though the underlying Fp12 group law is multiplication. Thus `a + b`
+/// multiplies the Fp12 values, `-a` computes the group inverse, and `a * s`
+/// exponentiates by scalar `s`. [`Default`] and an empty iterator sum return the
+/// target-group identity. Equality compares Fp12 values representing group
+/// elements. Operations allocate nothing.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct Gt(blst_fp12);
 
 impl Gt {
     /// Returns the target-group identity.
+    ///
+    /// Under the underlying Fp12 representation this is the multiplicative
+    /// identity. This operation allocates nothing.
     #[inline]
     pub fn identity() -> Self {
         unsafe { Self(*blst_gt_identity()) }
     }
 
     /// Returns the pairing of the standard G1 and G2 generators.
+    ///
+    /// The returned value is nonidentity and generates the order-`r` target
+    /// group. This operation allocates nothing.
     #[inline]
     pub fn generator() -> Self {
         unsafe { Self(*blst_gt_generator()) }
     }
 
     /// Computes a pairing from validated subgroup points.
+    ///
+    /// This is final exponentiation applied to one Miller-loop contribution.
+    /// The input type invariants satisfy the native curve and subgroup
+    /// preconditions; no additional validation is performed. If either input is
+    /// the identity, the result is [`Gt::identity`]. The operation allocates
+    /// nothing. No constant-time guarantee is made.
     #[inline]
     pub fn pairing(g1: &G1Affine, g2: &G2Affine) -> Self {
         MillerLoopResult::from_pair(g1, g2).final_exponentiation()
     }
 
     /// Borrows the native target-group representation without conversion.
+    ///
+    /// The returned Fp12 value retains the target-group invariant. It is native
+    /// arithmetic storage, not the canonical 576-byte encoding.
     #[inline]
     pub const fn as_raw(&self) -> &blst_fp12 {
         &self.0
@@ -1144,9 +1450,14 @@ impl Gt {
 
     /// Mutably borrows the native target-group representation without conversion.
     ///
+    /// This accessor is intended for a native kernel that writes a target-group
+    /// value into caller-owned storage. It performs no validation, conversion,
+    /// or allocation.
+    ///
     /// # Safety
     ///
-    /// The caller must preserve target-group membership.
+    /// Before the borrow ends, the caller must leave a valid Fp12 element in the
+    /// order-`r` target subgroup. The identity is permitted.
     #[inline]
     pub unsafe fn as_raw_mut(&mut self) -> &mut blst_fp12 {
         &mut self.0
@@ -1154,33 +1465,49 @@ impl Gt {
 
     /// Wraps a native target-group value without conversion.
     ///
+    /// This constructor performs no target-group check or allocation.
+    ///
     /// # Safety
     ///
-    /// `raw` must lie in the BLS12-381 target group.
+    /// `raw` must lie in the order-`r` BLS12-381 target subgroup. The identity
+    /// is permitted. A general Fp12 or unfinalized Miller-loop result does not
+    /// satisfy this precondition.
     #[inline]
     pub const unsafe fn from_raw_unchecked(raw: blst_fp12) -> Self {
         Self(raw)
     }
 
-    /// Returns the native target-group value without conversion.
+    /// Consumes the wrapper and returns its native Fp12 storage.
+    ///
+    /// The returned value retains the target-group invariant but is not the
+    /// canonical wire encoding. This operation allocates nothing.
     #[inline]
     pub const fn into_raw(self) -> blst_fp12 {
         self.0
     }
 
-    /// Returns `true` when this is the target-group identity.
+    /// Returns `true` exactly when this is the target-group identity.
+    ///
+    /// This observation performs no validation and allocates nothing.
     #[inline]
     pub fn is_identity(&self) -> bool {
         unsafe { blst_gt_is_identity(&self.0) }
     }
 
     /// Returns `true` when the underlying Fp12 value lies in the target group.
+    ///
+    /// Safe values already satisfy this property. This method is useful as a
+    /// defensive assertion after unsafe native interoperation; it does not
+    /// alter or re-wrap the value and allocates nothing.
     #[inline]
     pub fn is_in_subgroup(&self) -> bool {
         unsafe { blst_fp12_in_group(&self.0) }
     }
 
-    /// Doubles this target-group element under additive notation.
+    /// Returns `self + self` under additive notation.
+    ///
+    /// Equivalently, this squares the underlying Fp12 element. The result
+    /// remains in the target group and the operation allocates nothing.
     #[inline]
     pub fn double(&self) -> Self {
         unsafe {
@@ -1192,6 +1519,10 @@ impl Gt {
 
     /// Multiplies by a possibly secret scalar using the fixed-width
     /// constant-time target-group entry point.
+    ///
+    /// Under the underlying multiplicative convention this computes `self`
+    /// raised to `scalar`. The scalar is encoded canonically into a 256-bit
+    /// stack buffer before the native call. The operation allocates nothing.
     #[inline]
     pub fn multiply(&self, scalar: &Scalar) -> Self {
         let encoded = scalar.to_bytes_le();
@@ -1203,6 +1534,11 @@ impl Gt {
     }
 
     /// Multiplies by a public scalar using the variable-time entry point.
+    ///
+    /// Under the underlying multiplicative convention this computes `self`
+    /// raised to `scalar`, using a fixed 256-bit canonical scalar encoding.
+    /// `scalar` must be public because execution time and memory access may
+    /// depend on it. The operation allocates nothing.
     #[inline]
     pub fn multiply_vartime(&self, scalar: &Scalar) -> Self {
         let encoded = scalar.to_bytes_le();
@@ -1220,6 +1556,11 @@ impl Gt {
 
     /// Encodes this target-group element as twelve canonical 48-byte
     /// big-endian base-field elements.
+    ///
+    /// Category-blst orders the coefficients by Fp2 index, then Fp6 half, then
+    /// base-field component. This order is part of the CatBLST wire contract;
+    /// it need not match an in-memory `blst_fp12` traversal. The identity is
+    /// encodable. The operation allocates nothing.
     #[inline]
     pub fn to_bytes_be(&self) -> [u8; 576] {
         unsafe {
@@ -1231,9 +1572,14 @@ impl Gt {
 
     /// Strictly decodes the canonical 576-byte target-group representation.
     ///
-    /// Each Fp coefficient is re-encoded to reject values at least the base
-    /// field modulus, and the assembled Fp12 value is checked for target-group
-    /// membership.
+    /// The coefficient order is Fp2 index, then Fp6 half, then base-field
+    /// component, matching [`Gt::to_bytes_be`]. Each coefficient is re-encoded
+    /// to reject integers at least the base-field modulus. A noncanonical
+    /// coefficient returns [`BLST_ERROR::BLST_BAD_ENCODING`]. An assembled Fp12
+    /// value outside the target group returns
+    /// [`BLST_ERROR::BLST_POINT_NOT_IN_GROUP`]. The identity is accepted.
+    /// Failure exposes no partially decoded value, and the operation allocates
+    /// nothing.
     pub fn from_bytes_be(encoded: &[u8; 576]) -> Result<Self, BLST_ERROR> {
         let mut raw = blst_fp12 {
             fp6: [blst_fp6::default(), blst_fp6::default()],
@@ -1428,16 +1774,24 @@ impl<'a> Sum<&'a Gt> for Gt {
 }
 
 /// Computes the pairing of validated affine subgroup points.
+///
+/// This is equivalent to [`Gt::pairing`], including its input invariants,
+/// identity behavior, timing scope, and allocation behavior.
 #[inline]
 pub fn pairing(g1: &G1Affine, g2: &G2Affine) -> Gt {
     Gt::pairing(g1, g2)
 }
 
-/// Shape errors reported by allocation-free batched pairing helpers.
+/// Shape errors reported before an allocation-free batched pairing call.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PairingError {
-    /// G1 and G2 slices must contain the same number of points.
-    LengthMismatch { g1: usize, g2: usize },
+    /// The G1 and G2 slices contain different numbers of points.
+    LengthMismatch {
+        /// Number of G1 inputs supplied by the caller.
+        g1: usize,
+        /// Number of G2 inputs supplied by the caller.
+        g2: usize,
+    },
 }
 
 #[cfg(test)]
