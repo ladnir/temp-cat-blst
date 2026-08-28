@@ -141,15 +141,19 @@ dense field values. It also checks assignment over one input object. The full
 native suite passes with both Clang 21 and GCC 15. Four BTX vector tests remain
 skipped because the external vector file was not configured.
 
-The existing `AVX-P3-002` theorem proves the twelve multiplication polynomials
-and each coordinate's reduction. The split changes only their evaluation and
-publication schedule. `Fp12Raw.lean` and `Fp12.lean` type-check unchanged.
-Exact-source correspondence still requires rebinding the rows that name
-`fp12.h` to the final commit and source hash. Until that gate passes, this
-section records implementation and selection evidence; it does not claim a new
-exact-source proof acceptance. The repository-wide correspondence validator
-also encounters older hash drift before it reaches the Fp12 rows. Repairing
-that broader ledger is a separate audit task.
+`Fp12Raw.lean` now models the two six-coordinate writers and their ordered
+join. Its existing arithmetic theorem therefore proves the source-shaped split
+against field multiplication. The module also proves the per-coordinate
+offset decomposition and reduction bounds after the split.
+
+Rows `AVX-P3-002` through `AVX-P3-005` and `AVX-P3-008` are rebound to
+implementation commit `8201c0878cc2b089b24965d628046533dfc4cd9f` and the
+canonical `fp12.h` SHA-256
+`be62dbd214d212dfdf2befea59e631691907043b52bf660e361e25e9014d7be6`.
+The focused source-shaped module type-checks. The full correspondence validator
+still encounters eight unrelated stale mappings in five curve, GT, GLV4, and
+MSM rows. `AUD-402` tracks those mappings; they were not accepted during this
+Fp12 repair.
 
 ## Cyclotomic split follow-up
 

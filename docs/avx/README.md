@@ -105,8 +105,9 @@ incumbent and 5.3% faster than VROOM. After splitting the register-heavy
 MatrixNoK cyclotomic square, full pairing is 21.2% faster than the incumbent
 and 5.5% faster than VROOM. Performance selection and arithmetic proof are
 complete through the retained Miller construction. MatrixNoK is now
-production-selected. Exact-source correspondence is current; native
-reexecution remains release evidence.
+production-selected. The Fp12 exact-source rows are current. `AUD-402` tracks
+unrelated stale curve, GT, GLV4, and MSM mappings in the repository-wide gate;
+native reexecution remains release evidence.
 
 ## Completed project packets
 

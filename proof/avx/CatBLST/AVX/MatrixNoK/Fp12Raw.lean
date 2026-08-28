@@ -23,9 +23,10 @@ def packFlatFp12 {R : Type*} (x : FlatFp12 R) : Fp12Value R :=
   ⟨⟨⟨x 0, x 1⟩, ⟨x 2, x 3⟩, ⟨x 4, x 5⟩⟩,
    ⟨⟨x 6, x 7⟩, ⟨x 8, x 9⟩, ⟨x 10, x 11⟩⟩⟩
 
-/-- Literal grouping and operation order of C++ `fp12_flat_mul`. -/
-def cppFp12LiteralMul {R : Type*} [CommRing R]
-    (offset : R) (x y : FlatFp12 R) : FlatFp12 R :=
+/-- Literal grouping and operation order of C++
+`fp12_flat_mul_first_split`. -/
+def cppFp12LiteralMulFirstSplit {R : Type*} [CommRing R]
+    (offset : R) (x y : FlatFp12 R) : Fin 6 → R :=
   let minusY1 := -y 1
   let minusY3 := -y 3
   let minusY5 := -y 5
@@ -44,14 +45,6 @@ def cppFp12LiteralMul {R : Type*} [CommRing R]
     x 10 * y 9 + x 11 * y 8
   let pos4 := offset + x 10 * y 10 + x 11 * minusY11
   let neg4 := x 10 * y 11 + x 11 * y 10
-  let pos6 := offset + x 2 * y 10 + x 3 * minusY11 + x 4 * y 8 +
-    x 5 * minusY9 + x 8 * y 4 + x 9 * minusY5 + x 10 * y 2 +
-    x 11 * minusY3
-  let neg6 := x 2 * y 11 + x 3 * y 10 + x 4 * y 9 + x 5 * y 8 +
-    x 8 * y 5 + x 9 * y 4 + x 10 * y 3 + x 11 * y 2
-  let pos8 := offset + x 4 * y 10 + x 5 * minusY11 + x 10 * y 4 +
-    x 11 * minusY5
-  let neg8 := x 4 * y 11 + x 5 * y 10 + x 10 * y 5 + x 11 * y 4
   ![
     pos0 - neg0 + x 0 * y 0 + x 1 * minusY1,
     pos0 + neg0 + x 0 * y 1 + x 1 * y 0,
@@ -64,7 +57,27 @@ def cppFp12LiteralMul {R : Type*} [CommRing R]
       x 7 * minusY9 + x 8 * y 6 + x 9 * minusY7,
     pos4 + neg4 + x 0 * y 5 + x 1 * y 4 + x 2 * y 3 + x 3 * y 2 +
       x 4 * y 1 + x 5 * y 0 + x 6 * y 9 + x 7 * y 8 + x 8 * y 7 +
-      x 9 * y 6,
+      x 9 * y 6]
+
+/-- Literal grouping and operation order of C++
+`fp12_flat_mul_second_split`. -/
+def cppFp12LiteralMulSecondSplit {R : Type*} [CommRing R]
+    (offset : R) (x y : FlatFp12 R) : Fin 6 → R :=
+  let minusY1 := -y 1
+  let minusY3 := -y 3
+  let minusY5 := -y 5
+  let minusY7 := -y 7
+  let minusY9 := -y 9
+  let minusY11 := -y 11
+  let pos6 := offset + x 2 * y 10 + x 3 * minusY11 + x 4 * y 8 +
+    x 5 * minusY9 + x 8 * y 4 + x 9 * minusY5 + x 10 * y 2 +
+    x 11 * minusY3
+  let neg6 := x 2 * y 11 + x 3 * y 10 + x 4 * y 9 + x 5 * y 8 +
+    x 8 * y 5 + x 9 * y 4 + x 10 * y 3 + x 11 * y 2
+  let pos8 := offset + x 4 * y 10 + x 5 * minusY11 + x 10 * y 4 +
+    x 11 * minusY5
+  let neg8 := x 4 * y 11 + x 5 * y 10 + x 10 * y 5 + x 11 * y 4
+  ![
     pos6 - neg6 + x 0 * y 6 + x 1 * minusY7 + x 6 * y 0 +
       x 7 * minusY1,
     pos6 + neg6 + x 0 * y 7 + x 1 * y 6 + x 6 * y 1 + x 7 * y 0,
@@ -80,13 +93,29 @@ def cppFp12LiteralMul {R : Type*} [CommRing R]
       x 5 * y 6 + x 6 * y 5 + x 7 * y 4 + x 8 * y 3 + x 9 * y 2 +
       x 10 * y 1 + x 11 * y 0]
 
+/-- Join the two disjoint six-coordinate output regions written by the C++
+dense-multiplication helpers. -/
+def cppFp12LiteralMulJoin {R : Type*}
+    (first second : Fin 6 → R) : FlatFp12 R :=
+  ![first 0, first 1, first 2, first 3, first 4, first 5,
+    second 0, second 1, second 2, second 3, second 4, second 5]
+
+/-- Literal grouping, split ownership, and operation order of C++
+`fp12_flat_mul`. -/
+def cppFp12LiteralMul {R : Type*} [CommRing R]
+    (offset : R) (x y : FlatFp12 R) : FlatFp12 R :=
+  cppFp12LiteralMulJoin
+    (cppFp12LiteralMulFirstSplit offset x y)
+    (cppFp12LiteralMulSecondSplit offset x y)
+
 theorem cpp_fp12_literal_mul_packs {R : Type*} [CommRing R]
     (x y : FlatFp12 R) :
     packFlatFp12 (cppFp12LiteralMul 0 x y) =
       cppFp12FlatMul (packFlatFp12 x) (packFlatFp12 y) := by
   ext <;>
-    simp [packFlatFp12, cppFp12LiteralMul, cppFp12FlatMul, fp2Sum5,
-      fp2Sum6, Fp2Value.add, Fp2Value.mul,
+    simp [packFlatFp12, cppFp12LiteralMul, cppFp12LiteralMulJoin,
+      cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit,
+      cppFp12FlatMul, fp2Sum5, fp2Sum6, Fp2Value.add, Fp2Value.mul,
       Fp2Value.mulByNonresidue] <;>
     ring
 
@@ -169,7 +198,9 @@ theorem cpp_fp12_literal_mul_offset_decomposition
       cppFp12LiteralMul 0 x y index +
         fp12MulOffsetMultiplicity index * offset := by
   fin_cases index <;>
-    simp [cppFp12LiteralMul, fp12MulOffsetMultiplicity] <;>
+    simp [cppFp12LiteralMul, cppFp12LiteralMulJoin,
+      cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit,
+      fp12MulOffsetMultiplicity] <;>
     ring
 
 theorem cpp_fp12_literal_square_offset_decomposition

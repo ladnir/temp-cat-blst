@@ -86,7 +86,8 @@ theorem cpp_fp12_literal_mulxy00z0_matches_dense
   funext index
   fin_cases index <;>
     simp [cppFp12LiteralMulXY00Z0, cppFp12LiteralMul,
-      sparseMillerLineFlat]
+      cppFp12LiteralMulJoin, cppFp12LiteralMulFirstSplit,
+      cppFp12LiteralMulSecondSplit, sparseMillerLineFlat]
 
 theorem cpp_fp12_literal_mulxy00z0_packs
     {R : Type*} [CommRing R] (x : FlatFp12 R)

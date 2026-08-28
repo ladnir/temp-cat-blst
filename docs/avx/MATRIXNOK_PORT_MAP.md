@@ -181,8 +181,9 @@ coordinate-wise reductions while reducing compiler spill traffic.
 Raw measurements cover all `1` and `6` operand-bound combinations under Clang
 21 and GCC 15. Every combination improves by 8.7%--10.7%. Final exponentiation,
 prepared pairing, direct pairing, and complete BTX middle-product consumers
-also improve. Exact code-generation, benchmark, differential, and residual
-proof-rebinding evidence is recorded in `FP12_EVIDENCE.md` and `AUD-401`.
+also improve. Exact code-generation, benchmark, differential, and
+source-correspondence evidence is recorded in `FP12_EVIDENCE.md` and
+`AUD-401`. Unrelated repository-wide ledger drift is tracked by `AUD-402`.
 
 ## G2 candidate packet
 

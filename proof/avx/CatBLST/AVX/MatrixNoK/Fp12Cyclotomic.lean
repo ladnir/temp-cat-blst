@@ -44,7 +44,8 @@ theorem cyclotomic_residual_coordinate0
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   rw [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1]
   ring_nf
@@ -59,7 +60,8 @@ theorem cyclotomic_residual_coordinate1
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   rw [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1]
   ring_nf
@@ -74,7 +76,8 @@ theorem cyclotomic_residual_coordinate2
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   rw [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1]
   ring_nf
@@ -92,7 +95,8 @@ theorem cyclotomic_residual_coordinate3
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   rw [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1]
   ring_nf
@@ -110,7 +114,8 @@ theorem cyclotomic_residual_coordinate4
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.2]
@@ -129,7 +134,8 @@ theorem cyclotomic_residual_coordinate5
     cppFp12CyclotomicFirstPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [cyclotomic_fraction_facts.2,
     frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.2]
@@ -148,7 +154,8 @@ theorem cyclotomic_residual_coordinate6
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.1,
     frobenius2_coefficient_linear_facts.2.2]
@@ -167,7 +174,8 @@ theorem cyclotomic_residual_coordinate7
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.1,
     frobenius2_coefficient_linear_facts.2.2]
@@ -186,7 +194,8 @@ theorem cyclotomic_residual_coordinate8
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1]
   ring_nf
   linear_combination (2 * x 8) * cyclotomic_fraction_facts.1
@@ -200,7 +209,8 @@ theorem cyclotomic_residual_coordinate9
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1]
   ring_nf
   linear_combination (2 * x 9) * cyclotomic_fraction_facts.1
@@ -214,7 +224,8 @@ theorem cyclotomic_residual_coordinate10
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.2]
   ring_nf
@@ -232,7 +243,8 @@ theorem cyclotomic_residual_coordinate11
     cppFp12CyclotomicSecondPolynomials, cppFp12LiteralSquare,
     cyclotomicResidualCorrection, cyclotomicPredicateResidual,
     cppFp12Frobenius2Flat, cppFp12Frobenius4Flat,
-    cppFp12LiteralMul]
+    cppFp12LiteralMul, cppFp12LiteralMulJoin,
+    cppFp12LiteralMulFirstSplit, cppFp12LiteralMulSecondSplit]
   simp only [frobenius2_coefficient_linear_facts.1,
     frobenius2_coefficient_linear_facts.2.2]
   ring_nf
