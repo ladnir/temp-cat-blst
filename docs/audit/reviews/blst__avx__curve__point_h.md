@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/avx/curve/point.h` |
 | Roadmap phase / queue | Phase 16 AVX curves and protocols |
-| Reviewed commit | `5e4ab8dec6acbbfc117713f62a0f789676c9fd4c` |
+| Reviewed commit | `713a012583657102c29a4287783585f822baecc7` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-06 |
+| Date | 2026-08-28 |
 | Disposition | in-scope production |
 | Subsystem | AVX G1/G2 point representation, arithmetic, encoding, validation, and signing |
 | Profiles | portable AVX Debug, scalar-default C/C++, AVX-default C/C++, native AVX-512/IFMA Release |
@@ -207,3 +207,37 @@ native AVX-512/IFMA optimized code generation and runtime evidence. Sanitizer,
 fuzz, statistical-leakage, and broad release matrices remain subsystem gates;
 they do not reopen the completed line-by-line review. Apple is a supported
 scalar platform and does not compile this x86 AVX owner. No benchmark was run.
+
+## 2026-08-28 native validation, codec, and batch-normalization addendum
+
+Commits `4e5a47a5` and `40ac7710` replace whole-point scalar fallbacks with
+native equality, curve equations, subgroup relations, and canonical codecs.
+For homogeneous storage, the native projective checks evaluate
+`Y^2 Z = X^3 + b Z^3`; every zero-Z representation remains infinity. The G1
+membership check evaluates `sigma^2(P) = -[z^2]P`, and the G2 check evaluates
+`psi(P) = -[z]P`. The accepted `CurveMembership` chain proves that each
+relation implies prime-order membership under the concrete BLS12-381
+hypotheses recorded by `AUD-231`. Affine entry points first check the curve
+equation and then apply the same projective relation.
+
+Canonical serialization is deliberately a representation boundary. Each
+native field coordinate is converted to canonical scalar-field limbs only for
+sign selection or big-endian output. Decoding rejects noncanonical field
+elements before conversion to native storage, reconstructs compressed Y, and
+publishes output only after all checks succeed. G1 and G2 encodings retain the
+scalar CatBLST byte order and infinity flags, so scalar-only nodes remain wire
+compatible.
+
+Commit `713a0125` adds caller-buffered batch normalization for public G1 and G2
+points. The forward pass stores prefix products and skips zero-Z inputs; the
+reverse pass uses one variable-time inversion and emits the all-zero affine
+infinity for each skipped input. Output and input lengths must match, and the
+workspace must contain at least one field element per input. No allocation or
+global scratch is introduced.
+
+On Peach, Clang 21.1.8 passes 43 focused native tests covering point contracts,
+both batch-normalization paths, single-point multiplication, MSM, and the C
+boundary. The Rust typed G1/G2 round-trip matches scalar wire encodings. Direct
+compilation of `CurveMembershipCardinality` imports and checks the complete
+operation, group bridge, generator, dispatch, and membership proof chain.
+`AVX-P4-002` and `AVX-P4-003` are rebound to the exact current `point.h` owner.

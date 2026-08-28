@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/avx/curve/scalar_mult.h` |
 | Roadmap phase / queue | Phase 16 AVX-512, reviewed early with the Phase 14 group-multiplication trust chain |
-| Reviewed commit | `b6d832c421b8c569955db12941204df0e71d7972` |
+| Reviewed commit | `beac042bc08949d1abd51c2ca4f3d728b98ff46d` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-04 |
+| Date | 2026-08-28 |
 | Disposition | in-scope production; review complete; cross-file `AUD-091` caller and `AUD-218` stack ownership remediated |
 | Subsystem | AVX G1/G2 fixed-window and variable-time GLV/GLS multiplication |
 | Profiles | portable AVX Debug and native AVX-512/IFMA Release |
@@ -262,6 +262,11 @@ the disassembly contains no scalar-derived branch or scalar-derived table
 address. This is a code-generation check for the selected compiler, not a
 replacement for statistical leakage testing.
 
+`TODO(AVX-formal: G1-CT-MSM-01)`: connect the already-proved GLV split, Booth
+recoding, endomorphism sign convention, and complete point addition to the
+bounded shared-doubling executor. The current correspondence row continues to
+claim only the accepted single-point CT/VT paths until that theorem is added.
+
 ## 2026-08-27 public G1 MSM addendum
 
 Public G1 MSM now has a fixed-batch GLV wNAF-5 executor. Each input scalar is
@@ -289,3 +294,11 @@ stabilize, add Lean validation of the GLV split, signed wNAF reconstruction,
 endomorphism sign convention, and shared-doubling accumulation. The current
 packet has differential, sanitizer, and fuzz evidence but does not claim a
 formal proof of this new executor.
+
+The `AVX-P4-003` rebind records both batch executors as explicit residuals.
+The mapped single-point GLV/GLS split, Booth/wNAF executors, and selected
+dispatch bodies are byte-for-byte unchanged from their accepted owners. On
+Peach, 43 focused native curve/scalar tests pass, and the Rust secret and public
+G1 MSM differentials pass across their dispatch boundaries. Direct compilation
+of `CurveMembershipCardinality` checks the imported scalar-split, Booth, wNAF,
+endomorphism, complete-operation, and single-point dispatch proof chain.
