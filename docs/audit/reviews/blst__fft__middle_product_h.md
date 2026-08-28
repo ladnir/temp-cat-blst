@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/fft/middle_product.h` |
 | Roadmap phase / queue | Phase 17 Packet 17J |
-| Reviewed implementation commit | `9e4ec59ff3ecf77a11c73688f47e3c9cc91c8ed9` |
+| Reviewed implementation commit | `e54bf0a4b4f84a5b5b6d50a1326414d5a1c85713` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-11 |
+| Date | 2026-08-28 |
 | Disposition | `in_scope_production` |
 | Subsystem | Pairing middle product, FFT and direct multipair algorithms |
 | Profiles | scalar, selected native AVX-512, and portable-AVX Debug emulation |
@@ -111,8 +111,8 @@ becomes a capacity comparison after warm-up.
 
 ## Findings
 
-`AUD-088`, `AUD-277`, `AUD-282` through `AUD-291`, `AUD-303`, `AUD-311`, and
-`AUD-312`.
+`AUD-088`, `AUD-277`, `AUD-282` through `AUD-291`, `AUD-303`, `AUD-311`,
+`AUD-312`, and `AUD-404`.
 
 ## Validation
 
@@ -147,3 +147,57 @@ count, eliminating the possibility of caller divergence without changing FFT
 arithmetic, dispatch, thresholds, allocation publication, or output behavior.
 The Packet 17K four-test scalar/AVX differential and invariant set passes, and
 the containing-file completion remains valid at this delta commit.
+
+## Native AVX pointwise-pairing adoption addendum
+
+Implementation commit `713a012583657102c29a4287783585f822baecc7`
+changed the native AVX FFT middle product in two connected ways. It batch
+normalizes the transformed G1 operand once per evaluation, and it batch
+normalizes and prepares the transformed G2 operand once per immutable
+precompute. Each pointwise product then evaluates one affine G1 point against
+the corresponding prepared G2 line table. Scalar middle product retains the
+direct projective pairing path.
+
+Policy commit `e54bf0a4b4f84a5b5b6d50a1326414d5a1c85713` makes the
+AVX choice an explicit compile-time production policy rather than a runtime
+option. The generic implementation still contains both branches because its
+scalar specialization selects the direct branch; the AVX context selects only
+prepared batch-affine pointwise pairing. A compile-time assertion guards that
+policy. There is no dynamic dispatch, per-call algorithm flag, or additional
+hot-loop allocation.
+
+### General-purpose A/B evidence
+
+The A/B used exact source commit `0fb92c8f`, except that the control build
+changed only `AvxMiddleProductContext::batch_affine_pointwise` from `true` to
+`false`. Both builds used Clang 21.1.8 in Release mode on Peach's Ryzen 9 7950X
+and were pinned to CPU 2. Criterion used ten samples after a 500 ms warm-up.
+Three complete runs were serialized; the third reversed the variant order to
+check order and thermal bias. The table reports the arithmetic mean of the
+three Criterion point estimates.
+
+| Input length | Prepared batch-affine | Direct projective | Prepared advantage |
+| ---: | ---: | ---: | ---: |
+| 16 | 6.213 ms | 6.809 ms | 8.76% |
+| 32 | 14.172 ms | 15.373 ms | 7.81% |
+| 64 | 31.954 ms | 34.357 ms | 6.99% |
+| 128 | 71.269 ms | 76.042 ms | 6.28% |
+| 256 | 157.423 ms | 166.890 ms | 5.67% |
+
+The prepared route won every individual A/B run at every tested length. In the
+reversed-order run it retained advantages of 8.94%, 7.96%, 7.14%, 6.40%, and
+5.77% from length 16 through 256. This supports general native-AVX adoption,
+not merely the original BTX batch sizes. The diminishing percentage is
+consistent with normalization and line preparation removing a bounded share
+of total FFT and pairing work as the transform grows.
+
+The decision is therefore to retain prepared batch-affine pointwise pairing as
+the sole production native AVX FFT path. The direct projective implementation
+is not deleted because it remains the scalar specialization. Results are
+deployment-CPU evidence, not a universal microarchitecture guarantee; a future
+AVX implementation change must repeat the same serialized forced-path A/B
+before changing this policy.
+
+The exact policy header rebuilds with Peach Clang 21.1.8, and all 11 focused
+Release Rust middle-product tests pass with native AVX enabled. The policy
+commit changes no arithmetic, allocation, transform shape, or runtime branch.

@@ -1409,3 +1409,12 @@ bindings. Regenerating the complete inventory also exposes a pre-existing
 backlog of 156 earlier safe Rust/AVX methods that are absent from the checked-in
 safe-API snapshot; resolving that broader inventory debt is a separate audit
 follow-up, not part of this MSM packet.
+
+Native AVX FFT middle product now records general-purpose forced-path evidence
+for its prepared batch-affine pointwise algorithm. Three serialized Peach
+Clang 21 Release A/B runs, including reversed order, show mean improvements of
+8.76%, 7.81%, 6.99%, 6.28%, and 5.67% at lengths 16, 32, 64, 128, and 256.
+`AUD-404` is validated. Prepared pointwise pairing is the compile-time
+production AVX policy, guarded by `static_assert`; direct projective pointwise
+pairing remains only in the scalar specialization. No runtime selector or hot
+path allocation was added.
