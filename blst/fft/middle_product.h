@@ -457,6 +457,9 @@ namespace blst {
             using GtFftElement = avx::AvxGtElement;
             using PreparedInverseRoots = avx::AvxGtPreparedRoots;
             using PreparedLineTable = avx::PreparedLineTable;
+            // Production AVX policy: normalize each transformed batch once and
+            // use prepared G2 lines for every pointwise pairing. This is a
+            // compile-time backend property, not a runtime tuning switch.
             static constexpr bool batch_affine_pointwise = true;
 
             static G1Point g1_infinity()
@@ -978,6 +981,9 @@ namespace blst {
     using MiddleProductScalarContext = detail::ScalarMiddleProductContext;
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     using MiddleProductAvxContext = detail::AvxMiddleProductContext;
+    static_assert(
+        MiddleProductAvxContext::batch_affine_pointwise,
+        "the production AVX middle product requires prepared batch-affine pointwise pairing");
 #endif
     using MiddleProductDefaultContext = detail::DefaultMiddleProductContext;
 
