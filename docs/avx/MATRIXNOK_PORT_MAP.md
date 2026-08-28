@@ -171,6 +171,19 @@ invented in this packet: the test imports an independently computed inverse.
 The candidate remained isolated at this point. Later packets completed the
 inversion, G2, Miller, pairing, proof, and production-selection gates.
 
+## Selected dense Fp12 multiplication
+
+The selected owner now evaluates dense multiplication in two fixed
+six-coordinate helpers. This schedule replaces the monolithic owner; it is not
+an optional BTX path. The split preserves the accepted twelve polynomials and
+coordinate-wise reductions while reducing compiler spill traffic.
+
+Raw measurements cover all `1` and `6` operand-bound combinations under Clang
+21 and GCC 15. Every combination improves by 8.7%--10.7%. Final exponentiation,
+prepared pairing, direct pairing, and complete BTX middle-product consumers
+also improve. Exact code-generation, benchmark, differential, and residual
+proof-rebinding evidence is recorded in `FP12_EVIDENCE.md` and `AUD-401`.
+
 ## G2 candidate packet
 
 `matrixnok_g2.h` applies the existing GLS executor to a production-shaped,

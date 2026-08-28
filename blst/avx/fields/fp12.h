@@ -141,9 +141,24 @@ class FP12Ring {
 
 	Polynomial 11(12) : 1 x0y11 +1 x1y10 +1 x2y9 +1 x3y8 +1 x4y7 +1 x5y6 +1 x6y5 +1 x7y4 +1 x8y3 +1 x9y2 +1 x10y1 +1 x11y0
 	*/
-	
+
+	private:
+	// Compute one six-coordinate half of a dense Fp12 product at a time. The
+	// split is algebraically neutral: together the helpers evaluate the twelve
+	// polynomials above. Keeping the two reduction batches in separate
+	// non-inlined frames bounds the live AVX-512 state and prevents the compiler
+	// from spilling the monolithic polynomial schedule excessively.
+	//
+	// Preconditions: x and y contain valid Fp12 values satisfying their stated
+	// compile-time bounds. result is fresh storage and does not alias either
+	// input. Each helper writes only its named half of result. The schedule is
+	// fixed-shape, allocation-free, and does not inspect field values.
 	template<int64_t N1, int64_t N2>
-	inline auto fp12_flat_mul(const CommonElement<N1> &x, const CommonElement<N2> &y, const Ring &ring) const {
+	BLST_AVX_FP12_NOINLINE void fp12_flat_mul_first_split(
+		StandardElement& result,
+		const CommonElement<N1>& x,
+		const CommonElement<N2>& y,
+		const Ring& ring) const {
 		const auto offset = Constants::offset();
 		auto minus_y1 = ring.negate(y[1]);
 		auto minus_y3 = ring.negate(y[3]);
@@ -151,36 +166,82 @@ class FP12Ring {
 		auto minus_y7 = ring.negate(y[7]);
 		auto minus_y9 = ring.negate(y[9]);
 		auto minus_y11 = ring.negate(y[11]);
-		// 0 1
+
 		auto poly_0_pos_shared = offset + x[2] * y[4] + x[3] * minus_y5 + x[4] * y[2] + x[5] * minus_y3 + x[6] * y[10] + x[7] * minus_y11 + x[8] * y[8] + x[9] * minus_y9 + x[10] * y[6] + x[11] * minus_y7;
 		auto poly_0_neg_shared = x[2] * y[5] + x[3] * y[4] + x[4] * y[3] + x[5] * y[2] + x[6] * y[11] + x[7] * y[10] + x[8] * y[9] + x[9] * y[8] + x[10] * y[7] + x[11] * y[6];
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * y[0] + x[1] * minus_y1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + x[0] * y[1] + x[1] * y[0];
-		// 2 3
 		auto poly_2_pos_shared = offset + x[4] * y[4] + x[5] * minus_y5 + x[8] * y[10] + x[9] * minus_y11 + x[10] * y[8] + x[11] * minus_y9;
 		auto poly_2_neg_shared = x[4] * y[5] + x[5] * y[4] + x[8] * y[11] + x[9] * y[10] + x[10] * y[9] + x[11] * y[8];
 		auto poly_2_unique = poly_2_pos_shared - poly_2_neg_shared + x[0] * y[2] + x[1] * minus_y3 + x[2] * y[0] + x[3] * minus_y1 + x[6] * y[6] + x[7] * minus_y7;
 		auto poly_3_unique = poly_2_pos_shared + poly_2_neg_shared + x[0] * y[3] + x[1] * y[2] + x[2] * y[1] + x[3] * y[0] + x[6] * y[7] + x[7] * y[6];
-		// 4 5
 		auto poly_4_pos_shared = offset + x[10] * y[10] + x[11] * minus_y11;
 		auto poly_4_neg_shared = x[10] * y[11] + x[11] * y[10];
 		auto poly_4_unique = poly_4_pos_shared - poly_4_neg_shared + x[0] * y[4] + x[1] * minus_y5 + x[2] * y[2] + x[3] * minus_y3 + x[4] * y[0] + x[5] * minus_y1 + x[6] * y[8] + x[7] * minus_y9 + x[8] * y[6] + x[9] * minus_y7;
 		auto poly_5_unique = poly_4_pos_shared + poly_4_neg_shared + x[0] * y[5] + x[1] * y[4] + x[2] * y[3] + x[3] * y[2] + x[4] * y[1] + x[5] * y[0] + x[6] * y[9] + x[7] * y[8] + x[8] * y[7] + x[9] * y[6];
-		// 6 7
+
+		const auto expanded = ring.batch_reduce_expand(
+			poly_0_unique, poly_1_unique, poly_2_unique,
+			poly_3_unique, poly_4_unique, poly_5_unique);
+		result[0] = expanded[0];
+		result[1] = expanded[1];
+		result[2] = expanded[2];
+		result[3] = expanded[3];
+		result[4] = expanded[4];
+		result[5] = expanded[5];
+	}
+
+	template<int64_t N1, int64_t N2>
+	BLST_AVX_FP12_NOINLINE void fp12_flat_mul_second_split(
+		StandardElement& result,
+		const CommonElement<N1>& x,
+		const CommonElement<N2>& y,
+		const Ring& ring) const {
+		const auto offset = Constants::offset();
+		auto minus_y1 = ring.negate(y[1]);
+		auto minus_y3 = ring.negate(y[3]);
+		auto minus_y5 = ring.negate(y[5]);
+		auto minus_y7 = ring.negate(y[7]);
+		auto minus_y9 = ring.negate(y[9]);
+		auto minus_y11 = ring.negate(y[11]);
+
 		auto poly_6_pos_shared = offset + x[2] * y[10] + x[3] * minus_y11 + x[4] * y[8] + x[5] * minus_y9 + x[8] * y[4] + x[9] * minus_y5 + x[10] * y[2] + x[11] * minus_y3;
 		auto poly_6_neg_shared = x[2] * y[11] + x[3] * y[10] + x[4] * y[9] + x[5] * y[8] + x[8] * y[5] + x[9] * y[4] + x[10] * y[3] + x[11] * y[2];
 		auto poly_6_unique = poly_6_pos_shared - poly_6_neg_shared + x[0] * y[6] + x[1] * minus_y7 + x[6] * y[0] + x[7] * minus_y1;
 		auto poly_7_unique = poly_6_pos_shared + poly_6_neg_shared + x[0] * y[7] + x[1] * y[6] + x[6] * y[1] + x[7] * y[0];
-		// 8 9
 		auto poly_8_pos_shared = offset + x[4] * y[10] + x[5] * minus_y11 + x[10] * y[4] + x[11] * minus_y5;
 		auto poly_8_neg_shared = x[4] * y[11] + x[5] * y[10] + x[10] * y[5] + x[11] * y[4];
 		auto poly_8_unique = poly_8_pos_shared - poly_8_neg_shared + x[0] * y[8] + x[1] * minus_y9 + x[2] * y[6] + x[3] * minus_y7 + x[6] * y[2] + x[7] * minus_y3 + x[8] * y[0] + x[9] * minus_y1;
 		auto poly_9_unique = poly_8_pos_shared + poly_8_neg_shared + x[0] * y[9] + x[1] * y[8] + x[2] * y[7] + x[3] * y[6] + x[6] * y[3] + x[7] * y[2] + x[8] * y[1] + x[9] * y[0];
-		// 10 11
 		auto poly_10_unique = x[0] * y[10] + x[1] * minus_y11 + x[2] * y[8] + x[3] * minus_y9 + x[4] * y[6] + x[5] * minus_y7 + x[6] * y[4] + x[7] * minus_y5 + x[8] * y[2] + x[9] * minus_y3 + x[10] * y[0] + x[11] * minus_y1;
 		auto poly_11_unique = x[0] * y[11] + x[1] * y[10] + x[2] * y[9] + x[3] * y[8] + x[4] * y[7] + x[5] * y[6] + x[6] * y[5] + x[7] * y[4] + x[8] * y[3] + x[9] * y[2] + x[10] * y[1] + x[11] * y[0];
-		return ring.batch_reduce_expand(poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
+
+		const auto expanded = ring.batch_reduce_expand(
+			poly_6_unique, poly_7_unique, poly_8_unique,
+			poly_9_unique, poly_10_unique, poly_11_unique);
+		result[6] = expanded[0];
+		result[7] = expanded[1];
+		result[8] = expanded[2];
+		result[9] = expanded[3];
+		result[10] = expanded[4];
+		result[11] = expanded[5];
 	}
+
+	public:
+	// Return x * y in Fp12. Inputs must be valid CommonElement values satisfying
+	// their declared bounds. The returned value is fully reduced and expanded;
+	// the operation is fixed-shape and allocation-free.
+	template<int64_t N1, int64_t N2>
+	inline StandardElement fp12_flat_mul(
+		const CommonElement<N1>& x,
+		const CommonElement<N2>& y,
+		const Ring& ring) const {
+		StandardElement result;
+		fp12_flat_mul_first_split(result, x, y, ring);
+		fp12_flat_mul_second_split(result, x, y, ring);
+		return result;
+	}
+
 	/* 
 	Polynomial 0(10) : 1 x0y0 -1 x1y1 +1 x4y2 -1 x4y3 -1 x5y2 -1 x5y3 +1 x8y4 -1 x8y5 -1 x9y4 -1 x9y5
 

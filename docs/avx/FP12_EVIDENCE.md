@@ -80,6 +80,77 @@ multiply. The cyclotomic primitive and 1,024-element FFT remain outside the
 preferred 2% VROOM tolerance and are recorded as residual optimization work;
 they do not invalidate the correctness or the decision to continue the port.
 
+## Dense multiplication split follow-up
+
+The selected dense multiplication originally evaluated all twelve output
+polynomials in one function. Clang and GCC retained too many intermediate AVX
+values at once. The resulting stack traffic remained material after the
+MatrixNoK backend became the production owner.
+
+The retained candidate evaluates coordinates 0--5 and 6--11 in two fixed,
+non-inlined helpers. Each helper writes directly into its half of one fresh
+`StandardElement`. The wrapper returns that object after both calls. The
+formulas, coordinate order, offsets, and coordinate-wise reductions are
+unchanged. The helpers allocate no memory and branch on no field value.
+
+For the Clang 21 `<6,1>` instantiation, the monolithic body used about 14.4 KiB
+of text, a 4,352-byte frame, and 521 stack-pointer references. The two helpers
+use about 11.5 KiB of text in total. Their frames are 960 and 1,344 bytes, with
+54 and 62 stack-pointer references.
+
+One benchmark process ran at a time on Peach. Every process was pinned to CPU
+2. Each binary used `-O3 -DNDEBUG` and native AVX-512/IFMA. CPU scaling remained
+enabled, so these measurements are selection evidence rather than release
+claims.
+
+The raw dense-multiplication benchmark instantiates every operand-bound pair
+used by the selected backend:
+
+| Compiler and operand bounds | Monolithic | Split | Change |
+| --- | ---: | ---: | ---: |
+| Clang 21, `1 x 1` | 298 ns | 272 ns | -8.7% |
+| Clang 21, `1 x 6` | 298 ns | 272 ns | -8.7% |
+| Clang 21, `6 x 1` | 300 ns | 272 ns | -9.3% |
+| Clang 21, `6 x 6` | 298 ns | 271 ns | -9.1% |
+| GCC 15, `1 x 1` | 363 ns | 325 ns | -10.5% |
+| GCC 15, `1 x 6` | 363 ns | 324 ns | -10.7% |
+| GCC 15, `6 x 1` | 363 ns | 325 ns | -10.5% |
+| GCC 15, `6 x 6` | 362 ns | 325 ns | -10.2% |
+
+Representative Clang 21 consumers also improved:
+
+| Consumer | Monolithic | Split | Change |
+| --- | ---: | ---: | ---: |
+| Full public pairing | 129.956 us | 126.974 us | -2.3% |
+| Final exponentiation | 75.413 us | 73.612 us | -2.4% |
+| Full prepared pairing | 112.315 us | 108.280 us | -3.6% |
+| Full direct MatrixNoK pairing | 129.303 us | 125.946 us | -2.6% |
+
+GCC 15 reduced final exponentiation by 1.3%, prepared pairing by 1.4%, and the
+direct MatrixNoK pairing by 1.1%. Its public full-pairing result changed sign
+when the run order was reversed. The public Miller-only benchmark moved by
+1.1%--2.7%, although dense multiplication is not in that path. The candidate
+and baseline Miller bodies have identical sizes but different link addresses.
+The direct Miller path improved, and the prepared Miller path was unchanged.
+This evidence identifies code-layout sensitivity; it does not attribute a
+Miller arithmetic change to the split.
+
+The scalar differential now covers all four operand-bound instantiations. It
+checks output bounds and 64 deterministic mixtures of zero, one, `p-1`, and
+dense field values. It also checks assignment over one input object. The full
+native suite passes with both Clang 21 and GCC 15. Four BTX vector tests remain
+skipped because the external vector file was not configured.
+
+The existing `AVX-P3-002` theorem proves the twelve multiplication polynomials
+and each coordinate's reduction. The split changes only their evaluation and
+publication schedule. `Fp12Raw.lean` and `Fp12.lean` type-check unchanged.
+Exact-source correspondence still requires rebinding the rows that name
+`fp12.h` to the final commit and source hash. Until that gate passes, this
+section records implementation and selection evidence; it does not claim a new
+exact-source proof acceptance. The repository-wide correspondence validator
+also encounters older hash drift before it reaches the Fp12 rows. Repairing
+that broader ledger is a separate audit task.
+
 ## Cyclotomic split follow-up
 
 Review of inversion and hard final exponentiation found that CatBLST and pinned

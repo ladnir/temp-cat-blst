@@ -1757,6 +1757,15 @@ namespace blst::avx::test
         }
     }
 
+    void expect_standard_fp12_bounds(
+        const matrixnok::FpRingCandidate& ring,
+        const MatrixNoKFp12::StandardElement& value)
+    {
+        for (const auto& coefficient : value) {
+            expect_standard_residue_bounds(ring, coefficient);
+        }
+    }
+
     TEST(AvxMatrixNoKPrimitives, GtGeneratorLiteralMatchesScalar)
     {
         const matrixnok::FpRingCandidate ring;
@@ -1808,13 +1817,75 @@ namespace blst::avx::test
 
         blst::Fp12 expected_product = {};
         blst::Fp12::mul(expected_product, left, right);
-        {
-            SCOPED_TRACE("general product");
+        const auto candidate_left_wide = fp12ring.recast_common(candidate_left);
+        const auto candidate_right_wide = fp12ring.recast_common(candidate_right);
+        const auto expect_product = [&](const auto& actual_left,
+                                        const auto& actual_right,
+                                        const char* producer_bounds) {
+            SCOPED_TRACE(producer_bounds);
+            const auto actual =
+                fp12ring.fp12_flat_mul(actual_left, actual_right, ring);
+            expect_standard_fp12_bounds(ring, actual);
             expect_same_scalar_fp12(
-                matrixnok_fp12_to_scalar(
-                    ring, fp12ring.fp12_flat_mul(
-                        candidate_left, candidate_right, ring)),
+                matrixnok_fp12_to_scalar(ring, actual),
                 expected_product);
+        };
+
+        // Dense multiplication is instantiated for standard values and for the
+        // bound-six accumulator values produced by the GT FFT/exponentiation
+        // paths. Exercise every operand-bound combination independently.
+        expect_product(candidate_left, candidate_right, "bounds 1 x 1");
+        expect_product(candidate_left, candidate_right_wide, "bounds 1 x 6");
+        expect_product(candidate_left_wide, candidate_right, "bounds 6 x 1");
+        expect_product(candidate_left_wide, candidate_right_wide, "bounds 6 x 6");
+
+        auto assigned_over_left = candidate_left;
+        assigned_over_left = fp12ring.fp12_flat_mul(
+            assigned_over_left, candidate_right, ring);
+        expect_standard_fp12_bounds(ring, assigned_over_left);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, assigned_over_left),
+            expected_product);
+
+        uint64_t boundary_mix = UINT64_C(0x9e3779b97f4a7c15);
+        for (std::size_t sample = 0; sample < 64; ++sample) {
+            SCOPED_TRACE("boundary mix " + std::to_string(sample));
+            blst::Fp12 mixed_left = {};
+            blst::Fp12 mixed_right = {};
+            for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+                boundary_mix ^= boundary_mix << 7;
+                boundary_mix ^= boundary_mix >> 9;
+                mixed_left[coefficient / 6][(coefficient % 6) / 2]
+                    [coefficient % 2] = values[boundary_mix % values.size()];
+                boundary_mix ^= boundary_mix << 8;
+                boundary_mix ^= boundary_mix >> 11;
+                mixed_right[coefficient / 6][(coefficient % 6) / 2]
+                    [coefficient % 2] = values[boundary_mix % values.size()];
+            }
+
+            blst::Fp12 mixed_expected = {};
+            blst::Fp12::mul(mixed_expected, mixed_left, mixed_right);
+            const auto mixed_candidate_left =
+                matrixnok_fp12_from_scalar(ring, mixed_left);
+            const auto mixed_candidate_right =
+                matrixnok_fp12_from_scalar(ring, mixed_right);
+            const auto mixed_candidate_left_wide =
+                fp12ring.recast_common(mixed_candidate_left);
+            const auto mixed_candidate_right_wide =
+                fp12ring.recast_common(mixed_candidate_right);
+            const auto expect_mixed_product = [&](const auto& actual_left,
+                                                  const auto& actual_right) {
+                const auto actual =
+                    fp12ring.fp12_flat_mul(actual_left, actual_right, ring);
+                expect_standard_fp12_bounds(ring, actual);
+                expect_same_scalar_fp12(
+                    matrixnok_fp12_to_scalar(ring, actual), mixed_expected);
+            };
+            expect_mixed_product(mixed_candidate_left, mixed_candidate_right);
+            expect_mixed_product(mixed_candidate_left, mixed_candidate_right_wide);
+            expect_mixed_product(mixed_candidate_left_wide, mixed_candidate_right);
+            expect_mixed_product(
+                mixed_candidate_left_wide, mixed_candidate_right_wide);
         }
 
         blst::Fp12 expected_square = {};
