@@ -30,3 +30,16 @@ bool blst_avx_batch_membership_c_header_probe(
             p2_points, count, fill_random, seed,
             p2_workspace, p2_workspace_bytes);
 }
+
+bool blst_avx_secret_g1_msm_c_header_probe(
+    blst_avx_p1* out,
+    const blst_avx_p1* points,
+    const blst_fr* scalars,
+    size_t count,
+    void* scratch,
+    size_t scratch_bytes)
+{
+    return blst_avx_p1s_mult_ct_scratch_sizeof() != 0 &&
+        blst_avx_p1s_mult_ct(
+            out, points, scalars, count, scratch, scratch_bytes);
+}

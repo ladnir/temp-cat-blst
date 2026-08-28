@@ -20,6 +20,14 @@
 #include <cstring>
 #include <utility>
 
+#if defined(_MSC_VER)
+# define BLST_AVX_SCALAR_MULT_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+# define BLST_AVX_SCALAR_MULT_NOINLINE __attribute__((noinline))
+#else
+# define BLST_AVX_SCALAR_MULT_NOINLINE
+#endif
+
 namespace blst::avx {
 
 template<int table_log_size>
@@ -100,6 +108,7 @@ class ScalarForExponent {
         static_cast<std::size_t>(scalar_bits), std::size_t{8}));
     std::array<uint8_t, limbs> data;
 
+    ScalarForExponent() = default;
 
     ScalarForExponent(const std::array<uint8_t, limbs> &raw_data) : data(raw_data) {}
 
@@ -189,6 +198,66 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
         }
         if (j != 0) {
             for (int k = 0; k < wbits+1; k++) {
+                result = curve.double_point(result, ring);
+            }
+        }
+    }
+    blst::vec_zero(booth_indexes.data(), sizeof(booth_indexes));
+    return result;
+}
+
+template<class Curve, class Ring, int scalar_bits, int table_log_size, int max_tables>
+BLST_AVX_SCALAR_MULT_NOINLINE typename Curve::ProjPoint table_msm_bounded(
+    const std::array<ScalarForExponent<scalar_bits>, max_tables>& scalars,
+    const std::array<PrecomputedTable<Curve, Ring, table_log_size>, max_tables>& tables,
+    size_t num_tables,
+    const Curve& curve,
+    const Ring& ring)
+{
+    static_assert(scalar_bits > 0);
+    static_assert(max_tables > 0);
+    constexpr int wbits = table_log_size;
+    constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
+    constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
+    BLST_ASSERT(num_tables <= static_cast<size_t>(max_tables));
+    std::array<std::array<std::pair<uint8_t, bool>, num_windows>, max_tables>
+        booth_indexes;
+    typename Curve::ProjPoint result = curve.zero(ring);
+
+    for (size_t i = 0; i < num_tables; ++i) {
+        bool carry = false;
+        for (int j = 0; j < num_windows; ++j) {
+            uint64_t window_val =
+                scalars[i].template get_bits<wbits + 1>(j * (wbits + 1));
+            window_val += carry ? 1 : 0;
+            booth_indexes[i][j] = tables[i].booth_encode(window_val);
+            carry = booth_indexes[i][j].second;
+        }
+        if constexpr (carry_possible) {
+            const auto carry_point = curve.zero(ring).ctime_replace_if(
+                carry, tables[i].data[(1 << wbits) - 1]);
+            result = curve.add_point(result, carry_point, ring);
+        }
+        else {
+            BLST_ASSERT(!carry);
+        }
+    }
+    if constexpr (carry_possible) {
+        result = curve.double_point(result, ring);
+    }
+    for (int j = num_windows - 1; j >= 0; --j) {
+        for (size_t i = 0; i < num_tables; ++i) {
+            result = curve.add_point(
+                result,
+                tables[i].gather_booth(
+                    booth_indexes[i][j].first,
+                    booth_indexes[i][j].second,
+                    curve,
+                    ring),
+                ring);
+        }
+        if (j != 0) {
+            for (int k = 0; k < wbits + 1; ++k) {
                 result = curve.double_point(result, ring);
             }
         }
@@ -350,6 +419,70 @@ class GLVMult {
 
         std::array<PrecomputedTable<G1Curve, Ring, table_log_size>, 2> tables = {tableP, tablePhi};
         ProjectivePoint result = table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
+        blst::vec_zero(&scalars, sizeof(scalars));
+        return result;
+    }
+
+    /**
+     * Constant-time MSM for one fixed-size batch of subgroup points.
+     *
+     * The batch shares one doubling schedule across every GLV component. The
+     * point tables are public, while the split scalars and Booth indices are
+     * secret and are cleared before return. `SK` contains `batch_size`
+     * consecutive canonical 32-byte little-endian scalars.
+     *
+     * `scalars` and `tables` are caller-owned reusable storage. The function
+     * allocates nothing. Keep `batch_size` bounded: increasing it expands the
+     * live table set and can increase cache traffic enough to erase the saved
+     * doublings.
+     */
+    template<int batch_size>
+    using BatchScalars =
+        std::array<ScalarForExponent<128>, 2 * batch_size>;
+
+    template<int batch_size, int table_log_size=4>
+    using BatchTables = std::array<
+        PrecomputedTable<G1Curve, Ring, table_log_size>, 2 * batch_size>;
+
+    template<int batch_size, int table_log_size=4>
+    ProjectivePoint multiply_batch(
+        const ProjectivePoint* P,
+        const uint8_t* SK,
+        const Ring& ring,
+        BatchScalars<batch_size>& scalars,
+        BatchTables<batch_size, table_log_size>& tables) const
+    {
+        static_assert(batch_size > 1);
+        static_assert(table_log_size == 4,
+            "the selected AVX G1 constant-time batch kernel uses width 5");
+        constexpr int table_size = 1 << table_log_size;
+        constexpr int component_count = 2 * batch_size;
+
+        for (int i = 0; i < batch_size; ++i) {
+            std::array<uint8_t, 32> scalar_bytes;
+            std::memcpy(scalar_bytes.data(), SK + 32 * i, scalar_bytes.size());
+            div_by_zz_result split;
+            div_by_zz_into<true>(split, scalar_bytes);
+            blst::vec_zero(scalar_bytes.data(), scalar_bytes.size());
+
+            scalars[2 * i] = ScalarForExponent<128>(split.first);
+            scalars[2 * i + 1] = ScalarForExponent<128>(split.second);
+            blst::vec_zero(&split, sizeof(split));
+
+            tables[2 * i].build(P[i], curve, ring);
+            for (int j = 0; j < table_size; ++j) {
+                const ProjectivePoint& point = tables[2 * i].data[j];
+                tables[2 * i + 1].data[j] = {
+                    ring.modmul(point.x, beta),
+                    ring.standard_negate(point.y),
+                    point.z,
+                };
+            }
+        }
+
+        ProjectivePoint result = table_msm_bounded<
+            G1Curve, Ring, 128, table_log_size, component_count>(
+                scalars, tables, component_count, curve, ring);
         blst::vec_zero(&scalars, sizeof(scalars));
         return result;
     }
@@ -560,3 +693,5 @@ class GLSMult {
 };
 
 }  // namespace blst::avx
+
+#undef BLST_AVX_SCALAR_MULT_NOINLINE

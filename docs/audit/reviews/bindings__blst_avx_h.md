@@ -73,3 +73,13 @@ At `daa4eb30`, `blst_avx_pairing` remains a subgroup-only expert operation.
 Its boolean reports null arguments or unavailable AVX support; it does not
 report curve or subgroup validation. No implementation or code generation
 changed. This closes the AVX declaration portion of `AUD-097`.
+
+## 2026-08-27 secret G1 MSM addendum
+
+The public C surface now separates constant-time secret MSM from the existing
+variable-time Pippenger families. `blst_avx_p1s_mult_ct` documents resident
+projective subgroup points, reduced native `blst_fr` scalars, public count,
+fixed 32/16/8 chunking, scratch size/alignment/disjointness, empty input, and
+failure atomicity. `blst_avx_p1s_mult_ct_scratch_sizeof` reports the maximum
+reusable scratch requirement. The API allocates nothing and makes no
+non-subgroup or noncanonical-scalar promise.

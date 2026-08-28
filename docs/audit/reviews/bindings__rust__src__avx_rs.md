@@ -48,3 +48,20 @@ passes 7/7, including the expected caught Debug precondition panic. A separate
 default-feature run passes unavailable-backend equality 1/1. Allocation-failure
 injection, Miri, sanitizer, native AVX-512 runtime, Apple, Rustdoc, and the broad
 feature matrix remain milestone evidence. No benchmark was run.
+
+## 2026-08-27 secret G1 MSM addendum
+
+`G1MsmWorkspace::secret_msm_into` accepts `&[G1Projective]` and
+`&[Scalar]`, so subgroup and reduced-scalar invariants remain typed across the
+Rust/C++ boundary. It checks equal lengths and workspace capacity before FFI,
+passes the resident Montgomery scalar array without Rust-side byte staging,
+and returns `Error` rather than panicking. `for_points` reserves the larger of
+the public Pippenger and secret-MSM scratch requirements outside the hot path.
+The method performs no allocation, point conversion, or dynamic dispatch.
+
+The focused differential test compares the chunked kernel with independent
+constant-time products at empty, tail, exact-chunk, and mixed boundaries up to
+65 points. It also checks length mismatch and undersized-workspace rejection.
+Peach Criterion measurements are recorded in the C++ owner review; moving the
+large tables into this reusable workspace did not regress the selected
+thirty-two-point kernel.

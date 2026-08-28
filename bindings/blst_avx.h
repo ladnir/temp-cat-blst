@@ -181,6 +181,33 @@ bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* 
  */
 bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const blst_byte* scalar, size_t nbits);
 
+/**
+ * Constant-time MSM over AVX G1 projective subgroup points and secret scalars.
+ * Computes `out = sum_i scalars[i] * points[i]`.
+ *
+ * Every point must already be on-curve and in G1; Release does not validate
+ * this precondition. `scalars` contains `npoints` consecutive reduced native
+ * Montgomery-form `blst_fr` values. Runtime and memory access are independent
+ * of scalar contents for fixed public `npoints`.
+ *
+ * The selected kernel shares its doubling schedule in fixed 32-, 16-, and
+ * 8-point chunks and uses a scalar-multiplication tail for shorter remainders.
+ * It allocates nothing. For 8 or more points, `scratch` must be aligned to
+ * `BLST_AVX_ALIGNMENT` and provide at least the number of bytes returned by
+ * `blst_avx_p1s_mult_ct_scratch_sizeof`; the used prefix must be disjoint
+ * from both inputs and `out`. Empty input returns the identity. Null `points`
+ * or `scalars` is accepted only for empty input. Failure leaves `out`
+ * unchanged.
+ */
+size_t blst_avx_p1s_mult_ct_scratch_sizeof(void);
+bool blst_avx_p1s_mult_ct(
+    blst_avx_p1* out,
+    const blst_avx_p1* points,
+    const blst_fr* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes);
+
 /** Returns aggregate scratch bytes required by subgroup `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p1_mult_pippenger`. */

@@ -1376,3 +1376,17 @@ reclassified accordingly. No product target, supported API, benchmark, or
 runtime code changes. The authoritative manifest contains 323 complete, 149
 in-review, and 166 pending files across 830 tracked paths; experimental scope
 increases to 96 files.
+
+BTX constant-time G1 MSM is implemented as a separate secret-scalar path. The
+AVX boundary consumes resident projective points and native Montgomery
+scalars, shares the fixed-window GLV doubling schedule across 32-, 16-, and
+8-point chunks, and uses caller-owned reusable scratch for its large public
+tables. A bounded no-inline table walk avoids the compile-time unrolling and
+register-pressure failure seen in the first template experiment. On Peach,
+batch-128 partial decryption improves from 3.1311 ms for repeated AVX scalar
+multiplication to 1.4851 ms with the selected workspace kernel; the scalar
+reference is 3.2865 ms. Focused Rust differential and C boundary tests pass.
+The 1,406-row API inventory and 38-file structural gate pass, and the native
+AVX and middle-product sanitizer replay targets compile and pass on Peach.
+Statistical leakage and broad sanitizer campaigns remain subsystem release
+gates.

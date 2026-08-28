@@ -206,5 +206,87 @@ namespace catblst::fuzz::adapter
             aliased.data(), constant.data(), middle_n, aliased.data()));
         for (std::size_t index = 0; index < middle_n; ++index)
             require(::blst_gt_is_equal(&aliased[index], &full[index]));
+
+        // Exercise each explicit backend on a one-element instance so the
+        // differential campaign covers every ownership mode without
+        // multiplying the expensive final-exponentiation work at fuzz sizes.
+        constexpr std::size_t explicit_n = 1;
+        blst_middle_product_precomputed_b_scalar* scalar_precomputed =
+            ::blst_middle_product_precompute_b_scalar(b.data(), explicit_n);
+        require(scalar_precomputed != nullptr);
+        std::array<blst_fp12, explicit_n> scalar_allocating{};
+        require(::blst_middle_product_scalar(
+            a.data(), explicit_n, scalar_precomputed,
+            scalar_allocating.data()));
+        blst_middle_product_workspace_scalar* scalar_workspace =
+            ::blst_middle_product_workspace_scalar_new(scalar_precomputed);
+        require(scalar_workspace != nullptr);
+        std::array<blst_fp12, explicit_n> scalar_reused{};
+        require(::blst_middle_product_scalar_with_workspace(
+            a.data(), explicit_n, scalar_precomputed, scalar_workspace,
+            scalar_reused.data()));
+        require(::blst_gt_is_equal(
+            &scalar_reused[0], &scalar_allocating[0]));
+        std::array<blst_fp12, explicit_n> scalar_update{};
+        require(::blst_middle_product_update_scalar(
+            &a[0], scalar_precomputed, scalar_update.data()));
+        require(::blst_gt_is_equal(
+            &scalar_update[0], &scalar_allocating[0]));
+        ::blst_middle_product_workspace_scalar_free(scalar_workspace);
+        ::blst_middle_product_precomputed_b_scalar_free(scalar_precomputed);
+
+        if (::blst_avx_enabled())
+        {
+            blst_middle_product_precomputed_b_avx* avx_precomputed =
+                ::blst_middle_product_precompute_b_avx(b.data(), explicit_n);
+            require(avx_precomputed != nullptr);
+            std::array<blst_fp12, explicit_n> avx_allocating{};
+            require(::blst_middle_product_avx(
+                a.data(), explicit_n, avx_precomputed,
+                avx_allocating.data()));
+            require(::blst_gt_is_equal(
+                &avx_allocating[0], &scalar_allocating[0]));
+            blst_middle_product_workspace_avx* avx_workspace =
+                ::blst_middle_product_workspace_avx_new(avx_precomputed);
+            require(avx_workspace != nullptr);
+            std::array<blst_fp12, explicit_n> avx_reused{};
+            require(::blst_middle_product_avx_with_workspace(
+                a.data(), explicit_n, avx_precomputed, avx_workspace,
+                avx_reused.data()));
+            require(::blst_gt_is_equal(
+                &avx_reused[0], &scalar_allocating[0]));
+            std::array<blst_fp12, explicit_n> avx_update{};
+            require(::blst_middle_product_update_avx(
+                &a[0], avx_precomputed, avx_update.data()));
+            require(::blst_gt_is_equal(
+                &avx_update[0], &scalar_allocating[0]));
+            ::blst_middle_product_workspace_avx_free(avx_workspace);
+            ::blst_middle_product_precomputed_b_avx_free(avx_precomputed);
+
+            std::array<blst_avx_p1, explicit_n> native_a{};
+            std::array<blst_avx_p2, 2 * explicit_n> native_b{};
+            require(::blst_avx_p1_from_scalar(&native_a[0], &a[0]));
+            require(::blst_avx_p2_from_scalar(&native_b[0], &b[0]));
+            require(::blst_avx_p2_from_scalar(&native_b[1], &b[1]));
+            blst_middle_product_precomputed_b_avx* native_precomputed =
+                ::blst_middle_product_precompute_b_avx_native(
+                    native_b.data(), explicit_n);
+            require(native_precomputed != nullptr);
+            blst_middle_product_workspace_avx_native* native_workspace =
+                ::blst_middle_product_workspace_avx_native_new(
+                    native_precomputed);
+            require(native_workspace != nullptr);
+            std::array<blst_avx_gt, explicit_n> native_output{};
+            require(::blst_middle_product_avx_native_with_workspace(
+                native_a.data(), explicit_n, native_precomputed,
+                native_workspace, native_output.data()));
+            blst_fp12 native_scalar_output{};
+            require(::blst_fp12_from_avx(
+                &native_scalar_output, &native_output[0]));
+            require(::blst_gt_is_equal(
+                &native_scalar_output, &scalar_allocating[0]));
+            ::blst_middle_product_workspace_avx_native_free(native_workspace);
+            ::blst_middle_product_precomputed_b_avx_free(native_precomputed);
+        }
     }
 }

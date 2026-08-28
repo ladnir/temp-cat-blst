@@ -333,6 +333,22 @@ namespace catblst::fuzz::adapter
             require_g1_equal(g1_result, expected_g1);
             require_g2_equal(g2_result, expected_g2);
 
+            std::vector<blst_fr> secret_scalars(count);
+            for (std::size_t index = 0; index < count; ++index)
+            {
+                blst_scalar reduced{};
+                ::blst_scalar_from_lendian(
+                    &reduced, scalars.data() + index * 32);
+                ::blst_fr_from_scalar(&secret_scalars[index], &reduced);
+            }
+            auto secret_scratch = aligned_scratch<blst_avx_p1>(
+                ::blst_avx_p1s_mult_ct_scratch_sizeof());
+            require(::blst_avx_p1s_mult_ct(
+                &g1_result, avx_g1.data(), secret_scalars.data(), count,
+                secret_scratch.data(),
+                secret_scratch.size() * sizeof(blst_avx_p1)));
+            require_g1_equal(g1_result, expected_g1);
+
             auto split_points = aligned_scratch<blst_avx_p1_affine>(
                 ::blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(count));
             std::vector<blst_byte> split_scalars(
@@ -420,6 +436,19 @@ namespace catblst::fuzz::adapter
                 &roundtrip, ::blst_avx_fp12_one()));
             require(::blst_fp12_is_equal(&roundtrip, &scalar_one));
 
+            blst_avx_gt avx_gt_inverse{};
+            require(::blst_avx_gt_inverse(&avx_gt_inverse, &avx_gt));
+            require(::blst_avx_fp12_mul(
+                &avx_product, &avx_gt, &avx_gt_inverse));
+            require(::blst_avx_fp12_is_equal(
+                &avx_product, ::blst_avx_fp12_one()));
+
+            std::array<blst_byte, 576> encoded_gt{};
+            require(::blst_avx_gt_serialize(encoded_gt.data(), &avx_gt));
+            blst_avx_gt decoded_gt{};
+            require(::blst_avx_gt_deserialize(&decoded_gt, encoded_gt.data()));
+            require(::blst_avx_fp12_is_equal(&decoded_gt, &avx_gt));
+
             const auto scalar = detail::fixed_bytes<32>(input);
             const std::array<blst_avx_gt, 1> points{avx_gt};
             auto gt_scratch = aligned_scratch<blst_avx_fp12>(
@@ -427,16 +456,77 @@ namespace catblst::fuzz::adapter
             std::vector<blst_byte> gt_flags(
                 ::blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(1));
             blst_avx_gt gt_msm{};
+            blst_fp12 scalar_gt_product{};
+            ::blst_gt_mult_vartime(
+                &scalar_gt_product, &scalar_gt, scalar.data(), 256);
+            require(::blst_avx_gt_mult(
+                &gt_msm, &avx_gt, scalar.data(), 256));
+            require(::blst_fp12_from_avx(&roundtrip, &gt_msm));
+            require(::blst_fp12_is_equal(&roundtrip, &scalar_gt_product));
+
             require(::blst_avx_gt_mult_pippenger(
                 &gt_msm, points.data(), scalar.data(), 1,
                 gt_scratch.data(),
                 gt_scratch.size() * sizeof(blst_avx_fp12),
                 gt_flags.data(), gt_flags.size()));
-            blst_fp12 scalar_gt_product{};
-            ::blst_gt_mult_vartime(
-                &scalar_gt_product, &scalar_gt, scalar.data(), 256);
             require(::blst_fp12_from_avx(&roundtrip, &gt_msm));
             require(::blst_fp12_is_equal(&roundtrip, &scalar_gt_product));
+
+            blst_avx_p1 g1_identity{};
+            blst_avx_p2 g2_identity{};
+            require(::blst_avx_p1_identity(&g1_identity));
+            require(::blst_avx_p2_identity(&g2_identity));
+            require(::blst_avx_p1_is_inf(&g1_identity));
+            require(::blst_avx_p2_is_inf(&g2_identity));
+
+            blst_avx_p1_affine avx_g1_affine{};
+            blst_avx_p2_affine avx_g2_affine{};
+            require(::blst_avx_p1_to_affine(&avx_g1_affine, &avx_g1));
+            require(::blst_avx_p2_to_affine(&avx_g2_affine, &avx_g2));
+            blst_avx_fp12 batched_pairing{};
+            require(::blst_avx_pairing_n(
+                &batched_pairing, &avx_g1_affine, &avx_g2_affine, 1));
+            require(::blst_avx_fp12_is_equal(&batched_pairing, &avx_gt));
+
+            auto prepared_lines = aligned_scratch<blst_avx_fp12>(
+                ::blst_avx_prepared_g2_lines_sizeof());
+            require(
+                alignof(blst_avx_fp12) >=
+                ::blst_avx_prepared_g2_lines_alignof());
+            require(::blst_avx_prepared_g2_lines_init(
+                prepared_lines.data(),
+                prepared_lines.size() * sizeof(blst_avx_fp12), &avx_g2));
+            blst_avx_fp12 prepared_pairing{};
+            require(::blst_avx_pairing_prepared_g2(
+                &prepared_pairing, prepared_lines.data(),
+                prepared_lines.size() * sizeof(blst_avx_fp12), &avx_g1));
+            require(::blst_avx_fp12_is_equal(&prepared_pairing, &avx_gt));
+
+            blst_avx_prepared_g2_batch* raw_batch =
+                ::blst_avx_prepared_g2_batch_new(&avx_g2, 1);
+            require(raw_batch != nullptr);
+            require(::blst_avx_prepared_g2_batch_len(raw_batch) == 1);
+            require(
+                ::blst_avx_prepared_g2_batch_storage_bytes(raw_batch)
+                != 0);
+            blst_avx_prepared_g2_batch_workspace* raw_workspace =
+                ::blst_avx_prepared_g2_batch_workspace_new(
+                    raw_batch);
+            require(raw_workspace != nullptr);
+            std::array<blst_avx_gt, 1> prepared_outputs{};
+            require(::blst_avx_prepared_g2_batch_pairing_prefix(
+                prepared_outputs.data(), 1, &avx_g1, raw_batch,
+                raw_workspace));
+            require(::blst_avx_fp12_is_equal(
+                &prepared_outputs[0], &avx_gt));
+            constexpr std::array<std::size_t, 1> indices{0};
+            require(::blst_avx_prepared_g2_batch_pairing_indices(
+                prepared_outputs.data(), indices.data(), indices.size(),
+                &avx_g1, raw_batch, raw_workspace));
+            require(::blst_avx_fp12_is_equal(
+                &prepared_outputs[0], &avx_gt));
+            ::blst_avx_prepared_g2_batch_workspace_free(raw_workspace);
+            ::blst_avx_prepared_g2_batch_free(raw_batch);
         }
 
         void exercise_unique_native_avx_methods()

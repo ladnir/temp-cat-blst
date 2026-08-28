@@ -217,3 +217,47 @@ its selected MatrixNoK curve explicitly. The scalar decomposition, Booth/wNAF
 executors, tables, and multiplication bodies are unchanged. Focused
 portable-Debug compilation and 37/37 related tests pass. `AVX-P4-003` is
 rebound to the exact new source hash, and `AUD-387` is validated.
+
+## 2026-08-27 constant-time G1 MSM addendum
+
+BTX partial decryption requires an MSM whose coefficients are secret. The
+existing Pippenger family is deliberately variable-time and remains restricted
+to public coefficients. This packet adds a separate fixed-window GLV executor.
+It decomposes each canonical scalar into two 128-bit components, builds both
+public point tables, scans every table row for every five-bit Booth window, and
+uses complete point addition. Point count and chunk selection are public;
+scalar contents do not affect control flow or memory addresses.
+
+The executor shares one doubling schedule across fixed 32-, 16-, and 8-point
+chunks. A bounded no-inline table walk is intentional. The first compile-time
+16-component experiment caused the compiler to unroll a large selected-field
+expression, consuming several minutes and multiple gigabytes. The bounded
+runtime loop retains fixed public bounds, prevents that code-generation
+failure, and keeps secret-dependent selection constant-time. Split scalars and
+Booth indices are erased before return. Large public tables and split-scalar
+staging are supplied by the caller; the template allocates nothing and does
+not place the exact 394,240-byte (385 KiB) maximum scratch set on the thread
+stack.
+
+Native Peach measurements at batch 128 progressed from 3.131 ms for repeated
+AVX multiplication to 1.647 ms with eight-point chunks, 1.548 ms with
+sixteen-point chunks, and 1.489 ms with thirty-two-point chunks. Moving the
+tables into caller scratch measured 1.486 ms, within noise. The final audited
+source measured 1.4851 ms; its scalar reference measured 3.2865 ms under the
+same serial Criterion policy.
+The permanent Rust differential test covers empty input, every chunk boundary,
+mixed chunk/tail sizes, and length/capacity rejection. C boundary tests add the
+native-scalar oracle and failure-atomic scratch cases. Both modified fuzz
+adapters compile with ASan and UBSan on Peach, and their native AVX and
+middle-product corpus replays pass. Statistical leakage and broader sanitizer
+evidence remain phase-wide residual gates.
+
+Optimized Clang 21 disassembly of the selected 64-component specialization
+(the 32-point GLV batch) was inspected on Peach. Its conditional branches are
+loop or shape branches over the public component count, fixed window and limb
+counters, and the public bit-offset case used to read a window spanning two
+bytes. Booth carry and sign handling lower to `setcc`, `cmov`, shifts, and mask
+operations. The existing constant-time table gather remains an all-row scan;
+the disassembly contains no scalar-derived branch or scalar-derived table
+address. This is a code-generation check for the selected compiler, not a
+replacement for statistical leakage testing.

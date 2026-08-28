@@ -57,3 +57,20 @@ cutoff as execution. Focused portable-Debug execution covers the exact cutoff,
 all overlap families, partial overlap, failure atomicity, and retained
 one-point projective aliasing. The checks execute once at the C boundary; no
 bucket loop or decomposition changed. `AUD-389` and `AUD-390` are validated.
+
+## 2026-08-27 secret G1 MSM addendum
+
+`blst_avx_p1s_mult_ct` is a distinct secret-scalar boundary rather than a mode
+bit on variable-time Pippenger. It accepts resident AVX projective G1 points
+and reduced native Montgomery-form `blst_fr` scalars. Release assumes subgroup
+membership; Debug asserts it. The implementation converts scalar field values
+to canonical bytes only inside the fixed-time GLV preparation and erases every
+secret byte and split component after use.
+
+For eight or more points, the boundary requires aligned caller scratch. It
+checks pointer products for overflow, scratch capacity and alignment, and
+pairwise disjoint live ranges before arithmetic or output publication. Invalid
+input leaves output unchanged. The same scratch is reused sequentially across
+32-, 16-, and 8-point chunks, followed by the existing constant-time
+single-point tail. No allocation, exception, dynamic dispatch, or backend
+conversion is present in the hot path.

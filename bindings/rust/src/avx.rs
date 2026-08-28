@@ -1257,8 +1257,14 @@ impl G1MsmWorkspace {
     /// Allocates enough aligned scratch for at most `max_points` points.
     pub fn for_points(max_points: usize) -> Result<Self, Error> {
         ensure_available()?;
-        let required =
+        let pippenger_required =
             unsafe { blst_avx_p1s_mult_pippenger_scratch_sizeof(max_points) };
+        let secret_required = if max_points >= 8 {
+            unsafe { blst_avx_p1s_mult_ct_scratch_sizeof() }
+        } else {
+            0
+        };
+        let required = pippenger_required.max(secret_required);
         let blocks = required.div_ceil(SCRATCH_ALIGNMENT);
         let mut scratch = Vec::new();
         scratch
@@ -1271,6 +1277,59 @@ impl G1MsmWorkspace {
     /// Returns the reusable scratch capacity in bytes.
     pub fn capacity_bytes(&self) -> usize {
         self.scratch.len() * SCRATCH_ALIGNMENT
+    }
+
+    /// Computes a constant-time MSM over secret typed scalars.
+    ///
+    /// The points must already be validated G1 subgroup points. The scalar
+    /// slice retains CatBLST's native Montgomery representation across the
+    /// Rust/C++ boundary; the kernel performs fixed-time GLV preparation
+    /// internally. The operation allocates nothing and uses fixed 32-, 16-,
+    /// and 8-point chunks before a constant-time scalar tail. Large public
+    /// point tables occupy this workspace rather than the thread stack.
+    pub fn secret_msm_into(
+        &mut self,
+        out: &mut G1Projective,
+        points: &[G1Projective],
+        scalars: &[Scalar],
+    ) -> Result<(), Error> {
+        if points.len() != scalars.len() {
+            return Err(Error::MsmLengthMismatch {
+                points: points.len(),
+                scalars: scalars.len(),
+            });
+        }
+        let required = if points.len() >= 8 {
+            unsafe { blst_avx_p1s_mult_ct_scratch_sizeof() }
+        } else {
+            0
+        };
+        let available = self.capacity_bytes();
+        if available < required {
+            return Err(Error::ScratchTooSmall {
+                required,
+                available,
+            });
+        }
+        let scratch = if self.scratch.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.scratch.as_mut_ptr().cast::<core::ffi::c_void>()
+        };
+        if unsafe {
+            blst_avx_p1s_mult_ct(
+                &mut out.0,
+                G1Projective::as_raw_slice(points).as_ptr(),
+                scalars.as_ptr().cast::<blst_fr>(),
+                points.len(),
+                scratch,
+                available,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
     }
 
     /// Computes one MSM into caller-owned output without allocating.
@@ -1354,6 +1413,15 @@ extern "C" {
         scalar: *const blst_byte,
         nbits: usize,
     ) -> bool;
+    pub fn blst_avx_p1s_mult_ct(
+        out: *mut blst_avx_p1,
+        points: *const blst_avx_p1,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
+    ) -> bool;
+    pub fn blst_avx_p1s_mult_ct_scratch_sizeof() -> usize;
     pub fn blst_avx_p1_to_affine(
         out: *mut blst_avx_p1_affine,
         input: *const blst_avx_p1,
@@ -2214,6 +2282,60 @@ mod tests {
         msm.msm_into(&mut out, &[g1], &[one]).unwrap();
         assert_eq!(out, g1);
         assert_eq!(msm.capacity_bytes(), capacity);
+    }
+
+    #[test]
+    fn secret_g1_msm_matches_independent_constant_time_products() {
+        if !is_available() {
+            return;
+        }
+
+        let generator = G1Projective::generator().unwrap();
+        let points = (1u64..=65)
+            .map(|factor| generator.multiply(&Scalar::from(factor)).unwrap())
+            .collect::<Vec<_>>();
+        let scalars = (19u64..=83).map(Scalar::from).collect::<Vec<_>>();
+        let mut workspace = G1MsmWorkspace::for_points(points.len()).unwrap();
+
+        for count in [0usize, 1, 7, 8, 15, 16, 31, 32, 33, 63, 64, 65] {
+            let mut expected = G1Projective::identity().unwrap();
+            for (point, scalar) in points[..count].iter().zip(&scalars[..count])
+            {
+                expected =
+                    expected.add(&point.multiply(scalar).unwrap()).unwrap();
+            }
+
+            let mut actual = G1Projective::identity().unwrap();
+            workspace
+                .secret_msm_into(
+                    &mut actual,
+                    &points[..count],
+                    &scalars[..count],
+                )
+                .unwrap();
+            assert_eq!(actual, expected, "count={count}");
+        }
+
+        let mut out = G1Projective::identity().unwrap();
+        assert_eq!(
+            workspace.secret_msm_into(&mut out, &points[..1], &scalars[..0]),
+            Err(Error::MsmLengthMismatch {
+                points: 1,
+                scalars: 0,
+            })
+        );
+
+        let mut undersized = G1MsmWorkspace::for_points(7).unwrap();
+        let available = undersized.capacity_bytes();
+        let required = unsafe { blst_avx_p1s_mult_ct_scratch_sizeof() };
+        assert!(available < required);
+        assert_eq!(
+            undersized.secret_msm_into(&mut out, &points[..8], &scalars[..8]),
+            Err(Error::ScratchTooSmall {
+                required,
+                available,
+            })
+        );
     }
 
     #[cfg(debug_assertions)]
