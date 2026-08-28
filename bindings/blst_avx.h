@@ -208,6 +208,40 @@ bool blst_avx_p1s_mult_ct(
     void* scratch,
     size_t scratch_bytes);
 
+/**
+ * Returns caller-owned scratch capacity for public-scalar native G1 MSM.
+ *
+ * Storage sized for `max_points` supports every input length through that
+ * capacity. The selected implementation uses shared-doubling GLV batches for
+ * small inputs and Pippenger for larger inputs. Zero means no scratch is
+ * needed, or that the requested capacity is not representable.
+ */
+size_t blst_avx_p1s_mult_fr_vartime_scratch_sizeof(size_t max_points);
+
+/**
+ * Variable-time MSM over AVX G1 projective subgroup points and public scalars.
+ * Computes `out = sum_i scalars[i] * points[i]`.
+ *
+ * Every point must already be on-curve and in G1; Release does not validate
+ * this precondition. `scalars` contains `npoints` consecutive reduced native
+ * Montgomery-form `blst_fr` values and must contain no secrets. The selected
+ * implementation uses direct scalar-dependent table accesses and branches.
+ *
+ * The function allocates nothing. Nonzero scratch requirements must be
+ * obtained from `blst_avx_p1s_mult_fr_vartime_scratch_sizeof`; `scratch` must
+ * be aligned to `BLST_AVX_ALIGNMENT`, and its used prefix must be disjoint
+ * from both inputs and `out`. Empty input returns the identity. Null `points`
+ * or `scalars` is accepted only for empty input. Failure leaves `out`
+ * unchanged.
+ */
+bool blst_avx_p1s_mult_fr_vartime(
+    blst_avx_p1* out,
+    const blst_avx_p1* points,
+    const blst_fr* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes);
+
 /** Returns aggregate scratch bytes required by subgroup `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p1_mult_pippenger`. */

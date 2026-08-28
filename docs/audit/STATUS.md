@@ -1390,3 +1390,22 @@ The 1,406-row API inventory and 38-file structural gate pass, and the native
 AVX and middle-product sanitizer replay targets compile and pass on Peach.
 Statistical leakage and broad sanitizer campaigns remain subsystem release
 gates.
+
+Public native-scalar G1 MSM now selects shared-doubling GLV wNAF-5 through the
+measured 192-point crossover and projective Pippenger above it. On Peach, the
+dense-scalar eight-point microkernel measures 73.164 us versus 203.54 us for
+the unchanged Pippenger reference and 102.97 us for the constant-time kernel.
+The BTX benchmark's nonconsecutive-validator Lagrange coefficients measure
+60.032 us versus 404.37 us for the scalar backend. The new C/Rust boundary
+retains native `blst_fr`/`Scalar` values, caller-owned scratch, no hot-loop
+allocation, explicit public-scalar timing, and failure-atomic malformed-input
+rejection.
+
+The full Release Rust AVX suite passes 16 tests; the focused Debug and Release
+dispatch-boundary differential tests pass; the C contract/header probes pass;
+and the native ASan+UBSan AVX fuzz replay passes. The 38-file fuzz structural
+gate passes with explicit ledger rows for the two C functions and two raw Rust
+bindings. Regenerating the complete inventory also exposes a pre-existing
+backlog of 156 earlier safe Rust/AVX methods that are absent from the checked-in
+safe-API snapshot; resolving that broader inventory debt is a separate audit
+follow-up, not part of this MSM packet.

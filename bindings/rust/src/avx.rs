@@ -1247,7 +1247,7 @@ impl PairingWorkspace {
 #[derive(Clone, Copy, Debug)]
 struct AlignedScratchBlock([u8; SCRATCH_ALIGNMENT]);
 
-/// Caller-owned, reusable scratch for native projective G1 Pippenger MSM.
+/// Caller-owned, reusable scratch for native projective G1 MSM.
 #[derive(Debug)]
 pub struct G1MsmWorkspace {
     scratch: Vec<MaybeUninit<AlignedScratchBlock>>,
@@ -1259,12 +1259,15 @@ impl G1MsmWorkspace {
         ensure_available()?;
         let pippenger_required =
             unsafe { blst_avx_p1s_mult_pippenger_scratch_sizeof(max_points) };
+        let public_required =
+            unsafe { blst_avx_p1s_mult_fr_vartime_scratch_sizeof(max_points) };
         let secret_required = if max_points >= 8 {
             unsafe { blst_avx_p1s_mult_ct_scratch_sizeof() }
         } else {
             0
         };
-        let required = pippenger_required.max(secret_required);
+        let required =
+            pippenger_required.max(public_required).max(secret_required);
         let blocks = required.div_ceil(SCRATCH_ALIGNMENT);
         let mut scratch = Vec::new();
         scratch
@@ -1332,10 +1335,63 @@ impl G1MsmWorkspace {
         }
     }
 
-    /// Computes one MSM into caller-owned output without allocating.
+    /// Computes a variable-time public-scalar MSM without allocating.
     ///
-    /// The Pippenger kernel is variable-time, so every scalar must be public.
+    /// The selected kernel uses shared-doubling GLV batches for small inputs
+    /// and Pippenger for larger inputs. Both paths branch and address tables
+    /// using scalar values, so every scalar must be public. Scalars retain
+    /// their native Montgomery representation across the Rust/C++ boundary.
     pub fn msm_into(
+        &mut self,
+        out: &mut G1Projective,
+        points: &[G1Projective],
+        scalars: &[Scalar],
+    ) -> Result<(), Error> {
+        if points.len() != scalars.len() {
+            return Err(Error::MsmLengthMismatch {
+                points: points.len(),
+                scalars: scalars.len(),
+            });
+        }
+        if points.is_empty() {
+            return Err(Error::EmptyMsm);
+        }
+        let required = unsafe {
+            blst_avx_p1s_mult_fr_vartime_scratch_sizeof(points.len())
+        };
+        let available = self.capacity_bytes();
+        if available < required {
+            return Err(Error::ScratchTooSmall {
+                required,
+                available,
+            });
+        }
+        let scratch = if self.scratch.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.scratch.as_mut_ptr().cast::<core::ffi::c_void>()
+        };
+        if unsafe {
+            blst_avx_p1s_mult_fr_vartime(
+                &mut out.0,
+                G1Projective::as_raw_slice(points).as_ptr(),
+                scalars.as_ptr().cast::<blst_fr>(),
+                points.len(),
+                scratch,
+                available,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Computes the reference variable-time projective Pippenger MSM.
+    ///
+    /// This low-level comparison path accepts canonical little-endian scalar
+    /// bytes. Prefer [`Self::msm_into`] for native public scalars.
+    pub fn pippenger_msm_into(
         &mut self,
         out: &mut G1Projective,
         points: &[G1Projective],
@@ -1422,6 +1478,17 @@ extern "C" {
         scratch_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p1s_mult_ct_scratch_sizeof() -> usize;
+    pub fn blst_avx_p1s_mult_fr_vartime_scratch_sizeof(
+        max_points: usize,
+    ) -> usize;
+    pub fn blst_avx_p1s_mult_fr_vartime(
+        out: *mut blst_avx_p1,
+        points: *const blst_avx_p1,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
+    ) -> bool;
     pub fn blst_avx_p1_to_affine(
         out: *mut blst_avx_p1_affine,
         input: *const blst_avx_p1,
@@ -2278,7 +2345,7 @@ mod tests {
         let mut msm = G1MsmWorkspace::for_points(1).unwrap();
         let capacity = msm.capacity_bytes();
         let mut out = G1Projective::identity().unwrap();
-        let one = crate::Scalar::from(1u64).to_bytes_le();
+        let one = crate::Scalar::from(1u64);
         msm.msm_into(&mut out, &[g1], &[one]).unwrap();
         assert_eq!(out, g1);
         assert_eq!(msm.capacity_bytes(), capacity);
@@ -2331,6 +2398,64 @@ mod tests {
         assert!(available < required);
         assert_eq!(
             undersized.secret_msm_into(&mut out, &points[..8], &scalars[..8]),
+            Err(Error::ScratchTooSmall {
+                required,
+                available,
+            })
+        );
+    }
+
+    #[test]
+    fn public_g1_msm_matches_independent_products_across_dispatch_boundaries() {
+        if !is_available() {
+            return;
+        }
+
+        let generator = G1Projective::generator().unwrap();
+        let points = (1u64..=257)
+            .map(|factor| generator.multiply(&Scalar::from(factor)).unwrap())
+            .collect::<Vec<_>>();
+        let scalars = (19u64..=275).map(Scalar::from).collect::<Vec<_>>();
+        let mut expected = Vec::with_capacity(points.len() + 1);
+        expected.push(G1Projective::identity().unwrap());
+        for (point, scalar) in points.iter().zip(&scalars) {
+            expected.push(
+                expected
+                    .last()
+                    .unwrap()
+                    .add(&point.multiply(scalar).unwrap())
+                    .unwrap(),
+            );
+        }
+
+        let mut workspace = G1MsmWorkspace::for_points(points.len()).unwrap();
+        for count in [
+            1usize, 7, 8, 15, 16, 24, 31, 32, 33, 63, 64, 95, 96, 127, 128,
+            191, 192, 193, 224, 256, 257,
+        ] {
+            let mut actual = G1Projective::identity().unwrap();
+            workspace
+                .msm_into(&mut actual, &points[..count], &scalars[..count])
+                .unwrap();
+            assert_eq!(actual, expected[count], "count={count}");
+        }
+
+        let mut out = G1Projective::identity().unwrap();
+        assert_eq!(
+            workspace.msm_into(&mut out, &points[..1], &scalars[..0]),
+            Err(Error::MsmLengthMismatch {
+                points: 1,
+                scalars: 0,
+            })
+        );
+
+        let mut undersized = G1MsmWorkspace::for_points(7).unwrap();
+        let available = undersized.capacity_bytes();
+        let required =
+            unsafe { blst_avx_p1s_mult_fr_vartime_scratch_sizeof(8) };
+        assert!(available < required);
+        assert_eq!(
+            undersized.msm_into(&mut out, &points[..8], &scalars[..8]),
             Err(Error::ScratchTooSmall {
                 required,
                 available,

@@ -43,3 +43,17 @@ bool blst_avx_secret_g1_msm_c_header_probe(
         blst_avx_p1s_mult_ct(
             out, points, scalars, count, scratch, scratch_bytes);
 }
+
+bool blst_avx_public_g1_msm_c_header_probe(
+    blst_avx_p1* out,
+    const blst_avx_p1* points,
+    const blst_fr* scalars,
+    size_t count,
+    void* scratch,
+    size_t scratch_bytes)
+{
+    return blst_avx_p1s_mult_fr_vartime_scratch_sizeof(count) <=
+            scratch_bytes &&
+        blst_avx_p1s_mult_fr_vartime(
+            out, points, scalars, count, scratch, scratch_bytes);
+}

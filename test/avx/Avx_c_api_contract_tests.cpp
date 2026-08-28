@@ -364,6 +364,75 @@ TEST(AvxCApiContract, G1SecretMsmUsesNativeScalarsAndCallerScratch)
     EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
 }
 
+TEST(AvxCApiContract, G1PublicMsmDispatchesFromWnafToPippenger)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    constexpr size_t kCount = 193;
+    std::array<blst_avx_p1, kCount> points;
+    std::array<blst_fr, kCount> scalars;
+    std::array<G1, kCount + 1> expected;
+    expected[0] = G1::identity();
+    for (size_t i = 0; i < kCount; ++i) {
+        points[i] = *blst_avx_p1_generator();
+        const uint64_t scalar_words[4] = {i + 1, 0, 0, 0};
+        blst_fr_from_uint64(&scalars[i], scalar_words);
+        blst_scalar encoded = {};
+        blst_scalar_from_fr(&encoded, &scalars[i]);
+        G1 term = {};
+        blst_p1_mult(&term, blst_p1_generator(), encoded.b, 255);
+        blst_p1_add_or_double(&expected[i + 1], &expected[i], &term);
+    }
+
+    const size_t scratch_bytes =
+        blst_avx_p1s_mult_fr_vartime_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    EXPECT_EQ(
+        blst_avx_p1s_mult_fr_vartime_scratch_sizeof(32),
+        blst_avx_p1s_mult_fr_vartime_scratch_sizeof(192));
+    std::vector<blst_avx_p1> scratch(
+        (scratch_bytes + sizeof(blst_avx_p1) - 1) / sizeof(blst_avx_p1));
+    const size_t available = scratch.size() * sizeof(blst_avx_p1);
+    blst_avx_p1 out = *blst_avx_p1_generator();
+
+    EXPECT_TRUE(blst_avx_p1s_mult_fr_vartime(
+        &out, nullptr, nullptr, 0, nullptr, 0));
+    EXPECT_TRUE(blst_avx_p1_is_inf(&out));
+
+    for (const size_t count : {
+             1u, 7u, 8u, 31u, 32u, 33u, 64u, 96u, 128u, 191u, 192u,
+             193u}) {
+        ASSERT_TRUE(blst_avx_p1s_mult_fr_vartime(
+            &out, points.data(), scalars.data(), count,
+            scratch.data(), available));
+        G1 actual = {};
+        ASSERT_TRUE(blst_p1_from_avx(&actual, &out));
+        EXPECT_TRUE(G1::equal(actual, expected[count])) << "count=" << count;
+    }
+
+    const blst_avx_p1 before = *blst_avx_p1_generator();
+    const size_t eight_bytes =
+        blst_avx_p1s_mult_fr_vartime_scratch_sizeof(8);
+    out = before;
+    EXPECT_FALSE(blst_avx_p1s_mult_fr_vartime(
+        &out, points.data(), scalars.data(), 8, nullptr, 0));
+    EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+    out = before;
+    EXPECT_FALSE(blst_avx_p1s_mult_fr_vartime(
+        &out, points.data(), scalars.data(), 8,
+        scratch.data(), eight_bytes - 1));
+    EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+    out = before;
+    EXPECT_FALSE(blst_avx_p1s_mult_fr_vartime(
+        &out, points.data(), scalars.data(), 8,
+        reinterpret_cast<blst_byte*>(scratch.data()) + 1, available - 1));
+    EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+    out = before;
+    EXPECT_FALSE(blst_avx_p1s_mult_fr_vartime(
+        &out, points.data(), scalars.data(), 8,
+        points.data(), eight_bytes));
+    EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+}
+
 TEST(AvxCApiContract, G2SubgroupMsmHasOneContractAcrossPointCounts)
 {
     ASSERT_TRUE(blst_avx_enabled());

@@ -83,3 +83,13 @@ fixed 32/16/8 chunking, scratch size/alignment/disjointness, empty input, and
 failure atomicity. `blst_avx_p1s_mult_ct_scratch_sizeof` reports the maximum
 reusable scratch requirement. The API allocates nothing and makes no
 non-subgroup or noncanonical-scalar promise.
+
+## 2026-08-27 public native-scalar MSM addendum
+
+The header adds two declarations, bringing the reviewed C surface to 79
+functions. `blst_avx_p1s_mult_fr_vartime` explicitly restricts its resident
+`blst_fr` inputs to public reduced scalars and documents subgroup ownership,
+allocation freedom, scratch alignment and disjointness, empty input, and
+failure atomicity. Its matching capacity query documents that the algorithm
+may select shared-doubling GLV wNAF or Pippenger without exposing that policy as
+a caller-visible representation change.

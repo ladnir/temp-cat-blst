@@ -349,6 +349,14 @@ namespace catblst::fuzz::adapter
                 secret_scratch.size() * sizeof(blst_avx_p1)));
             require_g1_equal(g1_result, expected_g1);
 
+            auto public_scratch = aligned_scratch<blst_avx_p1>(
+                ::blst_avx_p1s_mult_fr_vartime_scratch_sizeof(count));
+            require(::blst_avx_p1s_mult_fr_vartime(
+                &g1_result, avx_g1.data(), secret_scalars.data(), count,
+                public_scratch.empty() ? nullptr : public_scratch.data(),
+                public_scratch.size() * sizeof(blst_avx_p1)));
+            require_g1_equal(g1_result, expected_g1);
+
             auto split_points = aligned_scratch<blst_avx_p1_affine>(
                 ::blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(count));
             std::vector<blst_byte> split_scalars(

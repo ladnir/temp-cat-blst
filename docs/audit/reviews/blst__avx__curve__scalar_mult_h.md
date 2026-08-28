@@ -261,3 +261,31 @@ operations. The existing constant-time table gather remains an all-row scan;
 the disassembly contains no scalar-derived branch or scalar-derived table
 address. This is a code-generation check for the selected compiler, not a
 replacement for statistical leakage testing.
+
+## 2026-08-27 public G1 MSM addendum
+
+Public G1 MSM now has a fixed-batch GLV wNAF-5 executor. Each input scalar is
+split into the same two 128-bit components as single-point multiplication. For
+each component the executor builds eight odd multiples, records 129 public
+wNAF digits, and shares one doubling schedule across the complete batch.
+Scalar-derived branches, digit skips, signs, and table indices are intentional:
+the entry point requires public scalars.
+
+The wNAF storage is caller-owned and completely overwritten before use. It is
+not zero-initialized on construction or erased on return because it contains
+only public point tables and public digits. The executor is instantiated only
+for fixed 32-, 16-, and 8-point chunks, preventing an unbounded template or
+register-pressure expansion. Pippenger remains the large-input algorithm.
+
+On Peach with Clang 21, one pinned core, and sequential Criterion runs, the
+eight-point public MSM measures 73.164 us versus 203.54 us for projective
+Pippenger and 102.97 us for the constant-time kernel. Shared wNAF remains
+faster than Pippenger at 192 points (1.532 ms versus 1.618 ms); the two are tied
+at 224 points (1.812 ms versus 1.815 ms). The production crossover therefore
+selects wNAF through 192 points and Pippenger above it.
+
+`TODO(AVX-formal: G1-VARTIME-MSM-01)`: after the dispatch and window policy
+stabilize, add Lean validation of the GLV split, signed wNAF reconstruction,
+endomorphism sign convention, and shared-doubling accumulation. The current
+packet has differential, sanitizer, and fuzz evidence but does not claim a
+formal proof of this new executor.

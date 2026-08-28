@@ -65,3 +65,21 @@ constant-time products at empty, tail, exact-chunk, and mixed boundaries up to
 Peach Criterion measurements are recorded in the C++ owner review; moving the
 large tables into this reusable workspace did not regress the selected
 thirty-two-point kernel.
+
+## 2026-08-27 public native-scalar MSM addendum
+
+`G1MsmWorkspace::msm_into` now accepts `&[Scalar]`, eliminating BTX's
+Rust-side canonical byte vector. The FFI receives the resident Montgomery
+scalar array. The method checks dimensions and reusable capacity before the
+call and allocates nothing. The selected C++ implementation is variable-time
+and therefore retains the explicit public-scalar contract. The former
+canonical-byte Pippenger operation remains available as
+`pippenger_msm_into` for controlled comparison and low-level use.
+
+The differential test spans every fixed chunk boundary, the 192/193 algorithm
+boundary, and the larger Pippenger path through 257 points. It also checks
+length mismatch and undersized-workspace rejection. Native Peach benchmark
+results and C malformed-input coverage are recorded in the C++ owner reviews.
+The downstream BTX benchmark uses Lagrange coefficients for nonconsecutive
+validator indices rather than sparse integer scalars; its eight-point AVX path
+measures 60.032 us versus 404.37 us for the scalar backend on Peach.

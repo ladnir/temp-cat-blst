@@ -77,14 +77,19 @@ conversion, pairing, final exponentiation, and variable-time MSM kernels do
 not carry a constant-time promise. Their inputs must be public unless a more
 specific native contract states otherwise.
 
-`G1MsmWorkspace::msm_into` uses variable-time Pippenger and therefore requires
-public scalars. BTX uses that method for public Lagrange coefficients during
-share combination. `G1MsmWorkspace::secret_msm_into` accepts native typed
-`Scalar` values and uses a constant-time GLV MSM for secret coefficients. Its
-control flow and memory addresses depend on the public point count, but not on
-scalar contents. The kernel shares its doubling schedule in 32-, 16-, and
-8-point chunks, then uses fixed-width constant-time multiplication for the
-short tail.
+`G1MsmWorkspace::msm_into` accepts native typed `Scalar` values and requires
+them to be public. It uses shared-doubling GLV wNAF-5 batches through the
+measured small/medium crossover and Pippenger above it. Both algorithms branch
+and address tables using scalar digits. BTX uses this method for public
+Lagrange coefficients during share combination. The low-level
+`pippenger_msm_into` method retains the canonical-byte Pippenger path for
+explicit comparison and specialized callers.
+
+`G1MsmWorkspace::secret_msm_into` accepts native typed `Scalar` values and uses
+a constant-time GLV MSM for secret coefficients. Its control flow and memory
+addresses depend on the public point count, but not on scalar contents. The
+kernel shares its doubling schedule in 32-, 16-, and 8-point chunks, then uses
+fixed-width constant-time multiplication for the short tail.
 
 ## Allocation and workspaces
 
@@ -113,13 +118,14 @@ After construction:
 requested logical pair limit rather than relying on allocator capacity.
 `PairingWorkspace::push` converts both operands before mutating either staging
 array and fails before mutation when the logical capacity is exhausted.
-Both G1 MSM methods check lengths and scratch capacity before calling the
-native kernel. Variable-time Pippenger initializes every bucket before its
-first read. Secret MSM stores its public point tables and split-scalar staging
-in the caller-owned workspace rather than on the thread stack. It erases the
-split scalars, canonical scalar bytes, and Booth indices before returning;
-public point tables may remain. Callers use one mutable workspace per
-concurrent operation.
+All G1 MSM methods check lengths and scratch capacity before calling the native
+kernel. Variable-time Pippenger initializes every bucket before its first read.
+The public wNAF path completely overwrites every live digit and odd-multiple
+table entry; those values are public and are not pointlessly erased. Secret MSM
+stores its public point tables and split-scalar staging in the caller-owned
+workspace rather than on the thread stack. It erases the split scalars,
+canonical scalar bytes, and Booth indices before returning; public point tables
+may remain. Callers use one mutable workspace per concurrent operation.
 Immutable prepared line tables and native middle-product precomputations may be
 shared after construction.
 

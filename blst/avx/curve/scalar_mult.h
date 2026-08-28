@@ -14,6 +14,7 @@
 #include "blst/common/bytes.h"
 #include "blst/common/vect.h"
 #include "blst/scalar/curve/ec_mult.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -444,6 +445,15 @@ class GLVMult {
     using BatchTables = std::array<
         PrecomputedTable<G1Curve, Ring, table_log_size>, 2 * batch_size>;
 
+    template<int batch_size>
+    using BatchWnafDigits =
+        std::array<std::array<int8_t, 129>, 2 * batch_size>;
+
+    template<int batch_size, int width=5>
+    using BatchWnafTables = std::array<
+        std::array<ProjectivePoint, size_t{1} << (width - 2)>,
+        2 * batch_size>;
+
     template<int batch_size, int table_log_size=4>
     ProjectivePoint multiply_batch(
         const ProjectivePoint* P,
@@ -484,6 +494,90 @@ class GLVMult {
             G1Curve, Ring, 128, table_log_size, component_count>(
                 scalars, tables, component_count, curve, ring);
         blst::vec_zero(&scalars, sizeof(scalars));
+        return result;
+    }
+
+    /**
+     * Variable-time fixed-batch MSM for public scalars.
+     *
+     * This uses the same GLV split, point tables, and shared doubling schedule
+     * as `multiply_batch`, but directly indexes public Booth digits and skips
+     * zero digits. `SK` contains `batch_size` consecutive canonical 32-byte
+     * little-endian scalars. `scalars` and `tables` are caller-owned reusable
+     * storage, and the operation allocates nothing.
+     */
+    template<int batch_size, int width=5>
+    ProjectivePoint multiply_batch_vartime(
+        const ProjectivePoint* P,
+        const uint8_t* SK,
+        const Ring& ring,
+        BatchWnafDigits<batch_size>& digits,
+        BatchWnafTables<batch_size, width>& tables) const
+    {
+        static_assert(batch_size > 1);
+        static_assert(width >= 4 && width <= 6);
+        constexpr size_t table_size = size_t{1} << (width - 2);
+        constexpr int component_count = 2 * batch_size;
+        size_t used = 0;
+
+        for (int i = 0; i < batch_size; ++i) {
+            std::array<uint8_t, 32> scalar_bytes;
+            std::memcpy(scalar_bytes.data(), SK + 32 * i, scalar_bytes.size());
+            const div_by_zz_result split = div_by_zz(scalar_bytes);
+            const size_t used_low =
+                blst::scalar::recode_wnaf_vartime<128, width>(
+                    digits[2 * i].data(), split.first.data());
+            const size_t used_high =
+                blst::scalar::recode_wnaf_vartime<128, width>(
+                    digits[2 * i + 1].data(), split.second.data());
+            used = std::max(used, std::max(used_low, used_high));
+
+            const ProjectivePoint twice = curve.double_point(P[i], ring);
+            tables[2 * i][0] = P[i];
+            for (size_t j = 1; j < table_size; ++j) {
+                tables[2 * i][j] =
+                    curve.add_point(tables[2 * i][j - 1], twice, ring);
+            }
+            for (size_t j = 0; j < table_size; ++j) {
+                const ProjectivePoint& point = tables[2 * i][j];
+                tables[2 * i + 1][j] = {
+                    ring.modmul(point.x, beta),
+                    ring.standard_negate(point.y),
+                    point.z,
+                };
+            }
+        }
+
+        ProjectivePoint result = curve.zero(ring);
+        bool started = false;
+        for (size_t position = used; position != 0;) {
+            --position;
+            if (started) {
+                result = curve.double_point(result, ring);
+            }
+            for (int component = 0; component < component_count; ++component) {
+                const int digit = digits[component][position];
+                if (digit == 0) {
+                    continue;
+                }
+                const unsigned magnitude = digit < 0
+                    ? static_cast<unsigned>(-digit)
+                    : static_cast<unsigned>(digit);
+                BLST_ASSERT((magnitude & 1U) != 0);
+                BLST_ASSERT((magnitude >> 1) < table_size);
+                ProjectivePoint row = tables[component][magnitude >> 1];
+                if (digit < 0) {
+                    row.y = ring.standard_negate(row.y);
+                }
+                if (!started) {
+                    result = row;
+                    started = true;
+                }
+                else {
+                    result = curve.add_point(result, row, ring);
+                }
+            }
+        }
         return result;
     }
 

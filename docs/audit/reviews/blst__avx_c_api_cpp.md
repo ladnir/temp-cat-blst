@@ -74,3 +74,20 @@ input leaves output unchanged. The same scratch is reused sequentially across
 32-, 16-, and 8-point chunks, followed by the existing constant-time
 single-point tail. No allocation, exception, dynamic dispatch, or backend
 conversion is present in the hot path.
+
+## 2026-08-27 public native-scalar G1 MSM addendum
+
+`blst_avx_p1s_mult_fr_vartime` is the allocation-free public-scalar companion
+to the secret boundary. It accepts resident AVX projective points and reduced
+native Montgomery `blst_fr` scalars. Through 192 points it executes fixed
+32/16/8 shared-doubling GLV wNAF-5 chunks; above 192 it canonicalizes the public
+scalars into caller scratch and invokes projective Pippenger. The result is
+computed locally and published only on success.
+
+`blst_avx_p1s_mult_fr_vartime_scratch_sizeof` is a capacity query: storage for
+`max_points` supports every smaller input. The query accounts for the maximum
+fixed-batch tables and digits, and for both Pippenger buckets and canonical
+scalar staging when the capacity crosses the large-input path. The C boundary
+checks overflow, 64-byte alignment, exact scratch capacity, pairwise range
+disjointness, and null/empty shape before arithmetic. Release retains the
+documented prevalidated-subgroup precondition; Debug asserts it.

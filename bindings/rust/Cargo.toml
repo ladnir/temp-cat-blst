@@ -77,6 +77,11 @@ name = "btx_prepared_g2_construction"
 harness = false
 required-features = ["avx"]
 
+[[bench]]
+name = "avx_g1_msm"
+harness = false
+required-features = ["avx"]
+
 [profile.release]
 #opt-level = 3
 
