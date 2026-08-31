@@ -13,9 +13,11 @@ implementation. Selection occurs at compile time; the library does not perform
 runtime dispatch between scalar and AVX implementations.
 
 Native binaries require an x86_64 CPU and operating system with AVX2,
-AVX-512F, AVX-512DQ, and AVX-512IFMA support. The supported native compilers
-are Clang 21 or newer and GCC 15 or newer. Running a native binary on an
-incompatible system may fault.
+AVX-512F, AVX-512DQ, and AVX-512IFMA support. The supported native compiler is
+Clang 21 or newer. Other compilers require the explicit
+`BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON` override and are not production or
+performance-evidence configurations. Running a native binary on an incompatible
+system may fault.
 
 The portable vector emulation exists only for developer Debug and differential
 testing. It is not a supported deployment backend or performance evidence.

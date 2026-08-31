@@ -204,21 +204,17 @@ if(BLST_AVX512)
        AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 21.0.0)
         set(BLST_AVX_COMPILER_SUPPORTED ON)
     endif()
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
-        set(BLST_AVX_COMPILER_SUPPORTED ON)
-    endif()
 
     if(NOT BLST_AVX_COMPILER_SUPPORTED)
         if(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER)
             message(WARNING
-                "AVX support requires Clang 21 or newer, or GCC 15 or newer. "
+                "AVX support requires Clang 21 or newer. "
                 "Proceeding with unsupported compiler "
                 "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} "
                 "because BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON.")
         else()
             message(FATAL_ERROR
-                "AVX support requires Clang 21 or newer, or GCC 15 or newer. "
+                "AVX support requires Clang 21 or newer. "
                 "Detected ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}. "
                 "Set BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON to override this check.")
         endif()
