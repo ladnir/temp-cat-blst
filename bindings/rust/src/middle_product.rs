@@ -181,6 +181,13 @@ pub struct MiddleProductPrecomputedB {
     n: usize,
 }
 
+// SAFETY: construction publishes a fully initialized native allocation.
+// Evaluation receives the allocation through a const pointer, the native
+// implementation does not mutate it, and destruction requires exclusive Rust
+// ownership. Concurrent evaluations therefore share immutable storage only.
+unsafe impl Send for MiddleProductPrecomputedB {}
+unsafe impl Sync for MiddleProductPrecomputedB {}
+
 impl MiddleProductPrecomputedB {
     /// Precomputes `b`, where `b.len()` must be exactly `2 * n` and every
     /// element must already be a reduced G2 subgroup point.
@@ -213,6 +220,12 @@ pub struct ScalarMiddleProductPrecomputedB {
     raw: *mut blst_middle_product_precomputed_b_scalar,
     n: usize,
 }
+
+// SAFETY: construction publishes a fully initialized native allocation.
+// Scalar evaluation receives it through a const pointer and does not mutate
+// the precomputed table. Drop requires exclusive Rust ownership.
+unsafe impl Send for ScalarMiddleProductPrecomputedB {}
+unsafe impl Sync for ScalarMiddleProductPrecomputedB {}
 
 impl ScalarMiddleProductPrecomputedB {
     pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
@@ -284,6 +297,12 @@ pub struct AvxMiddleProductPrecomputedB {
     raw: *mut blst_middle_product_precomputed_b_avx,
     n: usize,
 }
+
+// SAFETY: construction publishes a fully initialized native allocation. AVX
+// evaluation reads the table through a const pointer and uses caller-owned
+// workspace for mutable scratch. Drop requires exclusive Rust ownership.
+unsafe impl Send for AvxMiddleProductPrecomputedB {}
+unsafe impl Sync for AvxMiddleProductPrecomputedB {}
 
 impl AvxMiddleProductPrecomputedB {
     pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
@@ -761,6 +780,16 @@ pub fn combine(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn immutable_precomputations_are_send_and_sync() {
+        assert_send_sync::<MiddleProductPrecomputedB>();
+        assert_send_sync::<ScalarMiddleProductPrecomputedB>();
+        assert_send_sync::<AvxMiddleProductPrecomputedB>();
+        assert_send_sync::<NativeAvxMiddleProductPrecomputedB>();
+    }
 
     fn zero_fp12() -> blst_fp12 {
         blst_fp12 {

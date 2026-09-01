@@ -22,6 +22,7 @@ fn main() {
         "BLST_TEST_NO_STD",
         "BLST_ALLOW_UNTESTED_ARM64",
         "BLST_ALLOW_UNTESTED_CHERI",
+        "BLST_ALLOW_UNSUPPORTED_AVX_COMPILER",
         "BLST_PREBUILT_LIB",
         "BLST_PREBUILT_CONFIG_INCLUDE",
         "CMAKE_GENERATOR",
@@ -38,6 +39,7 @@ fn main() {
 
     let allow_untested_arm64 = env_flag("BLST_ALLOW_UNTESTED_ARM64");
     let allow_untested_cheri = env_flag("BLST_ALLOW_UNTESTED_CHERI");
+    let allow_unsupported_avx_compiler = env_flag("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER");
     let target_is_cheri = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").as_deref()
         == Ok("128")
         || target_env.to_ascii_lowercase().contains("cheri")
@@ -182,6 +184,10 @@ fn main() {
         on_off(enable_avx_portable)
     ));
     configure.arg(format!("-DBLST_DEFAULT_AVX={}", on_off(enable_avx)));
+    configure.arg(format!(
+        "-DBLST_ALLOW_UNSUPPORTED_AVX_COMPILER={}",
+        on_off(allow_unsupported_avx_compiler)
+    ));
     run(&mut configure, "configure blst with CMake");
 
     let mut build = Command::new("cmake");
