@@ -13,6 +13,7 @@
 //! - combine GT outputs with `combine`
 //! - keep explicit AVX inputs and outputs native with
 //!   `middle_product_avx_native_with_workspace`
+//! - split scalar or native-AVX evaluation into caller-scheduled disjoint ranges
 //!
 //! For `a.len() == n` and a precomputed `b.len() == 2*n`, output `k` is
 //! `product_i pairing(a[i], b[n + k - i])`. All G1/G2 values must already be
@@ -20,7 +21,29 @@
 //! identity. The native implementation does not validate those properties.
 //! The returned `blst_fp12` values semantically belong to GT.
 
+use core::ops::Range;
+
 use crate::*;
+
+/// Stateless phase identifier for the ranged middle-product interface.
+///
+/// Input loading and output extraction use their typed operations. Forward-J0,
+/// forward-nonzero, and inverse-butterfly phases use a zero-based FFT stage;
+/// every other phase requires stage zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum MiddleProductRangePhase {
+    InputLoad = 0,
+    ForwardBitReverse = 1,
+    ForwardJ0 = 2,
+    ForwardNonzero = 3,
+    AffineConversion = 4,
+    PointwisePairing = 5,
+    InverseBitReverse = 6,
+    InverseButterflies = 7,
+    Normalization = 8,
+    Extraction = 9,
+}
 
 #[repr(C)]
 pub struct blst_middle_product_precomputed_b {
@@ -72,6 +95,36 @@ extern "C" {
         precomputed_b: *const blst_middle_product_precomputed_b_scalar,
         workspace: *mut blst_middle_product_workspace_scalar,
         out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_scalar_range_work_count(
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        count: *mut usize,
+    ) -> bool;
+    fn blst_middle_product_scalar_input_range(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        workspace: *mut blst_middle_product_workspace_scalar,
+        begin: usize,
+        end: usize,
+    ) -> bool;
+    fn blst_middle_product_scalar_execute_range(
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        workspace: *mut blst_middle_product_workspace_scalar,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        begin: usize,
+        end: usize,
+    ) -> bool;
+    fn blst_middle_product_scalar_output_range(
+        precomputed_b: *const blst_middle_product_precomputed_b_scalar,
+        workspace: *mut blst_middle_product_workspace_scalar,
+        out: *mut blst_fp12,
+        n: usize,
+        begin: usize,
+        end: usize,
     ) -> bool;
     fn blst_middle_product_workspace_scalar_free(
         workspace: *mut blst_middle_product_workspace_scalar,
@@ -128,6 +181,36 @@ extern "C" {
         precomputed_b: *const blst_middle_product_precomputed_b_avx,
         workspace: *mut blst_middle_product_workspace_avx_native,
         out: *mut blst_avx_gt,
+    ) -> bool;
+    fn blst_middle_product_avx_native_range_work_count(
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        count: *mut usize,
+    ) -> bool;
+    fn blst_middle_product_avx_native_input_range(
+        a: *const blst_avx_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        workspace: *mut blst_middle_product_workspace_avx_native,
+        begin: usize,
+        end: usize,
+    ) -> bool;
+    fn blst_middle_product_avx_native_execute_range(
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        workspace: *mut blst_middle_product_workspace_avx_native,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        begin: usize,
+        end: usize,
+    ) -> bool;
+    fn blst_middle_product_avx_native_output_range(
+        precomputed_b: *const blst_middle_product_precomputed_b_avx,
+        workspace: *mut blst_middle_product_workspace_avx_native,
+        out: *mut blst_avx_gt,
+        n: usize,
+        begin: usize,
+        end: usize,
     ) -> bool;
     fn blst_middle_product_workspace_avx_native_free(
         workspace: *mut blst_middle_product_workspace_avx_native,
@@ -246,6 +329,25 @@ impl ScalarMiddleProductPrecomputedB {
     pub fn is_empty(&self) -> bool {
         self.n == 0
     }
+
+    /// Returns the work-item count for one ranged phase and stage.
+    #[inline]
+    pub fn range_work_count(
+        &self,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+    ) -> Result<usize, MiddleProductError> {
+        let mut count = 0;
+        if unsafe {
+            blst_middle_product_scalar_range_work_count(
+                self.raw, phase, stage, &mut count,
+            )
+        } {
+            Ok(count)
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
 }
 
 impl Drop for ScalarMiddleProductPrecomputedB {
@@ -260,8 +362,15 @@ impl Drop for ScalarMiddleProductPrecomputedB {
 #[derive(Debug)]
 pub struct ScalarMiddleProductWorkspace {
     raw: *mut blst_middle_product_workspace_scalar,
-    n: usize,
+    capacity: usize,
 }
+
+// SAFETY: the native allocation has no thread affinity. Concurrent access is
+// exposed only through unsafe range methods whose caller must enforce disjoint
+// same-phase ranges and phase/stage barriers. Safe one-shot evaluation retains
+// an exclusive mutable borrow.
+unsafe impl Send for ScalarMiddleProductWorkspace {}
+unsafe impl Sync for ScalarMiddleProductWorkspace {}
 
 impl ScalarMiddleProductWorkspace {
     pub fn new(
@@ -275,8 +384,117 @@ impl ScalarMiddleProductWorkspace {
         }
         Ok(Self {
             raw,
-            n: precomputed_b.n,
+            capacity: precomputed_b.n,
         })
+    }
+
+    /// Returns the largest logical precompute accepted by this workspace.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Loads one disjoint range into shared workspace storage.
+    ///
+    /// # Safety
+    ///
+    /// Concurrent callers must use disjoint ranges from this same input-load
+    /// phase. The caller must keep `a`, `precomputed_b`, and this workspace
+    /// alive through the call and must establish a barrier before advancing to
+    /// the next phase. No call may overlap workspace destruction or safe
+    /// one-shot evaluation.
+    #[inline]
+    pub unsafe fn input_range(
+        &self,
+        a: &[blst_p1],
+        precomputed_b: &ScalarMiddleProductPrecomputedB,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_range_inputs(a.len(), precomputed_b.n, self.capacity)?;
+        if unsafe {
+            blst_middle_product_scalar_input_range(
+                a.as_ptr(),
+                precomputed_b.n,
+                precomputed_b.raw,
+                self.raw,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
+
+    /// Executes one disjoint phase/stage range against shared workspace.
+    ///
+    /// # Safety
+    ///
+    /// Concurrent calls must use disjoint ranges of the same phase and stage.
+    /// The caller supplies every stage and phase barrier and must exclude safe
+    /// one-shot evaluation and destruction for the duration of the call.
+    #[inline]
+    pub unsafe fn execute_range(
+        &self,
+        precomputed_b: &ScalarMiddleProductPrecomputedB,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_workspace_capacity(self.capacity, precomputed_b.n)?;
+        if unsafe {
+            blst_middle_product_scalar_execute_range(
+                precomputed_b.raw,
+                self.raw,
+                phase,
+                stage,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
+
+    /// Extracts one disjoint range into a caller-owned output allocation.
+    ///
+    /// # Safety
+    ///
+    /// `out` must be valid and initialized for `out_len` target-group elements.
+    /// Concurrent output calls must address disjoint ranges of the same output
+    /// allocation. The caller must keep the allocation, precompute, and
+    /// workspace alive, must have completed all earlier phases, and must
+    /// exclude destruction and safe one-shot evaluation.
+    #[inline]
+    pub unsafe fn output_range(
+        &self,
+        precomputed_b: &ScalarMiddleProductPrecomputedB,
+        out: *mut blst_fp12,
+        out_len: usize,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_output_range(
+            out.cast_const(),
+            out_len,
+            precomputed_b.n,
+            self.capacity,
+        )?;
+        if unsafe {
+            blst_middle_product_scalar_output_range(
+                precomputed_b.raw,
+                self.raw,
+                out,
+                precomputed_b.n,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
     }
 }
 
@@ -337,7 +555,7 @@ impl Drop for AvxMiddleProductPrecomputedB {
 #[derive(Debug)]
 pub struct AvxMiddleProductWorkspace {
     raw: *mut blst_middle_product_workspace_avx,
-    n: usize,
+    capacity: usize,
 }
 
 impl AvxMiddleProductWorkspace {
@@ -351,8 +569,13 @@ impl AvxMiddleProductWorkspace {
         }
         Ok(Self {
             raw,
-            n: precomputed_b.n,
+            capacity: precomputed_b.n,
         })
+    }
+
+    /// Returns the largest logical precompute accepted by this workspace.
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 }
 
@@ -383,7 +606,9 @@ impl NativeAvxMiddleProductPrecomputedB {
     pub fn new(b: &[blst_avx_p2]) -> Result<Self, MiddleProductError> {
         validate_precompute_input(b)?;
         let n = b.len() / 2;
-        let raw = unsafe { blst_middle_product_precompute_b_avx_native(b.as_ptr(), n) };
+        let raw = unsafe {
+            blst_middle_product_precompute_b_avx_native(b.as_ptr(), n)
+        };
         if raw.is_null() {
             return Err(MiddleProductError::PrecomputeFailed);
         }
@@ -405,6 +630,25 @@ impl NativeAvxMiddleProductPrecomputedB {
     pub fn is_empty(&self) -> bool {
         self.n == 0
     }
+
+    /// Returns the work-item count for one native-AVX ranged phase and stage.
+    #[inline]
+    pub fn range_work_count(
+        &self,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+    ) -> Result<usize, MiddleProductError> {
+        let mut count = 0;
+        if unsafe {
+            blst_middle_product_avx_native_range_work_count(
+                self.raw, phase, stage, &mut count,
+            )
+        } {
+            Ok(count)
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
 }
 
 impl Drop for NativeAvxMiddleProductPrecomputedB {
@@ -422,21 +666,134 @@ impl Drop for NativeAvxMiddleProductPrecomputedB {
 #[derive(Debug)]
 pub struct NativeAvxMiddleProductWorkspace {
     raw: *mut blst_middle_product_workspace_avx_native,
-    n: usize,
+    capacity: usize,
 }
+
+// SAFETY: as for the scalar workspace, safe one-shot evaluation is exclusive.
+// Shared access is available only through unsafe range methods with an
+// explicit disjointness and barrier contract.
+unsafe impl Send for NativeAvxMiddleProductWorkspace {}
+unsafe impl Sync for NativeAvxMiddleProductWorkspace {}
 
 impl NativeAvxMiddleProductWorkspace {
     pub fn new(
         precomputed_b: &NativeAvxMiddleProductPrecomputedB,
     ) -> Result<Self, MiddleProductError> {
-        let raw = unsafe { blst_middle_product_workspace_avx_native_new(precomputed_b.raw) };
+        let raw = unsafe {
+            blst_middle_product_workspace_avx_native_new(precomputed_b.raw)
+        };
         if raw.is_null() {
             return Err(MiddleProductError::WorkspaceCreationFailed);
         }
         Ok(Self {
             raw,
-            n: precomputed_b.n,
+            capacity: precomputed_b.n,
         })
+    }
+
+    /// Returns the largest logical precompute accepted by this workspace.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Loads one disjoint native-AVX input range into shared workspace.
+    ///
+    /// # Safety
+    ///
+    /// The caller must enforce the same disjoint-range, lifetime, and barrier
+    /// contract as [`ScalarMiddleProductWorkspace::input_range`].
+    #[inline]
+    pub unsafe fn input_range(
+        &self,
+        a: &[crate::avx::G1Projective],
+        precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_range_inputs(a.len(), precomputed_b.n, self.capacity)?;
+        if unsafe {
+            blst_middle_product_avx_native_input_range(
+                crate::avx::G1Projective::as_raw_slice(a).as_ptr(),
+                precomputed_b.n,
+                precomputed_b.raw,
+                self.raw,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
+
+    /// Executes one disjoint native-AVX phase/stage range.
+    ///
+    /// # Safety
+    ///
+    /// Concurrent calls must use disjoint ranges of the same phase and stage.
+    /// The caller supplies every barrier and excludes one-shot evaluation and
+    /// destruction while any range call is active.
+    #[inline]
+    pub unsafe fn execute_range(
+        &self,
+        precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+        phase: MiddleProductRangePhase,
+        stage: usize,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_workspace_capacity(self.capacity, precomputed_b.n)?;
+        if unsafe {
+            blst_middle_product_avx_native_execute_range(
+                precomputed_b.raw,
+                self.raw,
+                phase,
+                stage,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
+    }
+
+    /// Extracts one disjoint range into native-AVX output storage.
+    ///
+    /// # Safety
+    ///
+    /// `out` must be valid and initialized for `out_len` `crate::avx::Gt`
+    /// values. Concurrent calls must address disjoint ranges. All earlier
+    /// phases must be complete, and no one-shot evaluation or destruction may
+    /// overlap this call.
+    #[inline]
+    pub unsafe fn output_range(
+        &self,
+        precomputed_b: &NativeAvxMiddleProductPrecomputedB,
+        out: *mut crate::avx::Gt,
+        out_len: usize,
+        range: Range<usize>,
+    ) -> Result<(), MiddleProductError> {
+        validate_output_range(
+            out.cast_const(),
+            out_len,
+            precomputed_b.n,
+            self.capacity,
+        )?;
+        if unsafe {
+            blst_middle_product_avx_native_output_range(
+                precomputed_b.raw,
+                self.raw,
+                out.cast(),
+                precomputed_b.n,
+                range.start,
+                range.end,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(MiddleProductError::BackendFailure)
+        }
     }
 
     /// Evaluates directly over typed native AVX inputs and outputs.
@@ -474,6 +831,46 @@ fn validate_precompute_input<T>(b: &[T]) -> Result<(), MiddleProductError> {
         return Err(MiddleProductError::InvalidBLength);
     }
     Ok(())
+}
+
+#[inline]
+fn validate_workspace_capacity(
+    capacity: usize,
+    required: usize,
+) -> Result<(), MiddleProductError> {
+    if capacity < required {
+        Err(MiddleProductError::LengthMismatch)
+    } else {
+        Ok(())
+    }
+}
+
+#[inline]
+fn validate_range_inputs(
+    input_len: usize,
+    expected: usize,
+    capacity: usize,
+) -> Result<(), MiddleProductError> {
+    if input_len != expected {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    validate_workspace_capacity(capacity, expected)
+}
+
+#[inline]
+fn validate_output_range<T>(
+    out: *const T,
+    out_len: usize,
+    expected: usize,
+    capacity: usize,
+) -> Result<(), MiddleProductError> {
+    if out_len < expected {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+    if out.is_null() {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    validate_workspace_capacity(capacity, expected)
 }
 
 /// Precomputes the `b` operand for repeated middle-product evaluations.
@@ -556,9 +953,10 @@ pub fn middle_product_scalar(
 
 /// Computes a scalar middle product without allocating in the native call.
 ///
-/// `workspace` must have been constructed for a scalar precompute with the
-/// same logical length. It may be reused by subsequent calls, but is mutably
-/// borrowed so concurrent evaluations require distinct workspaces.
+/// `workspace` must have been constructed for a scalar precompute at least as
+/// large as `precomputed_b`. It may be reused by subsequent calls and smaller
+/// precomputes, but is mutably borrowed so concurrent one-shot evaluations
+/// require distinct workspaces.
 pub fn middle_product_scalar_with_workspace(
     a: &[blst_p1],
     precomputed_b: &ScalarMiddleProductPrecomputedB,
@@ -566,7 +964,7 @@ pub fn middle_product_scalar_with_workspace(
     out: &mut [blst_fp12],
 ) -> Result<(), MiddleProductError> {
     validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
-    if workspace.n != precomputed_b.n {
+    if workspace.capacity < precomputed_b.n {
         return Err(MiddleProductError::LengthMismatch);
     }
     if unsafe {
@@ -607,6 +1005,7 @@ pub fn middle_product_avx(
 }
 
 /// Computes an AVX middle product without allocating in the native call.
+/// A workspace created for a larger precompute may evaluate a smaller one.
 pub fn middle_product_avx_with_workspace(
     a: &[blst_p1],
     precomputed_b: &AvxMiddleProductPrecomputedB,
@@ -614,7 +1013,7 @@ pub fn middle_product_avx_with_workspace(
     out: &mut [blst_fp12],
 ) -> Result<(), MiddleProductError> {
     validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
-    if workspace.n != precomputed_b.n {
+    if workspace.capacity < precomputed_b.n {
         return Err(MiddleProductError::LengthMismatch);
     }
     if unsafe {
@@ -635,7 +1034,8 @@ pub fn middle_product_avx_with_workspace(
 /// Computes an AVX middle product using native input and output types.
 ///
 /// Construction and evaluation never cross the scalar representation. The
-/// native call allocates nothing after `workspace` is constructed.
+/// native call allocates nothing after `workspace` is constructed, and a
+/// workspace created for a larger precompute may evaluate a smaller one.
 pub fn middle_product_avx_native_with_workspace(
     a: &[blst_avx_p1],
     precomputed_b: &NativeAvxMiddleProductPrecomputedB,
@@ -643,7 +1043,7 @@ pub fn middle_product_avx_native_with_workspace(
     out: &mut [blst_avx_gt],
 ) -> Result<(), MiddleProductError> {
     validate_evaluation_buffers(a.len(), precomputed_b.n, out.len())?;
-    if workspace.n != precomputed_b.n {
+    if workspace.capacity < precomputed_b.n {
         return Err(MiddleProductError::LengthMismatch);
     }
     if unsafe {
@@ -789,6 +1189,99 @@ mod tests {
         assert_send_sync::<ScalarMiddleProductPrecomputedB>();
         assert_send_sync::<AvxMiddleProductPrecomputedB>();
         assert_send_sync::<NativeAvxMiddleProductPrecomputedB>();
+        assert_send_sync::<ScalarMiddleProductWorkspace>();
+        assert_send_sync::<NativeAvxMiddleProductWorkspace>();
+    }
+
+    fn scalar_ranged_serial(
+        a: &[blst_p1],
+        precomputed: &ScalarMiddleProductPrecomputedB,
+        workspace: &ScalarMiddleProductWorkspace,
+        out: &mut [blst_fp12],
+    ) {
+        let execute = |phase, stage| {
+            let count = precomputed.range_work_count(phase, stage).unwrap();
+            unsafe {
+                workspace
+                    .execute_range(precomputed, phase, stage, 0..count)
+                    .unwrap();
+            }
+        };
+
+        let input_count = precomputed
+            .range_work_count(MiddleProductRangePhase::InputLoad, 0)
+            .unwrap();
+        unsafe {
+            workspace
+                .input_range(a, precomputed, 0..input_count)
+                .unwrap();
+        }
+        execute(MiddleProductRangePhase::ForwardBitReverse, 0);
+        for stage in 0usize.. {
+            let Ok(j0_count) = precomputed
+                .range_work_count(MiddleProductRangePhase::ForwardJ0, stage)
+            else {
+                break;
+            };
+            unsafe {
+                workspace
+                    .execute_range(
+                        precomputed,
+                        MiddleProductRangePhase::ForwardJ0,
+                        stage,
+                        0..j0_count,
+                    )
+                    .unwrap();
+            }
+            let nonzero_count = precomputed
+                .range_work_count(
+                    MiddleProductRangePhase::ForwardNonzero,
+                    stage,
+                )
+                .unwrap();
+            unsafe {
+                workspace
+                    .execute_range(
+                        precomputed,
+                        MiddleProductRangePhase::ForwardNonzero,
+                        stage,
+                        0..nonzero_count,
+                    )
+                    .unwrap();
+            }
+        }
+        execute(MiddleProductRangePhase::AffineConversion, 0);
+        execute(MiddleProductRangePhase::PointwisePairing, 0);
+        execute(MiddleProductRangePhase::InverseBitReverse, 0);
+        for stage in 0usize.. {
+            let Ok(count) = precomputed.range_work_count(
+                MiddleProductRangePhase::InverseButterflies,
+                stage,
+            ) else {
+                break;
+            };
+            unsafe {
+                workspace
+                    .execute_range(
+                        precomputed,
+                        MiddleProductRangePhase::InverseButterflies,
+                        stage,
+                        0..count,
+                    )
+                    .unwrap();
+            }
+        }
+        execute(MiddleProductRangePhase::Normalization, 0);
+        unsafe {
+            workspace
+                .output_range(
+                    precomputed,
+                    out.as_mut_ptr(),
+                    out.len(),
+                    0..out.len(),
+                )
+                .unwrap();
+        }
     }
 
     fn zero_fp12() -> blst_fp12 {
@@ -891,6 +1384,65 @@ mod tests {
     }
 
     #[test]
+    fn scalar_range_api_reuses_larger_workspace_and_matches_one_shot() {
+        let g1 = unsafe { *blst_p1_generator() };
+        let g2 = unsafe { *blst_p2_generator() };
+        let large_b = [g2; 8];
+        let small_b = [g2; 4];
+        let large = ScalarMiddleProductPrecomputedB::new(&large_b).unwrap();
+        let small = ScalarMiddleProductPrecomputedB::new(&small_b).unwrap();
+        let workspace = ScalarMiddleProductWorkspace::new(&large).unwrap();
+        let mut exclusive_workspace =
+            ScalarMiddleProductWorkspace::new(&large).unwrap();
+        let a = [g1; 2];
+        let mut expected = [zero_fp12(); 2];
+        let mut ranged = [zero_fp12(); 2];
+
+        middle_product_scalar_with_workspace(
+            &a,
+            &small,
+            &mut exclusive_workspace,
+            &mut expected,
+        )
+        .unwrap();
+        scalar_ranged_serial(&a, &small, &workspace, &mut ranged);
+
+        assert_eq!(workspace.capacity(), large.len());
+        assert_eq!(ranged, expected);
+    }
+
+    #[test]
+    fn scalar_range_api_rejects_invalid_range_and_small_workspace() {
+        let g2 = unsafe { *blst_p2_generator() };
+        let small = ScalarMiddleProductPrecomputedB::new(&[g2; 2]).unwrap();
+        let large = ScalarMiddleProductPrecomputedB::new(&[g2; 4]).unwrap();
+        let workspace = ScalarMiddleProductWorkspace::new(&small).unwrap();
+
+        assert_eq!(
+            unsafe {
+                workspace.execute_range(
+                    &small,
+                    MiddleProductRangePhase::ForwardBitReverse,
+                    0,
+                    1..0,
+                )
+            },
+            Err(MiddleProductError::BackendFailure)
+        );
+        assert_eq!(
+            unsafe {
+                workspace.execute_range(
+                    &large,
+                    MiddleProductRangePhase::ForwardBitReverse,
+                    0,
+                    0..0,
+                )
+            },
+            Err(MiddleProductError::LengthMismatch)
+        );
+    }
+
+    #[test]
     fn explicit_avx_backend_matches_scalar_or_reports_unavailable() {
         let b = unsafe { [*blst_p2_generator(), *blst_p2_generator()] };
         let avx = AvxMiddleProductPrecomputedB::new(&b);
@@ -950,10 +1502,14 @@ mod tests {
         for (native, scalar) in native_b.iter_mut().zip(scalar_b.iter()) {
             assert!(unsafe { blst_avx_p2_from_scalar(native, scalar) });
         }
-        assert!(unsafe { blst_avx_p1_from_scalar(&mut native_a[0], &scalar_a[0]) });
+        assert!(unsafe {
+            blst_avx_p1_from_scalar(&mut native_a[0], &scalar_a[0])
+        });
 
-        let precomputed = NativeAvxMiddleProductPrecomputedB::new(&native_b).unwrap();
-        let mut workspace = NativeAvxMiddleProductWorkspace::new(&precomputed).unwrap();
+        let precomputed =
+            NativeAvxMiddleProductPrecomputedB::new(&native_b).unwrap();
+        let mut workspace =
+            NativeAvxMiddleProductWorkspace::new(&precomputed).unwrap();
         let mut native_out = [blst_avx_gt::default(); 1];
         middle_product_avx_native_with_workspace(
             &native_a,
@@ -963,7 +1519,8 @@ mod tests {
         )
         .unwrap();
 
-        let scalar_precomputed = ScalarMiddleProductPrecomputedB::new(&scalar_b).unwrap();
+        let scalar_precomputed =
+            ScalarMiddleProductPrecomputedB::new(&scalar_b).unwrap();
         let mut scalar_workspace =
             ScalarMiddleProductWorkspace::new(&scalar_precomputed).unwrap();
         let mut expected = [zero_fp12(); 1];
@@ -976,7 +1533,9 @@ mod tests {
         .unwrap();
 
         let mut converted = [zero_fp12(); 1];
-        assert!(unsafe { blst_fp12_from_avx(&mut converted[0], &native_out[0]) });
+        assert!(unsafe {
+            blst_fp12_from_avx(&mut converted[0], &native_out[0])
+        });
         assert_eq!(converted, expected);
     }
 

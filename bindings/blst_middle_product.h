@@ -57,8 +57,10 @@ typedef enum blst_middle_product_range_phase {
  * 64-byte-aligned scalar buffers and must outlive every call. Concurrent calls
  * may share one workspace only when they execute disjoint work-item ranges of
  * the same phase and stage; the caller supplies every stage and phase barrier.
- * Input, precompute, workspace, and output must all describe the same logical
- * `n`. Input and output must not alias workspace or precompute storage.
+ * Input, precompute, and output must describe the same logical `n`. A workspace
+ * created for a larger precompute may be reused here; its FFT capacity must be
+ * at least the required precompute size. Input and output must not alias
+ * workspace or precompute storage.
  *
  * `*_range_work_count` returns the constant-time work count for one valid
  * `(phase, stage)`. Input work items cover the full padded FFT buffer: indices

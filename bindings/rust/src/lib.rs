@@ -104,7 +104,8 @@ pub use middle_product::{
     middle_product_scalar_with_workspace, precompute_middle_product_b, update,
     update_avx, update_scalar, AvxMiddleProductPrecomputedB,
     AvxMiddleProductWorkspace, MiddleProductError, MiddleProductPrecomputedB,
-    NativeAvxMiddleProductPrecomputedB, NativeAvxMiddleProductWorkspace,
+    MiddleProductRangePhase, NativeAvxMiddleProductPrecomputedB,
+    NativeAvxMiddleProductWorkspace,
     ScalarMiddleProductPrecomputedB, ScalarMiddleProductWorkspace,
 };
 #[cfg(blst_std)]

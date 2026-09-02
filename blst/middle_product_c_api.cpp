@@ -284,13 +284,13 @@ struct blst_middle_product_precomputed_b_scalar
 
 struct blst_middle_product_workspace_scalar
 {
-    std::size_t n;
+    std::size_t capacity_n;
     ScalarWorkspace value;
     std::vector<PublicGt> native_out;
 
     explicit blst_middle_product_workspace_scalar(
         const blst_middle_product_precomputed_b_scalar& precomputed_b)
-        : n(precomputed_b.n),
+        : capacity_n(precomputed_b.n),
           value(precomputed_b.value.fft_size),
           native_out(precomputed_b.n, PublicGt::identity())
     {
@@ -313,14 +313,14 @@ struct blst_middle_product_precomputed_b_avx
 
 struct blst_middle_product_workspace_avx
 {
-    std::size_t n;
+    std::size_t capacity_n;
     NativeWorkspace value;
     std::vector<NativeG1> converted_a;
     std::vector<PublicGt> native_out;
 
     explicit blst_middle_product_workspace_avx(
         const blst_middle_product_precomputed_b_avx& precomputed_b)
-        : n(precomputed_b.n),
+        : capacity_n(precomputed_b.n),
           value(precomputed_b.value.fft_size),
           converted_a(precomputed_b.n),
           native_out(precomputed_b.n, PublicGt::identity())
@@ -330,12 +330,12 @@ struct blst_middle_product_workspace_avx
 
 struct blst_middle_product_workspace_avx_native
 {
-    std::size_t n;
+    std::size_t capacity_n;
     NativeWorkspace value;
 
     explicit blst_middle_product_workspace_avx_native(
         const blst_middle_product_precomputed_b_avx& precomputed_b)
-        : n(precomputed_b.n), value(precomputed_b.value.fft_size)
+        : capacity_n(precomputed_b.n), value(precomputed_b.value.fft_size)
     {
     }
 };
@@ -414,14 +414,15 @@ bool blst_middle_product_scalar_with_workspace(
     blst_fp12* out)
 {
     if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
-        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        workspace == nullptr || n == 0 || precomputed_b->n != n ||
+        workspace->capacity_n < n) {
         return false;
     }
     try {
         blst::detail::middle_product_impl<blst::MiddleProductScalarContext>(
             std::span<const BoundaryG1>(a, n),
             precomputed_b->value,
-            std::span<PublicGt>(workspace->native_out),
+            std::span<PublicGt>(workspace->native_out.data(), n),
             workspace->value,
             nullptr);
         for (std::size_t i = 0; i < n; ++i) {
@@ -469,7 +470,7 @@ bool blst_middle_product_scalar_input_range(
     const size_t end)
 {
     if (a == nullptr || precomputed_b == nullptr || workspace == nullptr ||
-        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        n == 0 || precomputed_b->n != n || workspace->capacity_n < n) {
         return false;
     }
     try {
@@ -496,7 +497,7 @@ bool blst_middle_product_scalar_execute_range(
 {
     blst::MiddleProductRangePhase native_phase = {};
     if (precomputed_b == nullptr || workspace == nullptr ||
-        precomputed_b->n == 0 || workspace->n != precomputed_b->n ||
+        precomputed_b->n == 0 || workspace->capacity_n < precomputed_b->n ||
         !decode_range_phase(&phase, native_phase)) {
         return false;
     }
@@ -524,7 +525,7 @@ bool blst_middle_product_scalar_output_range(
     const size_t end)
 {
     if (precomputed_b == nullptr || workspace == nullptr || out == nullptr ||
-        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        n == 0 || precomputed_b->n != n || workspace->capacity_n < n) {
         return false;
     }
     try {
@@ -532,7 +533,7 @@ bool blst_middle_product_scalar_output_range(
             blst::MiddleProductScalarContext>(
                 precomputed_b->value,
                 workspace->value,
-                std::span<PublicGt>(workspace->native_out),
+                std::span<PublicGt>(workspace->native_out.data(), n),
                 begin,
                 end);
         for (std::size_t idx = begin; idx < end; ++idx) {
@@ -649,7 +650,8 @@ bool blst_middle_product_avx_with_workspace(
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
-        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        workspace == nullptr || n == 0 || precomputed_b->n != n ||
+        workspace->capacity_n < n) {
         return false;
     }
     try {
@@ -658,9 +660,9 @@ bool blst_middle_product_avx_with_workspace(
                 blst::avx::avx_map_to_G_detail::from_scalar(a[i]);
         }
         blst::detail::middle_product_impl<blst::MiddleProductAvxContext>(
-            std::span<const NativeG1>(workspace->converted_a),
+            std::span<const NativeG1>(workspace->converted_a.data(), n),
             precomputed_b->value,
-            std::span<PublicGt>(workspace->native_out),
+            std::span<PublicGt>(workspace->native_out.data(), n),
             workspace->value,
             nullptr);
         for (std::size_t i = 0; i < n; ++i) {
@@ -772,7 +774,8 @@ bool blst_middle_product_avx_native_with_workspace(
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     if (a == nullptr || out == nullptr || precomputed_b == nullptr ||
-        workspace == nullptr || n == 0 || precomputed_b->n != n || workspace->n != n) {
+        workspace == nullptr || n == 0 || precomputed_b->n != n ||
+        workspace->capacity_n < n) {
         return false;
     }
     try {
@@ -841,7 +844,7 @@ bool blst_middle_product_avx_native_input_range(
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     if (a == nullptr || precomputed_b == nullptr || workspace == nullptr ||
-        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        n == 0 || precomputed_b->n != n || workspace->capacity_n < n) {
         return false;
     }
     try {
@@ -878,7 +881,7 @@ bool blst_middle_product_avx_native_execute_range(
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     blst::MiddleProductRangePhase native_phase = {};
     if (precomputed_b == nullptr || workspace == nullptr ||
-        precomputed_b->n == 0 || workspace->n != precomputed_b->n ||
+        precomputed_b->n == 0 || workspace->capacity_n < precomputed_b->n ||
         !decode_range_phase(&phase, native_phase)) {
         return false;
     }
@@ -916,7 +919,7 @@ bool blst_middle_product_avx_native_output_range(
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     if (precomputed_b == nullptr || workspace == nullptr || out == nullptr ||
-        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        n == 0 || precomputed_b->n != n || workspace->capacity_n < n) {
         return false;
     }
     try {
