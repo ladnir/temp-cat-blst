@@ -87,6 +87,23 @@ target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
 target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 
+# Keep the FFT and middle-product performance gate independent of unrelated
+# benchmark translation units. This is the stable target used by BTX baseline
+# and regression comparisons.
+add_executable(fft_middle_product_benchmarks
+    "main.cpp"
+    "FFT_bench.cpp"
+)
+target_include_directories(fft_middle_product_benchmarks PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/..
+)
+target_link_libraries(fft_middle_product_benchmarks PRIVATE
+    benchmark::benchmark
+    blst_static
+    blst_avx_headers
+)
+
 add_executable(group_scalar_mult_benchmarks
     "main.cpp"
     "Group_scalar_mult_bench.cpp"

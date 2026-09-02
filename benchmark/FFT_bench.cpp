@@ -25,6 +25,38 @@ using namespace blst;
 
 namespace
 {
+	template<class T>
+	static size_t vector_storage_bytes(const std::vector<T>& values)
+	{
+		return values.capacity() * sizeof(T);
+	}
+
+	template<class Workspace>
+	static size_t middle_product_workspace_bytes(const Workspace& workspace)
+	{
+		return vector_storage_bytes(workspace.a_fft) +
+			vector_storage_bytes(workspace.a_fft_affine) +
+			vector_storage_bytes(workspace.affine_prefix_products) +
+			vector_storage_bytes(workspace.c_fft);
+	}
+
+	static size_t middle_product_fft_plan_bytes(
+		const FftTruncatedForwardPlan& forward,
+		const FftInverseTruncatedRangePlan& inverse)
+	{
+		size_t bytes = vector_storage_bytes(forward.stage_work) +
+			vector_storage_bytes(inverse.stage_left);
+		for (const auto& stage : forward.stage_work) {
+			bytes += vector_storage_bytes(stage.left_j0) +
+				vector_storage_bytes(stage.left_nonzero) +
+				vector_storage_bytes(stage.twiddle_nonzero);
+		}
+		for (const auto& stage : inverse.stage_left) {
+			bytes += vector_storage_bytes(stage);
+		}
+		return bytes;
+	}
+
 	// Pairing function for benchmarks
 	static GT pair_points(const G1Point& p, const G2Point& q) {
 		G1AffinePoint p_aff;
@@ -125,9 +157,14 @@ namespace
 	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-	static std::vector<blst::avx::AvxGt52> make_avx_gt_data(const std::vector<GT>& scalar_data)
+	static std::vector<blst::avx::AvxGtElement> make_avx_gt_data(const std::vector<GT>& scalar_data)
 	{
-		return blst::avx::scalar_gt_vector_to_avx52(std::span<const GT>(scalar_data));
+		std::vector<blst::avx::AvxGtElement> result;
+		result.reserve(scalar_data.size());
+		for (const GT& value : scalar_data) {
+			result.push_back(blst::avx::AvxGtElement::from_default(value));
+		}
+		return result;
 	}
 #endif
 
@@ -231,21 +268,21 @@ namespace
 		std::vector<GT> freq_domain_scalar = time_domain;
 		fft<GT, Fr, GTCoeffCtx>(freq_domain_scalar, roots, /*inverse*/ false);
 
-		const std::vector<blst::avx::AvxGt52> freq_domain = make_avx_gt_data(freq_domain_scalar);
-		std::vector<blst::avx::AvxGt52> data = freq_domain;
+		const std::vector<blst::avx::AvxGtElement> freq_domain = make_avx_gt_data(freq_domain_scalar);
+		std::vector<blst::avx::AvxGtElement> data = freq_domain;
 
 		const auto precompute_begin = std::chrono::steady_clock::now();
-		blst::avx::AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
-		prepared_inv_roots.set_scale_from_size(N);
+		blst::avx::AvxGtPreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+		prepared_inv_roots.prepare_inverse_scale();
 		const auto precompute_end = std::chrono::steady_clock::now();
 		const double precompute_ms = std::chrono::duration<double, std::milli>(precompute_end - precompute_begin).count();
 
-		blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+		blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
 		for (auto _ : state) {
 			data = freq_domain;
 			benchmark::DoNotOptimize(data.data());
-			fft<blst::avx::AvxGt52, Fr, blst::avx::AvxGt52CoeffCtx>(data, inv_roots, /*inverse*/ true);
+			fft<blst::avx::AvxGtElement, Fr, blst::avx::AvxGtCoeffCtx>(data, inv_roots, /*inverse*/ true);
 			benchmark::ClobberMemory();
 		}
 
@@ -770,6 +807,7 @@ namespace
 		MiddleProductWorkspace workspace;
 
 		double time_fft_g1 = 0;
+		double time_input_copy = 0;
                 double time_pairing = 0;
                 double time_ifft_gt = 0;
                 double time_fill = 0;
@@ -789,6 +827,7 @@ namespace
 			benchmark::ClobberMemory();
 
 				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
+				time_input_copy += static_cast<double>(iter_stats.get_ns("middle_product_pre.copy_a_ns"));
 	                        time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
 	                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
 	                        time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
@@ -800,7 +839,8 @@ namespace
 
 		state.counters["n"] = static_cast<double>(n);
 		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-                state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["input_copy_ms"] = benchmark::Counter(time_input_copy / 1e6 / iterations);
                 state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
                 state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
                 state.counters["fill_ms"] = benchmark::Counter(time_fill / 1e6 / iterations);
@@ -808,6 +848,12 @@ namespace
                 state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
+		state.counters["workspace_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_workspace_bytes(workspace)));
+		state.counters["fft_plan_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_fft_plan_bytes(
+				precomputed_b.forward_plan,
+				precomputed_b.inverse_plan)));
 			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
 					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
@@ -828,6 +874,7 @@ namespace
 		MiddleProductWorkspaceScalar workspace;
 
 		double time_fft_g1 = 0;
+		double time_input_copy = 0;
                 double time_pairing = 0;
                 double time_ifft_gt = 0;
                 double time_fill = 0;
@@ -847,6 +894,7 @@ namespace
 			benchmark::ClobberMemory();
 
 				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
+				time_input_copy += static_cast<double>(iter_stats.get_ns("middle_product_pre.copy_a_ns"));
 	                        time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
 	                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
 	                        time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
@@ -858,7 +906,8 @@ namespace
 
 		state.counters["n"] = static_cast<double>(n);
 		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-                state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["input_copy_ms"] = benchmark::Counter(time_input_copy / 1e6 / iterations);
                 state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
                 state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
                 state.counters["fill_ms"] = benchmark::Counter(time_fill / 1e6 / iterations);
@@ -866,6 +915,12 @@ namespace
                 state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
+		state.counters["workspace_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_workspace_bytes(workspace)));
+		state.counters["fft_plan_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_fft_plan_bytes(
+				precomputed_b.forward_plan,
+				precomputed_b.inverse_plan)));
 			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
 					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
@@ -911,6 +966,7 @@ namespace
 		MiddleProductWorkspaceAvx workspace;
 
 		double time_fft_g1 = 0;
+		double time_input_copy = 0;
                 double time_pairing = 0;
                 double time_ifft_gt = 0;
                 double time_fill = 0;
@@ -930,6 +986,7 @@ namespace
 			benchmark::ClobberMemory();
 
 				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
+				time_input_copy += static_cast<double>(iter_stats.get_ns("middle_product_pre.copy_a_ns"));
 	                        time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
 	                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
 	                        time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
@@ -941,7 +998,8 @@ namespace
 
 		state.counters["n"] = static_cast<double>(n);
 		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-                state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["input_copy_ms"] = benchmark::Counter(time_input_copy / 1e6 / iterations);
                 state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
                 state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
                 state.counters["fill_ms"] = benchmark::Counter(time_fill / 1e6 / iterations);
@@ -949,6 +1007,12 @@ namespace
                 state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
+		state.counters["workspace_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_workspace_bytes(workspace)));
+		state.counters["fft_plan_bytes"] = benchmark::Counter(
+			static_cast<double>(middle_product_fft_plan_bytes(
+				precomputed_b.forward_plan,
+				precomputed_b.inverse_plan)));
 			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
 					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
@@ -1325,12 +1389,12 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 // Smaller sizes for expensive operations (middle product involves pairings)
 #define MIDDLE_PROD_SIZES \
 ->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
-->DenseRange(96, 512, 32)
+->DenseRange(96, 512, 32)->Arg(1024)
 
 // Medium sweep for detailed reports (non power-of-two n included).
 #define MIDDLE_PROD_SWEEP_SIZES \
 ->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
-->DenseRange(96, 512, 32)
+->DenseRange(96, 512, 32)->Arg(1024)
 
 // ============================================================================
 // Radix-2 FFT benchmarks (baseline)

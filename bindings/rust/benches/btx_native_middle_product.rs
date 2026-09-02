@@ -54,7 +54,7 @@ fn bench_native_middle_product(c: &mut Criterion) {
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(2));
 
-    for count in [32usize, 64, 128, 256] {
+    for count in [32usize, 64, 128, 256, 512, 1024] {
         let input = (0..count)
             .map(|index| g1_multiple(index as u64 + 1))
             .collect::<Vec<_>>();
