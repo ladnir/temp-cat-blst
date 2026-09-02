@@ -7,6 +7,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -128,6 +129,23 @@ namespace blst {
         Fft,
         Multipair,
         Auto,
+    };
+
+    /// Stateless phases of one planned middle-product evaluation. Input and
+    /// output use typed range functions; every other phase uses the common
+    /// phase/stage range executor. Stage barriers and phase ordering belong to
+    /// the caller and are deliberately not retained by CatBLST.
+    enum class MiddleProductRangePhase : std::uint8_t {
+        InputLoad,
+        ForwardBitReverse,
+        ForwardJ0,
+        ForwardNonzero,
+        AffineConversion,
+        PointwisePairing,
+        InverseBitReverse,
+        InverseButterflies,
+        Normalization,
+        Extraction,
     };
 
     struct alignas(64) MiddleProductPreparedScalarLineTable {
@@ -446,6 +464,16 @@ namespace blst {
                 return roots.size();
             }
 
+            static Fr inverse_fft_size(
+                const PreparedInverseRoots&,
+                const std::size_t size)
+            {
+                Fr inverse = {};
+                Fr::from_uint64(inverse, static_cast<std::uint64_t>(size));
+                Fr::reciprocal(inverse, inverse);
+                return inverse;
+            }
+
             static void prepare_lines(PreparedLineTable& out, const G2Point& point)
             {
                 G2AffinePoint point_affine = {};
@@ -485,6 +513,35 @@ namespace blst {
                     start,
                     length,
                     plan);
+            }
+
+            static void inverse_fft_stage_range(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots& inv_roots,
+                const FftInverseTruncatedRangePlan& plan,
+                std::size_t stage,
+                std::size_t begin,
+                std::size_t end)
+            {
+                fft_inverse_stage_range<GtFftElement, Fr, GtCoeffCtx>(
+                    values,
+                    std::span<const Fr>(inv_roots),
+                    plan,
+                    stage,
+                    begin,
+                    end);
+            }
+
+            static void normalize_inverse_range(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots&,
+                const Fr& inverse_size,
+                std::size_t begin,
+                std::size_t end)
+            {
+                for (std::size_t idx = begin; idx < end; ++idx) {
+                    values[idx] = GtCoeffCtx::mult(values[idx], inverse_size);
+                }
             }
 
             template<class OutputGt>
@@ -563,6 +620,16 @@ namespace blst {
                 return roots.size();
             }
 
+            static Fr inverse_fft_size(
+                const PreparedInverseRoots& roots,
+                const std::size_t size)
+            {
+                (void)size;
+                BLST_ASSERT(roots.has_scale);
+                BLST_ASSERT(roots.size() == size);
+                return roots.scale_scalar;
+            }
+
             static void prepare_lines(PreparedLineTable& out, const G2Point& point)
             {
                 G2AffinePoint point_affine = {};
@@ -639,6 +706,41 @@ namespace blst {
                     plan);
             }
 
+            static void inverse_fft_stage_range(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots& inv_roots,
+                const FftInverseTruncatedRangePlan& plan,
+                std::size_t stage,
+                std::size_t begin,
+                std::size_t end)
+            {
+                avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(inv_roots);
+                fft_inverse_stage_range<
+                    GtFftElement,
+                    Fr,
+                    avx::AvxGtCoeffCtx>(
+                        values,
+                        inv_roots.scalar_span(),
+                        plan,
+                        stage,
+                        begin,
+                        end);
+            }
+
+            static void normalize_inverse_range(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots& inv_roots,
+                const Fr& inverse_size,
+                std::size_t begin,
+                std::size_t end)
+            {
+                avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(inv_roots);
+                for (std::size_t idx = begin; idx < end; ++idx) {
+                    values[idx] = avx::AvxGtCoeffCtx::mult(
+                        values[idx], inverse_size);
+                }
+            }
+
             template<class OutputGt>
             static void extract_middle_window(
                 std::span<OutputGt> out,
@@ -677,6 +779,7 @@ namespace blst {
             std::vector<uint8_t> b_fft_is_zero;
             std::vector<Fr> roots;
             typename Context::PreparedInverseRoots inv_roots;
+            Fr inverse_fft_size = {};
             FftTruncatedForwardPlan forward_plan;
             FftInverseTruncatedRangePlan inverse_plan;
         };
@@ -790,6 +893,8 @@ namespace blst {
                 precomputed.roots = make_fft_roots(precomputed.fft_size);
             }
             precomputed.inv_roots = Context::make_inverse_roots(precomputed.roots);
+            precomputed.inverse_fft_size = Context::inverse_fft_size(
+                precomputed.inv_roots, precomputed.fft_size);
 
             std::vector<typename Context::G2Point> b1_fft(precomputed.fft_size, Context::g2_infinity());
             for (std::size_t i = 0; i < n; ++i) {
@@ -867,6 +972,346 @@ namespace blst {
             }
 
             return precomputed;
+        }
+
+        template<class Context>
+        inline void validate_middle_product_range_precompute(
+            const MiddleProductPrecomputedBImpl<Context>& precomputed)
+        {
+            const bool invalid_pointwise_state = [&]() {
+                if constexpr (Context::batch_affine_pointwise) {
+                    return
+                        precomputed.prepared_lines.size() != precomputed.fft_size ||
+                        precomputed.b_fft_is_zero.size() != precomputed.fft_size;
+                } else {
+                    return precomputed.b_fft.size() != precomputed.fft_size;
+                }
+            }();
+            const bool supported_n = middle_product_n_is_supported(precomputed.n);
+            const std::size_t convolution_size = supported_n ? 2 * precomputed.n : 0;
+            const bool invalid_fft_size =
+                !fft_detail::valid_transform_size(precomputed.fft_size) ||
+                precomputed.fft_size > middle_product_max_fft_size ||
+                precomputed.fft_size < convolution_size ||
+                (precomputed.fft_size >> 1) >= convolution_size;
+            const std::size_t expected_stages = invalid_fft_size
+                ? 0
+                : static_cast<std::size_t>(
+                    std::countr_zero(precomputed.fft_size));
+            if (!supported_n ||
+                invalid_fft_size ||
+                invalid_pointwise_state ||
+                precomputed.roots.size() != precomputed.fft_size ||
+                Context::inverse_roots_size(precomputed.inv_roots) !=
+                    precomputed.fft_size ||
+                precomputed.forward_plan.n != precomputed.fft_size ||
+                precomputed.forward_plan.xn !=
+                    fft_admissible_size(precomputed.n, precomputed.fft_size) ||
+                precomputed.forward_plan.log2_n != expected_stages ||
+                precomputed.forward_plan.stage_work.size() !=
+                    precomputed.forward_plan.log2_n ||
+                precomputed.inverse_plan.n != precomputed.fft_size ||
+                precomputed.inverse_plan.start != precomputed.n ||
+                precomputed.inverse_plan.length != precomputed.n ||
+                precomputed.inverse_plan.stages != expected_stages ||
+                precomputed.inverse_plan.stage_left.size() !=
+                    precomputed.inverse_plan.stages) {
+                throw std::invalid_argument(
+                    "invalid ranged middle-product precompute state");
+            }
+        }
+
+        [[nodiscard]] inline bool middle_product_range_is_single_stage_phase(
+            const MiddleProductRangePhase phase) noexcept
+        {
+            switch (phase) {
+            case MiddleProductRangePhase::ForwardJ0:
+            case MiddleProductRangePhase::ForwardNonzero:
+            case MiddleProductRangePhase::InverseButterflies:
+                return false;
+            default:
+                return true;
+            }
+        }
+
+        template<class Context>
+        [[nodiscard]] inline std::size_t middle_product_range_work_count_impl(
+            const MiddleProductPrecomputedBImpl<Context>& precomputed,
+            const MiddleProductRangePhase phase,
+            const std::size_t stage)
+        {
+            validate_middle_product_range_precompute(precomputed);
+            if (middle_product_range_is_single_stage_phase(phase) && stage != 0) {
+                throw std::invalid_argument(
+                    "middle-product phase does not accept a stage");
+            }
+
+            switch (phase) {
+            case MiddleProductRangePhase::InputLoad:
+                return precomputed.fft_size;
+            case MiddleProductRangePhase::ForwardBitReverse:
+                return precomputed.forward_plan.bit_reverse_swaps.size();
+            case MiddleProductRangePhase::ForwardJ0:
+                if (stage >= precomputed.forward_plan.stage_work.size()) {
+                    throw std::invalid_argument(
+                        "middle-product forward stage is out of range");
+                }
+                return precomputed.forward_plan.stage_work[stage].left_j0.count;
+            case MiddleProductRangePhase::ForwardNonzero:
+                if (stage >= precomputed.forward_plan.stage_work.size()) {
+                    throw std::invalid_argument(
+                        "middle-product forward stage is out of range");
+                }
+                return precomputed.forward_plan.stage_work[stage]
+                    .left_nonzero.count;
+            case MiddleProductRangePhase::AffineConversion:
+                if constexpr (Context::batch_affine_pointwise) {
+                    return precomputed.fft_size;
+                } else {
+                    return 0;
+                }
+            case MiddleProductRangePhase::PointwisePairing:
+                return precomputed.fft_size;
+            case MiddleProductRangePhase::InverseBitReverse:
+                return precomputed.inverse_plan.bit_reverse_swaps.size();
+            case MiddleProductRangePhase::InverseButterflies:
+                if (stage >= precomputed.inverse_plan.stage_left.size()) {
+                    throw std::invalid_argument(
+                        "middle-product inverse stage is out of range");
+                }
+                return precomputed.inverse_plan.stage_left[stage].count;
+            case MiddleProductRangePhase::Normalization:
+            case MiddleProductRangePhase::Extraction:
+                return precomputed.n;
+            }
+            throw std::invalid_argument("invalid middle-product range phase");
+        }
+
+        inline void validate_middle_product_work_range(
+            const std::size_t work_count,
+            const std::size_t begin,
+            const std::size_t end)
+        {
+            if (begin > end || end > work_count) {
+                throw std::invalid_argument(
+                    "middle-product work range is out of bounds");
+            }
+        }
+
+        template<class Context>
+        inline void middle_product_input_range_impl(
+            std::span<const typename Context::G1Point> input,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed,
+            MiddleProductWorkspaceImpl<Context>& workspace,
+            const std::size_t begin,
+            const std::size_t end)
+        {
+            if (input.size() != precomputed.n) {
+                throw std::invalid_argument(
+                    "middle-product input length does not match its precompute");
+            }
+            workspace.require_capacity(precomputed.fft_size);
+            const std::size_t work_count = middle_product_range_work_count_impl(
+                precomputed, MiddleProductRangePhase::InputLoad, 0);
+            validate_middle_product_work_range(work_count, begin, end);
+
+            typename Context::G1Point* const values = workspace.a_fft.data();
+            const std::size_t copy_end = std::min(end, precomputed.n);
+            for (std::size_t idx = begin; idx < copy_end; ++idx) {
+                values[idx] = input[idx];
+            }
+            const std::size_t fill_begin = std::max(begin, precomputed.n);
+            for (std::size_t idx = fill_begin; idx < end; ++idx) {
+                values[idx] = Context::g1_infinity();
+            }
+        }
+
+        template<class Context>
+        inline void middle_product_execute_range_impl(
+            const MiddleProductPrecomputedBImpl<Context>& precomputed,
+            MiddleProductWorkspaceImpl<Context>& workspace,
+            const MiddleProductRangePhase phase,
+            const std::size_t stage,
+            const std::size_t begin,
+            const std::size_t end)
+        {
+            workspace.require_capacity(precomputed.fft_size);
+            const std::size_t work_count =
+                middle_product_range_work_count_impl(precomputed, phase, stage);
+            validate_middle_product_work_range(work_count, begin, end);
+            if (phase == MiddleProductRangePhase::InputLoad ||
+                phase == MiddleProductRangePhase::Extraction) {
+                throw std::invalid_argument(
+                    "middle-product phase requires its typed range operation");
+            }
+            if (begin == end) {
+                return;
+            }
+
+            std::span<typename Context::G1Point> a_fft(
+                workspace.a_fft.data(), precomputed.fft_size);
+            std::span<typename Context::GtFftElement> c_fft(
+                workspace.c_fft.data(), precomputed.fft_size);
+
+            switch (phase) {
+            case MiddleProductRangePhase::ForwardBitReverse:
+                fft_apply_bit_reverse_swaps_range(
+                    a_fft,
+                    std::span<const FftBitReverseSwap>(
+                        precomputed.forward_plan.bit_reverse_swaps),
+                    begin,
+                    end);
+                return;
+            case MiddleProductRangePhase::ForwardJ0:
+                fft_forward_stage_j0_range<
+                    typename Context::G1Point,
+                    typename Context::G1CoeffCtx>(
+                        a_fft,
+                        precomputed.forward_plan,
+                        stage,
+                        begin,
+                        end);
+                return;
+            case MiddleProductRangePhase::ForwardNonzero:
+                fft_forward_stage_nonzero_range<
+                    typename Context::G1Point,
+                    Fr,
+                    typename Context::G1CoeffCtx>(
+                        a_fft,
+                        std::span<const Fr>(precomputed.roots),
+                        precomputed.forward_plan,
+                        stage,
+                        begin,
+                        end);
+                return;
+            case MiddleProductRangePhase::AffineConversion:
+                if constexpr (Context::batch_affine_pointwise) {
+                    const std::size_t length = end - begin;
+                    Context::batch_to_affine_g1(
+                        std::span<typename Context::G1AffinePoint>(
+                            workspace.a_fft_affine.data() + begin,
+                            length),
+                        std::span<const typename Context::G1Point>(
+                            workspace.a_fft.data() + begin,
+                            length),
+                        std::span<typename Context::G1Point::Field_type>(
+                            workspace.affine_prefix_products.data() + begin,
+                            length));
+                }
+                return;
+            case MiddleProductRangePhase::PointwisePairing:
+                if constexpr (Context::batch_affine_pointwise) {
+                    for (std::size_t idx = begin; idx < end; ++idx) {
+                        if (precomputed.b_fft_is_zero[idx] != 0 ||
+                            Context::G1AffinePoint::is_inf(
+                                workspace.a_fft_affine[idx]) != 0) {
+                            c_fft[idx] = Context::identity();
+                        } else {
+                            c_fft[idx] = Context::pointwise_pair_prepared(
+                                workspace.a_fft_affine[idx],
+                                precomputed.prepared_lines[idx]);
+                        }
+                    }
+                } else {
+                    for (std::size_t idx = begin; idx < end; ++idx) {
+                        c_fft[idx] = Context::pointwise_pair_direct(
+                            a_fft[idx], precomputed.b_fft[idx]);
+                    }
+                }
+                return;
+            case MiddleProductRangePhase::InverseBitReverse:
+                fft_apply_bit_reverse_swaps_range(
+                    c_fft,
+                    std::span<const FftBitReverseSwap>(
+                        precomputed.inverse_plan.bit_reverse_swaps),
+                    begin,
+                    end);
+                return;
+            case MiddleProductRangePhase::InverseButterflies:
+                Context::inverse_fft_stage_range(
+                    c_fft,
+                    precomputed.inv_roots,
+                    precomputed.inverse_plan,
+                    stage,
+                    begin,
+                    end);
+                return;
+            case MiddleProductRangePhase::Normalization:
+                Context::normalize_inverse_range(
+                    c_fft,
+                    precomputed.inv_roots,
+                    precomputed.inverse_fft_size,
+                    precomputed.n + begin,
+                    precomputed.n + end);
+                return;
+            case MiddleProductRangePhase::InputLoad:
+            case MiddleProductRangePhase::Extraction:
+                break;
+            }
+            throw std::invalid_argument("invalid middle-product range phase");
+        }
+
+        template<class Context, class OutputGt>
+        inline void middle_product_output_range_impl(
+            const MiddleProductPrecomputedBImpl<Context>& precomputed,
+            MiddleProductWorkspaceImpl<Context>& workspace,
+            std::span<OutputGt> output,
+            const std::size_t begin,
+            const std::size_t end)
+        {
+            validate_middle_product_output_shape(precomputed.n, output.size());
+            workspace.require_capacity(precomputed.fft_size);
+            const std::size_t work_count = middle_product_range_work_count_impl(
+                precomputed, MiddleProductRangePhase::Extraction, 0);
+            validate_middle_product_work_range(work_count, begin, end);
+            Context::extract_middle_window(
+                output.subspan(begin, end - begin),
+                std::span<const typename Context::GtFftElement>(
+                    workspace.c_fft.data(), precomputed.fft_size),
+                precomputed.n + begin,
+                end - begin);
+        }
+
+        // Sequential oracle for the stateless range boundary. This deliberately
+        // remains separate from `middle_product_impl`, so the established
+        // monolithic transform and the range path can be differentially tested
+        // and benchmarked without sharing an executor.
+        template<class Context, class OutputGt>
+        inline void middle_product_ranged_serial_impl(
+            std::span<const typename Context::G1Point> input,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed,
+            std::span<OutputGt> output,
+            MiddleProductWorkspaceImpl<Context>& workspace)
+        {
+            middle_product_input_range_impl<Context>(
+                input, precomputed, workspace, 0, precomputed.fft_size);
+
+            const auto execute_full = [&](const MiddleProductRangePhase phase,
+                                          const std::size_t stage = 0) {
+                const std::size_t count = middle_product_range_work_count_impl(
+                    precomputed, phase, stage);
+                middle_product_execute_range_impl<Context>(
+                    precomputed, workspace, phase, stage, 0, count);
+            };
+
+            execute_full(MiddleProductRangePhase::ForwardBitReverse);
+            for (std::size_t stage = 0;
+                 stage < precomputed.forward_plan.stage_work.size();
+                 ++stage) {
+                execute_full(MiddleProductRangePhase::ForwardJ0, stage);
+                execute_full(MiddleProductRangePhase::ForwardNonzero, stage);
+            }
+            execute_full(MiddleProductRangePhase::AffineConversion);
+            execute_full(MiddleProductRangePhase::PointwisePairing);
+            execute_full(MiddleProductRangePhase::InverseBitReverse);
+            for (std::size_t stage = 0;
+                 stage < precomputed.inverse_plan.stage_left.size();
+                 ++stage) {
+                execute_full(MiddleProductRangePhase::InverseButterflies, stage);
+            }
+            execute_full(MiddleProductRangePhase::Normalization);
+            middle_product_output_range_impl<Context>(
+                precomputed, workspace, output, 0, precomputed.n);
         }
 
         template<class Context, class OutputGt>

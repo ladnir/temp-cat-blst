@@ -860,7 +860,7 @@ namespace
 				1e6);
 		}
 
-        static void bench_middle_product_scalar_detailed(benchmark::State& state)
+	static void bench_middle_product_scalar_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
@@ -926,6 +926,178 @@ namespace
 					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fold_ns"))) /
 				1e6);
 		}
+
+	template<bool Ranged>
+	static void bench_middle_product_native_executor(benchmark::State& state)
+	{
+		using Context = MiddleProductDefaultContext;
+		const size_t n = static_cast<size_t>(state.range(0));
+		const std::vector<typename Context::G1Point> a =
+			make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
+		const std::vector<typename Context::G2Point> b =
+			make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
+		const auto precomputed =
+			detail::precompute_middle_product_b_impl<Context>(b, n, nullptr);
+		std::vector<GT> out(n, GT::identity());
+		detail::MiddleProductWorkspaceImpl<Context> workspace(
+			precomputed.fft_size);
+
+		for (auto _ : state) {
+			benchmark::DoNotOptimize(out.data());
+			if constexpr (Ranged) {
+				detail::middle_product_ranged_serial_impl<Context>(
+					std::span<const typename Context::G1Point>(a),
+					precomputed,
+					std::span<GT>(out),
+					workspace);
+			} else {
+				detail::middle_product_impl<Context>(
+					std::span<const typename Context::G1Point>(a),
+					precomputed,
+					std::span<GT>(out),
+					workspace,
+					nullptr);
+			}
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(precomputed.fft_size);
+	}
+
+	static void bench_middle_product_native_monolithic(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_executor<false>(state);
+	}
+
+	static void bench_middle_product_native_ranged_serial(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_executor<true>(state);
+	}
+
+	template<bool Ranged, bool Inverse>
+	static void bench_middle_product_native_fft_executor(
+		benchmark::State& state)
+	{
+		using Context = MiddleProductDefaultContext;
+		const size_t n = static_cast<size_t>(state.range(0));
+		const std::vector<typename Context::G1Point> a =
+			make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
+		const std::vector<typename Context::G2Point> b =
+			make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
+		const auto precomputed =
+			detail::precompute_middle_product_b_impl<Context>(b, n, nullptr);
+		detail::MiddleProductWorkspaceImpl<Context> workspace(
+			precomputed.fft_size);
+
+		const auto execute_full = [&](const MiddleProductRangePhase phase,
+		                              const std::size_t stage = 0) {
+			const std::size_t count =
+				detail::middle_product_range_work_count_impl<Context>(
+					precomputed, phase, stage);
+			detail::middle_product_execute_range_impl<Context>(
+				precomputed, workspace, phase, stage, 0, count);
+		};
+		const auto run_forward_ranged = [&]() {
+			execute_full(MiddleProductRangePhase::ForwardBitReverse);
+			for (std::size_t stage = 0;
+			     stage < precomputed.forward_plan.stage_work.size();
+			     ++stage) {
+				execute_full(MiddleProductRangePhase::ForwardJ0, stage);
+				execute_full(MiddleProductRangePhase::ForwardNonzero, stage);
+			}
+		};
+
+		std::vector<typename Context::GtFftElement> inverse_input;
+		if constexpr (Inverse) {
+			detail::middle_product_input_range_impl<Context>(
+				a, precomputed, workspace, 0, precomputed.fft_size);
+			run_forward_ranged();
+			execute_full(MiddleProductRangePhase::AffineConversion);
+			execute_full(MiddleProductRangePhase::PointwisePairing);
+			inverse_input.assign(
+				workspace.c_fft.begin(),
+				workspace.c_fft.begin() +
+					static_cast<std::ptrdiff_t>(precomputed.fft_size));
+		}
+
+		for (auto _ : state) {
+			state.PauseTiming();
+			if constexpr (Inverse) {
+				std::copy(
+					inverse_input.begin(),
+					inverse_input.end(),
+					workspace.c_fft.begin());
+			} else {
+				detail::middle_product_input_range_impl<Context>(
+					a, precomputed, workspace, 0, precomputed.fft_size);
+			}
+			state.ResumeTiming();
+
+			if constexpr (Inverse) {
+				if constexpr (Ranged) {
+					execute_full(MiddleProductRangePhase::InverseBitReverse);
+					for (std::size_t stage = 0;
+					     stage < precomputed.inverse_plan.stage_left.size();
+					     ++stage) {
+						execute_full(
+							MiddleProductRangePhase::InverseButterflies,
+							stage);
+					}
+					execute_full(MiddleProductRangePhase::Normalization);
+				} else {
+					Context::inverse_fft_middle_window(
+						std::span<typename Context::GtFftElement>(
+							workspace.c_fft.data(), precomputed.fft_size),
+						precomputed.inv_roots,
+						n,
+						n,
+						precomputed.inverse_plan);
+				}
+			} else if constexpr (Ranged) {
+				run_forward_ranged();
+			} else {
+				fft_forward_truncated_prefix<
+					typename Context::G1Point,
+					Fr,
+					typename Context::G1CoeffCtx>(
+						std::span<typename Context::G1Point>(
+							workspace.a_fft.data(), precomputed.fft_size),
+						std::span<const Fr>(precomputed.roots),
+						precomputed.forward_plan.xn,
+						precomputed.forward_plan,
+						nullptr,
+						"middle_product_fft_ab");
+			}
+			benchmark::ClobberMemory();
+		}
+	}
+
+	static void bench_middle_product_forward_fft_native_monolithic(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_fft_executor<false, false>(state);
+	}
+
+	static void bench_middle_product_forward_fft_native_ranged_serial(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_fft_executor<true, false>(state);
+	}
+
+	static void bench_middle_product_inverse_fft_native_monolithic(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_fft_executor<false, true>(state);
+	}
+
+	static void bench_middle_product_inverse_fft_native_ranged_serial(
+		benchmark::State& state)
+	{
+		bench_middle_product_native_fft_executor<true, true>(state);
+	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	static void bench_middle_product_avx(benchmark::State& state)
@@ -1472,6 +1644,36 @@ MIDDLE_PROD_SIZES
 ->UseRealTime();
 
 BENCHMARK(bench_middle_product_scalar_detailed)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_native_monolithic)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_native_ranged_serial)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_forward_fft_native_monolithic)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_forward_fft_native_ranged_serial)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_inverse_fft_native_monolithic)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_inverse_fft_native_ranged_serial)
 MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

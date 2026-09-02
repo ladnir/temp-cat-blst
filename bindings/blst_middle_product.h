@@ -30,6 +30,116 @@ typedef struct blst_middle_product_workspace_avx_native
     blst_middle_product_workspace_avx_native;
 
 /**
+ * Stateless range phases for one middle-product workspace.
+ *
+ * `INPUT_LOAD` and `EXTRACTION` use their typed input/output operations.
+ * `FORWARD_J0`, `FORWARD_NONZERO`, and `INVERSE_BUTTERFLIES` use a zero-based
+ * FFT stage. Every other phase requires `stage == 0`. The work-count query
+ * defines the phase-local `[0, count)` work-item domain.
+ */
+typedef enum blst_middle_product_range_phase {
+    BLST_MIDDLE_PRODUCT_RANGE_INPUT_LOAD = 0,
+    BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE = 1,
+    BLST_MIDDLE_PRODUCT_RANGE_FORWARD_J0 = 2,
+    BLST_MIDDLE_PRODUCT_RANGE_FORWARD_NONZERO = 3,
+    BLST_MIDDLE_PRODUCT_RANGE_AFFINE_CONVERSION = 4,
+    BLST_MIDDLE_PRODUCT_RANGE_POINTWISE_PAIRING = 5,
+    BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BIT_REVERSE = 6,
+    BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BUTTERFLIES = 7,
+    BLST_MIDDLE_PRODUCT_RANGE_NORMALIZATION = 8,
+    BLST_MIDDLE_PRODUCT_RANGE_EXTRACTION = 9,
+} blst_middle_product_range_phase;
+
+/**
+ * Stateless scalar range execution.
+ *
+ * The precompute is immutable and may be shared. The workspace owns fixed,
+ * 64-byte-aligned scalar buffers and must outlive every call. Concurrent calls
+ * may share one workspace only when they execute disjoint work-item ranges of
+ * the same phase and stage; the caller supplies every stage and phase barrier.
+ * Input, precompute, workspace, and output must all describe the same logical
+ * `n`. Input and output must not alias workspace or precompute storage.
+ *
+ * `*_range_work_count` returns the constant-time work count for one valid
+ * `(phase, stage)`. Input work items cover the full padded FFT buffer: indices
+ * below `n` copy an admitted G1 point and the remainder write identity.
+ * `*_execute_range` accepts only non-input/non-extraction phases. Output work
+ * items cover the logical result `[0, n)`.
+ *
+ * Empty ranges are successful no-ops. Invalid phases, stages, ranges, lengths,
+ * handles, or workspace capacity return false before the addressed operation
+ * writes. A false output-range call does not publish external output. Calls
+ * allocate nothing and are variable-time only with respect to public points,
+ * sizes, and schedules. CatBLST retains no cursor, task, cancellation,
+ * priority, callback, thread-pool, or phase-order state. Executing phases out
+ * of order, overlapping ranges concurrently, or crossing a stage without a
+ * barrier violates the contract and leaves workspace contents unspecified.
+ */
+BLST_NODISCARD bool blst_middle_product_scalar_range_work_count(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_range_phase phase,
+    size_t stage,
+    size_t* count);
+BLST_NODISCARD bool blst_middle_product_scalar_input_range(
+    const blst_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    size_t begin,
+    size_t end);
+BLST_NODISCARD bool blst_middle_product_scalar_execute_range(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    blst_middle_product_range_phase phase,
+    size_t stage,
+    size_t begin,
+    size_t end);
+BLST_NODISCARD bool blst_middle_product_scalar_output_range(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    blst_fp12* out,
+    size_t n,
+    size_t begin,
+    size_t end);
+
+/**
+ * Conversion-free native-AVX range execution.
+ *
+ * This is the native-AVX analogue of the scalar range contract above. Input
+ * and output use `blst_avx_p1` and `blst_avx_gt` directly; no canonical/scalar
+ * representation appears inside a range call. The API returns false when AVX
+ * support is unavailable. Native values and opaque handles must have been
+ * created by the matching CatBLST AVX API; alignment is carried by their types
+ * and the opaque 64-byte-aligned workspace allocation.
+ */
+BLST_NODISCARD bool blst_middle_product_avx_native_range_work_count(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_range_phase phase,
+    size_t stage,
+    size_t* count);
+BLST_NODISCARD bool blst_middle_product_avx_native_input_range(
+    const blst_avx_p1* a,
+    size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    size_t begin,
+    size_t end);
+BLST_NODISCARD bool blst_middle_product_avx_native_execute_range(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst_middle_product_range_phase phase,
+    size_t stage,
+    size_t begin,
+    size_t end);
+BLST_NODISCARD bool blst_middle_product_avx_native_output_range(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst_avx_gt* out,
+    size_t n,
+    size_t begin,
+    size_t end);
+
+/**
  * Explicit scalar and AVX middle-product handles.
  *
  * These APIs accept and produce the same scalar/public ABI values as the

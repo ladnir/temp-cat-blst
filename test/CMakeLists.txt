@@ -134,6 +134,7 @@ if(BLST_ASAN OR BLST_UBSAN)
         "Conformance_tests.cpp"
         "Fft_api_tests.cpp"
         "Interface_tests.cpp"
+        "MiddleProduct_algorithm_tests.cpp"
         "MiddleProduct_c_api_tests.cpp"
         "scalar/Scalar_mult_window_tests.cpp"
     )

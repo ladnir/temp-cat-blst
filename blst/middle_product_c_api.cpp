@@ -14,6 +14,7 @@
 #include "blst/fft/context.h"
 #include "blst/fft/middle_product.h"
 
+#include <cstring>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -207,6 +208,52 @@ inline void run_update_native(
 }
 #endif
 
+[[nodiscard]] bool decode_range_phase(
+    const blst_middle_product_range_phase* const input,
+    blst::MiddleProductRangePhase& output) noexcept
+{
+    // A C caller may pass any object-representation value for an enum. Reading
+    // an out-of-range C++ enum through an ordinary lvalue can itself trigger
+    // undefined-behavior instrumentation before the switch rejects it. Decode
+    // the ABI bits as the enum's underlying integer instead.
+    std::underlying_type_t<blst_middle_product_range_phase> raw = 0;
+    static_assert(sizeof(raw) == sizeof(*input));
+    std::memcpy(&raw, input, sizeof(raw));
+    switch (raw) {
+    case BLST_MIDDLE_PRODUCT_RANGE_INPUT_LOAD:
+        output = blst::MiddleProductRangePhase::InputLoad;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE:
+        output = blst::MiddleProductRangePhase::ForwardBitReverse;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_FORWARD_J0:
+        output = blst::MiddleProductRangePhase::ForwardJ0;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_FORWARD_NONZERO:
+        output = blst::MiddleProductRangePhase::ForwardNonzero;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_AFFINE_CONVERSION:
+        output = blst::MiddleProductRangePhase::AffineConversion;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_POINTWISE_PAIRING:
+        output = blst::MiddleProductRangePhase::PointwisePairing;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BIT_REVERSE:
+        output = blst::MiddleProductRangePhase::InverseBitReverse;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BUTTERFLIES:
+        output = blst::MiddleProductRangePhase::InverseButterflies;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_NORMALIZATION:
+        output = blst::MiddleProductRangePhase::Normalization;
+        return true;
+    case BLST_MIDDLE_PRODUCT_RANGE_EXTRACTION:
+        output = blst::MiddleProductRangePhase::Extraction;
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 struct blst_middle_product_precomputed_b
@@ -390,6 +437,111 @@ void blst_middle_product_workspace_scalar_free(
     blst_middle_product_workspace_scalar* workspace)
 {
     delete workspace;
+}
+
+bool blst_middle_product_scalar_range_work_count(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    const blst_middle_product_range_phase phase,
+    const size_t stage,
+    size_t* count)
+{
+    blst::MiddleProductRangePhase native_phase = {};
+    if (precomputed_b == nullptr || count == nullptr ||
+        !decode_range_phase(&phase, native_phase)) {
+        return false;
+    }
+    try {
+        *count = blst::detail::middle_product_range_work_count_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed_b->value, native_phase, stage);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_scalar_input_range(
+    const blst_p1* a,
+    const size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    const size_t begin,
+    const size_t end)
+{
+    if (a == nullptr || precomputed_b == nullptr || workspace == nullptr ||
+        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_input_range_impl<
+            blst::MiddleProductScalarContext>(
+                std::span<const BoundaryG1>(a, n),
+                precomputed_b->value,
+                workspace->value,
+                begin,
+                end);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_scalar_execute_range(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    const blst_middle_product_range_phase phase,
+    const size_t stage,
+    const size_t begin,
+    const size_t end)
+{
+    blst::MiddleProductRangePhase native_phase = {};
+    if (precomputed_b == nullptr || workspace == nullptr ||
+        precomputed_b->n == 0 || workspace->n != precomputed_b->n ||
+        !decode_range_phase(&phase, native_phase)) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_execute_range_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed_b->value,
+                workspace->value,
+                native_phase,
+                stage,
+                begin,
+                end);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_scalar_output_range(
+    const blst_middle_product_precomputed_b_scalar* precomputed_b,
+    blst_middle_product_workspace_scalar* workspace,
+    blst_fp12* out,
+    const size_t n,
+    const size_t begin,
+    const size_t end)
+{
+    if (precomputed_b == nullptr || workspace == nullptr || out == nullptr ||
+        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_output_range_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed_b->value,
+                workspace->value,
+                std::span<PublicGt>(workspace->native_out),
+                begin,
+                end);
+        for (std::size_t idx = begin; idx < end; ++idx) {
+            out[idx] = gt_to_boundary(workspace->native_out[idx]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 bool blst_middle_product_update_scalar(
@@ -648,6 +800,146 @@ void blst_middle_product_workspace_avx_native_free(
     blst_middle_product_workspace_avx_native* workspace)
 {
     delete workspace;
+}
+
+bool blst_middle_product_avx_native_range_work_count(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    const blst_middle_product_range_phase phase,
+    const size_t stage,
+    size_t* count)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    blst::MiddleProductRangePhase native_phase = {};
+    if (precomputed_b == nullptr || count == nullptr ||
+        !decode_range_phase(&phase, native_phase)) {
+        return false;
+    }
+    try {
+        *count = blst::detail::middle_product_range_work_count_impl<
+            blst::MiddleProductAvxContext>(
+                precomputed_b->value, native_phase, stage);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)precomputed_b;
+    (void)phase;
+    (void)stage;
+    (void)count;
+    return false;
+#endif
+}
+
+bool blst_middle_product_avx_native_input_range(
+    const blst_avx_p1* a,
+    const size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    const size_t begin,
+    const size_t end)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (a == nullptr || precomputed_b == nullptr || workspace == nullptr ||
+        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_input_range_impl<
+            blst::MiddleProductAvxContext>(
+                std::span<const NativeG1>(a, n),
+                precomputed_b->value,
+                workspace->value,
+                begin,
+                end);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)a;
+    (void)n;
+    (void)precomputed_b;
+    (void)workspace;
+    (void)begin;
+    (void)end;
+    return false;
+#endif
+}
+
+bool blst_middle_product_avx_native_execute_range(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    const blst_middle_product_range_phase phase,
+    const size_t stage,
+    const size_t begin,
+    const size_t end)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    blst::MiddleProductRangePhase native_phase = {};
+    if (precomputed_b == nullptr || workspace == nullptr ||
+        precomputed_b->n == 0 || workspace->n != precomputed_b->n ||
+        !decode_range_phase(&phase, native_phase)) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_execute_range_impl<
+            blst::MiddleProductAvxContext>(
+                precomputed_b->value,
+                workspace->value,
+                native_phase,
+                stage,
+                begin,
+                end);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)precomputed_b;
+    (void)workspace;
+    (void)phase;
+    (void)stage;
+    (void)begin;
+    (void)end;
+    return false;
+#endif
+}
+
+bool blst_middle_product_avx_native_output_range(
+    const blst_middle_product_precomputed_b_avx* precomputed_b,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst_avx_gt* out,
+    const size_t n,
+    const size_t begin,
+    const size_t end)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (precomputed_b == nullptr || workspace == nullptr || out == nullptr ||
+        n == 0 || precomputed_b->n != n || workspace->n != n) {
+        return false;
+    }
+    try {
+        blst::detail::middle_product_output_range_impl<
+            blst::MiddleProductAvxContext>(
+                precomputed_b->value,
+                workspace->value,
+                std::span<NativeGt>(out, n),
+                begin,
+                end);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)precomputed_b;
+    (void)workspace;
+    (void)out;
+    (void)n;
+    (void)begin;
+    (void)end;
+    return false;
+#endif
 }
 
 blst_middle_product_precomputed_b* blst_middle_product_precompute_b(

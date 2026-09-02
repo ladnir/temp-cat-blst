@@ -4,6 +4,11 @@
 #include <type_traits>
 #include <vector>
 
+#include "blst/config.h"
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+#define BLST_AVX_USE_CPP_TYPES 1
+#endif
+#include "bindings/blst_middle_product.h"
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
 #include "blst/fft/context.h"
@@ -15,30 +20,6 @@
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/map_to_G.h"
 #endif
-
-struct blst_middle_product_precomputed_b;
-
-extern "C" {
-blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
-    const blst::scalar::G2Point* b,
-    size_t n);
-bool blst_middle_product(
-    const blst::scalar::G1Point* a,
-    size_t n,
-    const blst_middle_product_precomputed_b* precomputed_b,
-    blst::Fp12* out);
-bool blst_middle_product_update(
-    const blst::scalar::G1Point* a0,
-    const blst_middle_product_precomputed_b* precomputed_b,
-    blst::Fp12* out);
-bool blst_middle_product_combine(
-    const blst::Fp12* mid,
-    const blst::Fp12* cnst,
-    size_t n,
-    blst::Fp12* out);
-void blst_middle_product_precomputed_b_free(
-    blst_middle_product_precomputed_b* precomputed_b);
-}
 
 namespace {
 
@@ -172,6 +153,102 @@ std::vector<BoundaryGt> reduced_middle_product(
     return out;
 }
 
+bool run_scalar_ranges_serial(
+    const BoundaryG1* input,
+    const std::size_t n,
+    const blst_middle_product_precomputed_b_scalar* precomputed,
+    blst_middle_product_workspace_scalar* workspace,
+    BoundaryGt* output)
+{
+    const std::size_t fft_size = blst::middle_product_fft_size(n);
+    const std::size_t stages = fft_log2_size(fft_size);
+    if (!blst_middle_product_scalar_input_range(
+            input, n, precomputed, workspace, 0, fft_size)) {
+        return false;
+    }
+    const auto execute_full = [&](
+        const blst_middle_product_range_phase phase,
+        const std::size_t stage = 0) {
+        std::size_t count = 0;
+        return blst_middle_product_scalar_range_work_count(
+                   precomputed, phase, stage, &count) &&
+            blst_middle_product_scalar_execute_range(
+                   precomputed, workspace, phase, stage, 0, count);
+    };
+    if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE)) {
+        return false;
+    }
+    for (std::size_t stage = 0; stage < stages; ++stage) {
+        if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_J0, stage) ||
+            !execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_NONZERO, stage)) {
+            return false;
+        }
+    }
+    if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_AFFINE_CONVERSION) ||
+        !execute_full(BLST_MIDDLE_PRODUCT_RANGE_POINTWISE_PAIRING) ||
+        !execute_full(BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BIT_REVERSE)) {
+        return false;
+    }
+    for (std::size_t stage = 0; stage < stages; ++stage) {
+        if (!execute_full(
+                BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BUTTERFLIES, stage)) {
+            return false;
+        }
+    }
+    return execute_full(BLST_MIDDLE_PRODUCT_RANGE_NORMALIZATION) &&
+        blst_middle_product_scalar_output_range(
+            precomputed, workspace, output, n, 0, n);
+}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+bool run_avx_native_ranges_serial(
+    const blst::avx::G1Point* input,
+    const std::size_t n,
+    const blst_middle_product_precomputed_b_avx* precomputed,
+    blst_middle_product_workspace_avx_native* workspace,
+    blst::avx::GT* output)
+{
+    const std::size_t fft_size = blst::middle_product_fft_size(n);
+    const std::size_t stages = fft_log2_size(fft_size);
+    if (!blst_middle_product_avx_native_input_range(
+            input, n, precomputed, workspace, 0, fft_size)) {
+        return false;
+    }
+    const auto execute_full = [&](
+        const blst_middle_product_range_phase phase,
+        const std::size_t stage = 0) {
+        std::size_t count = 0;
+        return blst_middle_product_avx_native_range_work_count(
+                   precomputed, phase, stage, &count) &&
+            blst_middle_product_avx_native_execute_range(
+                   precomputed, workspace, phase, stage, 0, count);
+    };
+    if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE)) {
+        return false;
+    }
+    for (std::size_t stage = 0; stage < stages; ++stage) {
+        if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_J0, stage) ||
+            !execute_full(BLST_MIDDLE_PRODUCT_RANGE_FORWARD_NONZERO, stage)) {
+            return false;
+        }
+    }
+    if (!execute_full(BLST_MIDDLE_PRODUCT_RANGE_AFFINE_CONVERSION) ||
+        !execute_full(BLST_MIDDLE_PRODUCT_RANGE_POINTWISE_PAIRING) ||
+        !execute_full(BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BIT_REVERSE)) {
+        return false;
+    }
+    for (std::size_t stage = 0; stage < stages; ++stage) {
+        if (!execute_full(
+                BLST_MIDDLE_PRODUCT_RANGE_INVERSE_BUTTERFLIES, stage)) {
+            return false;
+        }
+    }
+    return execute_full(BLST_MIDDLE_PRODUCT_RANGE_NORMALIZATION) &&
+        blst_middle_product_avx_native_output_range(
+            precomputed, workspace, output, n, 0, n);
+}
+#endif
+
 } // namespace
 
 TEST(MiddleProductCApi, ComputesExpectedMiddleWindow)
@@ -303,3 +380,113 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
 
     blst_middle_product_precomputed_b_free(precomputed);
 }
+
+TEST(MiddleProductCApi, ScalarRangeBoundaryMatchesOneShotAndRejectsBadJobs)
+{
+    constexpr std::size_t n = 17;
+    std::vector<BoundaryG1> a;
+    std::vector<BoundaryG2> b;
+    a.reserve(n);
+    b.reserve(2 * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        a.push_back(g1(3 + i));
+    }
+    for (std::size_t i = 0; i < 2 * n; ++i) {
+        b.push_back(g2(11 + i));
+    }
+
+    blst_middle_product_precomputed_b_scalar* precomputed =
+        blst_middle_product_precompute_b_scalar(b.data(), n);
+    ASSERT_NE(precomputed, nullptr);
+    blst_middle_product_workspace_scalar* workspace =
+        blst_middle_product_workspace_scalar_new(precomputed);
+    ASSERT_NE(workspace, nullptr);
+    std::vector<BoundaryGt> expected(n);
+    std::vector<BoundaryGt> actual(n);
+    ASSERT_TRUE(blst_middle_product_scalar(
+        a.data(), n, precomputed, expected.data()));
+    ASSERT_TRUE(run_scalar_ranges_serial(
+        a.data(), n, precomputed, workspace, actual.data()));
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(blst::Fp12::equal(expected[i], actual[i])) << i;
+    }
+
+    std::size_t count = 0xfeed;
+    EXPECT_FALSE(blst_middle_product_scalar_range_work_count(
+        precomputed,
+        static_cast<blst_middle_product_range_phase>(255),
+        0,
+        &count));
+    EXPECT_EQ(count, 0xfeed);
+    EXPECT_FALSE(blst_middle_product_scalar_range_work_count(
+        precomputed,
+        BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE,
+        1,
+        &count));
+    ASSERT_TRUE(blst_middle_product_scalar_range_work_count(
+        precomputed,
+        BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE,
+        0,
+        &count));
+    EXPECT_FALSE(blst_middle_product_scalar_execute_range(
+        precomputed,
+        workspace,
+        BLST_MIDDLE_PRODUCT_RANGE_FORWARD_BIT_REVERSE,
+        0,
+        count,
+        count + 1));
+    EXPECT_FALSE(blst_middle_product_scalar_execute_range(
+        precomputed,
+        workspace,
+        BLST_MIDDLE_PRODUCT_RANGE_INPUT_LOAD,
+        0,
+        0,
+        0));
+
+    const std::vector<BoundaryGt> canary(n, BoundaryGt::one());
+    actual = canary;
+    EXPECT_FALSE(blst_middle_product_scalar_output_range(
+        precomputed, workspace, actual.data(), n, n, n + 1));
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(blst::Fp12::equal(actual[i], canary[i])) << i;
+    }
+
+    blst_middle_product_workspace_scalar_free(workspace);
+    blst_middle_product_precomputed_b_scalar_free(precomputed);
+}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+TEST(MiddleProductCApi, NativeAvxRangeBoundaryMatchesOneShot)
+{
+    constexpr std::size_t n = 17;
+    std::vector<blst::avx::G1Point> a;
+    std::vector<blst::avx::G2Point> b;
+    a.reserve(n);
+    b.reserve(2 * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        a.push_back(blst::avx::avx_map_to_G_detail::from_scalar(g1(3 + i)));
+    }
+    for (std::size_t i = 0; i < 2 * n; ++i) {
+        b.push_back(blst::avx::avx_map_to_G_detail::from_scalar(g2(11 + i)));
+    }
+
+    blst_middle_product_precomputed_b_avx* precomputed =
+        blst_middle_product_precompute_b_avx_native(b.data(), n);
+    ASSERT_NE(precomputed, nullptr);
+    blst_middle_product_workspace_avx_native* workspace =
+        blst_middle_product_workspace_avx_native_new(precomputed);
+    ASSERT_NE(workspace, nullptr);
+    std::vector<blst::avx::GT> expected(n);
+    std::vector<blst::avx::GT> actual(n);
+    ASSERT_TRUE(blst_middle_product_avx_native_with_workspace(
+        a.data(), n, precomputed, workspace, expected.data()));
+    ASSERT_TRUE(run_avx_native_ranges_serial(
+        a.data(), n, precomputed, workspace, actual.data()));
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(blst::avx::GT::equal(expected[i], actual[i])) << i;
+    }
+
+    blst_middle_product_workspace_avx_native_free(workspace);
+    blst_middle_product_precomputed_b_avx_free(precomputed);
+}
+#endif

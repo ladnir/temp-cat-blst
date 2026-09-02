@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
 #include <stdexcept>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -76,6 +79,281 @@ std::vector<G2Point> make_g2_data(std::size_t n)
         out.push_back(g2(static_cast<uint64_t>((43 * i + 17) % 263 + 1)));
     }
     return out;
+}
+
+template<class Function>
+void for_shuffled_ranges(
+    const std::size_t count,
+    std::uint64_t seed,
+    Function&& function)
+{
+    std::vector<std::pair<std::size_t, std::size_t>> ranges;
+    for (std::size_t begin = 0; begin < count;) {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        const std::size_t length = 1 + static_cast<std::size_t>(seed % 7);
+        const std::size_t end = std::min(count, begin + length);
+        ranges.emplace_back(begin, end);
+        begin = end;
+    }
+    for (std::size_t i = ranges.size(); i > 1; --i) {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        std::swap(ranges[i - 1], ranges[seed % i]);
+    }
+    for (const auto [begin, end] : ranges) {
+        function(begin, end);
+    }
+}
+
+template<class Function>
+bool for_parallel_ranges(const std::size_t count, Function&& function)
+{
+    if (count == 0) {
+        return true;
+    }
+    constexpr std::size_t max_workers = 4;
+    const std::size_t worker_count = std::min(count, max_workers);
+    std::array<std::atomic<bool>, max_workers> succeeded;
+    for (std::atomic<bool>& value : succeeded) {
+        value.store(true, std::memory_order_relaxed);
+    }
+    std::vector<std::thread> workers;
+    workers.reserve(worker_count);
+    for (std::size_t worker = 0; worker < worker_count; ++worker) {
+        const std::size_t begin = (count * worker) / worker_count;
+        const std::size_t end = (count * (worker + 1)) / worker_count;
+        workers.emplace_back([&, worker, begin, end]() {
+            try {
+                function(begin, end);
+            } catch (...) {
+                succeeded[worker].store(false, std::memory_order_relaxed);
+            }
+        });
+    }
+    for (std::thread& worker : workers) {
+        worker.join();
+    }
+    for (std::size_t worker = 0; worker < worker_count; ++worker) {
+        if (!succeeded[worker].load(std::memory_order_relaxed)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+template<class Context>
+void expect_partitioned_ranges_match_monolithic(const std::size_t n)
+{
+    const std::vector<G1Point> public_a = make_g1_data(n);
+    const std::vector<G2Point> public_b = make_g2_data(n);
+    const auto precomputed =
+        blst::detail::precompute_middle_product_b_public<Context>(
+            public_b, n, nullptr);
+    const std::vector<typename Context::G1Point> native_a =
+        blst::detail::convert_g1_inputs<Context>(public_a);
+    blst::detail::MiddleProductWorkspaceImpl<Context> monolithic_workspace(
+        precomputed.fft_size);
+    blst::detail::MiddleProductWorkspaceImpl<Context> ranged_workspace(
+        precomputed.fft_size);
+    std::vector<GT> expected(n, GT::identity());
+    std::vector<GT> actual(n, GT::identity());
+
+    blst::detail::middle_product_impl<Context>(
+        std::span<const typename Context::G1Point>(native_a),
+        precomputed,
+        std::span<GT>(expected),
+        monolithic_workspace,
+        nullptr);
+
+    for_shuffled_ranges(
+        precomputed.fft_size,
+        0x123456789abcdef0ULL + n,
+        [&](const std::size_t begin, const std::size_t end) {
+            blst::detail::middle_product_input_range_impl<Context>(
+                native_a, precomputed, ranged_workspace, begin, end);
+        });
+
+    const auto execute_partitioned = [&](
+        const blst::MiddleProductRangePhase phase,
+        const std::size_t stage,
+        const std::uint64_t seed) {
+        const std::size_t count =
+            blst::detail::middle_product_range_work_count_impl<Context>(
+                precomputed, phase, stage);
+        for_shuffled_ranges(
+            count,
+            seed,
+            [&](const std::size_t begin, const std::size_t end) {
+                blst::detail::middle_product_execute_range_impl<Context>(
+                    precomputed,
+                    ranged_workspace,
+                    phase,
+                    stage,
+                    begin,
+                    end);
+            });
+    };
+
+    execute_partitioned(
+        blst::MiddleProductRangePhase::ForwardBitReverse,
+        0,
+        0x201 + n);
+    for (std::size_t stage = 0;
+         stage < precomputed.forward_plan.stage_work.size();
+         ++stage) {
+        const auto execute_j0 = [&]() {
+            execute_partitioned(
+                blst::MiddleProductRangePhase::ForwardJ0,
+                stage,
+                0x300 + stage + n);
+        };
+        const auto execute_nonzero = [&]() {
+            execute_partitioned(
+                blst::MiddleProductRangePhase::ForwardNonzero,
+                stage,
+                0x400 + stage + n);
+        };
+        if ((stage & 1) == 0) {
+            execute_j0();
+            execute_nonzero();
+        } else {
+            execute_nonzero();
+            execute_j0();
+        }
+    }
+    execute_partitioned(
+        blst::MiddleProductRangePhase::AffineConversion,
+        0,
+        0x501 + n);
+    execute_partitioned(
+        blst::MiddleProductRangePhase::PointwisePairing,
+        0,
+        0x601 + n);
+    execute_partitioned(
+        blst::MiddleProductRangePhase::InverseBitReverse,
+        0,
+        0x701 + n);
+    for (std::size_t stage = 0;
+         stage < precomputed.inverse_plan.stage_left.size();
+         ++stage) {
+        execute_partitioned(
+            blst::MiddleProductRangePhase::InverseButterflies,
+            stage,
+            0x800 + stage + n);
+    }
+    execute_partitioned(
+        blst::MiddleProductRangePhase::Normalization,
+        0,
+        0x901 + n);
+
+    for_shuffled_ranges(
+        n,
+        0xa01 + n,
+        [&](const std::size_t begin, const std::size_t end) {
+            blst::detail::middle_product_output_range_impl<Context>(
+                precomputed,
+                ranged_workspace,
+                std::span<GT>(actual),
+                begin,
+                end);
+        });
+
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(GT::equal(expected[i], actual[i]))
+            << "n=" << n << ", i=" << i;
+    }
+}
+
+template<class Context>
+void expect_parallel_ranges_match_monolithic(const std::size_t n)
+{
+    const std::vector<G1Point> public_a = make_g1_data(n);
+    const std::vector<G2Point> public_b = make_g2_data(n);
+    const auto precomputed =
+        blst::detail::precompute_middle_product_b_public<Context>(
+            public_b, n, nullptr);
+    const std::vector<typename Context::G1Point> native_a =
+        blst::detail::convert_g1_inputs<Context>(public_a);
+    blst::detail::MiddleProductWorkspaceImpl<Context> expected_workspace(
+        precomputed.fft_size);
+    blst::detail::MiddleProductWorkspaceImpl<Context> parallel_workspace(
+        precomputed.fft_size);
+    std::vector<GT> expected(n, GT::identity());
+    std::vector<GT> actual(n, GT::identity());
+    blst::detail::middle_product_impl<Context>(
+        std::span<const typename Context::G1Point>(native_a),
+        precomputed,
+        std::span<GT>(expected),
+        expected_workspace,
+        nullptr);
+
+    ASSERT_TRUE(for_parallel_ranges(
+        precomputed.fft_size,
+        [&](const std::size_t begin, const std::size_t end) {
+            blst::detail::middle_product_input_range_impl<Context>(
+                native_a, precomputed, parallel_workspace, begin, end);
+        }));
+
+    const auto execute_parallel = [&](
+        const blst::MiddleProductRangePhase phase,
+        const std::size_t stage = 0) {
+        const std::size_t count =
+            blst::detail::middle_product_range_work_count_impl<Context>(
+                precomputed, phase, stage);
+        return for_parallel_ranges(
+            count,
+            [&](const std::size_t begin, const std::size_t end) {
+                blst::detail::middle_product_execute_range_impl<Context>(
+                    precomputed,
+                    parallel_workspace,
+                    phase,
+                    stage,
+                    begin,
+                    end);
+            });
+    };
+
+    ASSERT_TRUE(execute_parallel(
+        blst::MiddleProductRangePhase::ForwardBitReverse));
+    for (std::size_t stage = 0;
+         stage < precomputed.forward_plan.stage_work.size();
+         ++stage) {
+        ASSERT_TRUE(execute_parallel(
+            blst::MiddleProductRangePhase::ForwardJ0, stage));
+        ASSERT_TRUE(execute_parallel(
+            blst::MiddleProductRangePhase::ForwardNonzero, stage));
+    }
+    ASSERT_TRUE(execute_parallel(
+        blst::MiddleProductRangePhase::AffineConversion));
+    ASSERT_TRUE(execute_parallel(
+        blst::MiddleProductRangePhase::PointwisePairing));
+    ASSERT_TRUE(execute_parallel(
+        blst::MiddleProductRangePhase::InverseBitReverse));
+    for (std::size_t stage = 0;
+         stage < precomputed.inverse_plan.stage_left.size();
+         ++stage) {
+        ASSERT_TRUE(execute_parallel(
+            blst::MiddleProductRangePhase::InverseButterflies, stage));
+    }
+    ASSERT_TRUE(execute_parallel(
+        blst::MiddleProductRangePhase::Normalization));
+    ASSERT_TRUE(for_parallel_ranges(
+        n,
+        [&](const std::size_t begin, const std::size_t end) {
+            blst::detail::middle_product_output_range_impl<Context>(
+                precomputed,
+                parallel_workspace,
+                std::span<GT>(actual),
+                begin,
+                end);
+        }));
+
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(GT::equal(expected[i], actual[i])) << i;
+    }
 }
 
 template<class Context>
@@ -469,6 +747,91 @@ TEST(MiddleProductWorkspace, CapacityMismatchFailsBeforeOutputPublication)
     EXPECT_THROW(blst::MiddleProductWorkspaceScalar(3), std::invalid_argument);
 }
 
+TEST(MiddleProductRanges, ScalarRandomPartitionsMatchMonolithic)
+{
+    for (const std::size_t n : {std::size_t{1}, std::size_t{5}, std::size_t{17}}) {
+        expect_partitioned_ranges_match_monolithic<
+            blst::MiddleProductScalarContext>(n);
+    }
+}
+
+TEST(MiddleProductRanges, ScalarConcurrentDisjointRangesMatchMonolithic)
+{
+    expect_parallel_ranges_match_monolithic<
+        blst::MiddleProductScalarContext>(17);
+}
+
+TEST(MiddleProductRanges, RejectsInvalidPhaseStageRangeAndCapacity)
+{
+    constexpr std::size_t n = 17;
+    const std::vector<G1Point> public_a = make_g1_data(n);
+    const std::vector<G2Point> public_b = make_g2_data(n);
+    const auto precomputed = blst::detail::precompute_middle_product_b_public<
+        blst::MiddleProductScalarContext>(public_b, n, nullptr);
+    const std::vector<blst::MiddleProductScalarContext::G1Point> native_a =
+        blst::detail::convert_g1_inputs<blst::MiddleProductScalarContext>(
+            public_a);
+    blst::MiddleProductWorkspaceScalar workspace(precomputed.fft_size);
+
+    EXPECT_NO_THROW(
+        blst::detail::middle_product_execute_range_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                workspace,
+                blst::MiddleProductRangePhase::ForwardBitReverse,
+                0,
+                0,
+                0));
+    EXPECT_THROW(
+        (void)blst::detail::middle_product_range_work_count_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                blst::MiddleProductRangePhase::ForwardBitReverse,
+                1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        (void)blst::detail::middle_product_range_work_count_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                blst::MiddleProductRangePhase::ForwardJ0,
+                precomputed.forward_plan.stage_work.size()),
+        std::invalid_argument);
+    const std::size_t swaps =
+        blst::detail::middle_product_range_work_count_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                blst::MiddleProductRangePhase::ForwardBitReverse,
+                0);
+    EXPECT_THROW(
+        blst::detail::middle_product_execute_range_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                workspace,
+                blst::MiddleProductRangePhase::ForwardBitReverse,
+                0,
+                swaps,
+                swaps + 1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        blst::detail::middle_product_execute_range_impl<
+            blst::MiddleProductScalarContext>(
+                precomputed,
+                workspace,
+                blst::MiddleProductRangePhase::InputLoad,
+                0,
+                0,
+                0),
+        std::invalid_argument);
+
+    blst::MiddleProductWorkspaceScalar undersized(
+        blst::middle_product_fft_size(5));
+    EXPECT_THROW(
+        blst::detail::middle_product_input_range_impl<
+            blst::MiddleProductScalarContext>(
+                native_a, precomputed, undersized, 0, 0),
+        std::length_error);
+}
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 TEST(MiddleProductWorkspace, AvxCapacityAlignsEveryNativeBuffer)
 {
@@ -515,6 +878,22 @@ TEST(MiddleProductWorkspace, AvxCapacityAlignsEveryNativeBuffer)
     for (std::size_t i = 0; i < small_n; ++i) {
         EXPECT_TRUE(GT::equal(small_expected[i], small_actual[i])) << i;
     }
+}
+
+
+TEST(MiddleProductRanges, AvxRandomPartitionsMatchMonolithic)
+{
+    for (const std::size_t n : {std::size_t{1}, std::size_t{5}, std::size_t{17}}) {
+        expect_partitioned_ranges_match_monolithic<
+            blst::MiddleProductAvxContext>(n);
+    }
+}
+
+
+TEST(MiddleProductRanges, AvxConcurrentDisjointRangesMatchMonolithic)
+{
+    expect_parallel_ranges_match_monolithic<
+        blst::MiddleProductAvxContext>(17);
 }
 #endif
 

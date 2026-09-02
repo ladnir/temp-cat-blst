@@ -92,6 +92,7 @@ bool run_native_probe(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         std::vector<blst::GT> expected(n, blst::GT::identity());
         std::vector<blst::GT> actual(n, blst::GT::identity());
+        std::vector<blst::GT> ranged_actual(n, blst::GT::identity());
         blst::detail::middle_product_impl<Context>(
             a,
             precomputed,
@@ -106,13 +107,19 @@ bool run_native_probe(
                 std::span<blst::GT>(actual),
                 workspace,
                 nullptr);
+            blst::detail::middle_product_ranged_serial_impl<Context>(
+                a,
+                precomputed,
+                std::span<blst::GT>(ranged_actual),
+                workspace);
         } catch (...) {
             fail_allocation = false;
             return false;
         }
         fail_allocation = false;
         for (std::size_t i = 0; i < n; ++i) {
-            if (!blst::GT::equal(expected[i], actual[i])) {
+            if (!blst::GT::equal(expected[i], actual[i]) ||
+                !blst::GT::equal(expected[i], ranged_actual[i])) {
                 return false;
             }
         }
@@ -121,6 +128,7 @@ bool run_native_probe(
     } else {
         std::vector<blst::avx::GT> expected(n);
         std::vector<blst::avx::GT> actual(n);
+        std::vector<blst::avx::GT> ranged_actual(n);
         blst::detail::middle_product_impl<Context>(
             a,
             precomputed,
@@ -135,13 +143,19 @@ bool run_native_probe(
                 std::span<blst::avx::GT>(actual),
                 workspace,
                 nullptr);
+            blst::detail::middle_product_ranged_serial_impl<Context>(
+                a,
+                precomputed,
+                std::span<blst::avx::GT>(ranged_actual),
+                workspace);
         } catch (...) {
             fail_allocation = false;
             return false;
         }
         fail_allocation = false;
         for (std::size_t i = 0; i < n; ++i) {
-            if (!blst::avx::GT::equal(expected[i], actual[i])) {
+            if (!blst::avx::GT::equal(expected[i], actual[i]) ||
+                !blst::avx::GT::equal(expected[i], ranged_actual[i])) {
                 return false;
             }
         }

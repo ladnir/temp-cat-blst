@@ -262,6 +262,125 @@ inline void fft_apply_bit_reverse_swaps(
         }
 }
 
+// Stateless range form of the planned bit-reversal executor. Work items are
+// indices into the immutable swap list, not coefficient indices. Concurrent
+// calls require disjoint work-item ranges from the same completed plan.
+template<typename G>
+inline void fft_apply_bit_reverse_swaps_range(
+    std::span<G> values,
+    std::span<const FftBitReverseSwap> swaps,
+    const std::size_t begin,
+    const std::size_t end)
+{
+        BLST_ASSERT(begin <= end);
+        BLST_ASSERT(end <= swaps.size());
+        for (std::size_t idx = begin; idx < end; ++idx) {
+                const FftBitReverseSwap& swap = swaps[idx];
+                BLST_ASSERT(swap.left < values.size());
+                BLST_ASSERT(swap.right < values.size());
+                std::swap(values[swap.left], values[swap.right]);
+        }
+}
+
+// Executes a range of the multiplication-free butterflies for one forward
+// stage. The stage barrier and range partition are caller-owned. Each planned
+// butterfly writes a disjoint coefficient pair.
+template<typename G, typename CoeffCtx>
+inline void fft_forward_stage_j0_range(
+    std::span<G> values,
+    const FftTruncatedForwardPlan& plan,
+    const std::size_t stage,
+    const std::size_t begin,
+    const std::size_t end)
+{
+        BLST_ASSERT(stage < plan.stage_work.size());
+        const std::span<const std::uint32_t> lefts =
+            plan.stage_work[stage].left_j0.view(plan.left_j0);
+        BLST_ASSERT(begin <= end);
+        BLST_ASSERT(end <= lefts.size());
+        const std::size_t half = std::size_t{1} << stage;
+        for (std::size_t idx = begin; idx < end; ++idx) {
+                const std::size_t left = lefts[idx];
+                const std::size_t right = left + half;
+                G u = values[left];
+                G t = values[right];
+                values[left] = CoeffCtx::plus(u, t);
+                values[right] = CoeffCtx::minus(u, t);
+        }
+}
+
+// Executes a range of the nonzero-twiddle butterflies for one forward stage.
+// Twiddle indices are precomputed beside the coefficient schedule, keeping all
+// validation and dispatch outside the arithmetic loop.
+template<typename G, typename F, typename CoeffCtx>
+inline void fft_forward_stage_nonzero_range(
+    std::span<G> values,
+    std::span<const F> roots,
+    const FftTruncatedForwardPlan& plan,
+    const std::size_t stage,
+    const std::size_t begin,
+    const std::size_t end)
+{
+        BLST_ASSERT(stage < plan.stage_work.size());
+        const auto& work = plan.stage_work[stage];
+        const std::span<const std::uint32_t> lefts =
+            work.left_nonzero.view(plan.left_nonzero);
+        const std::span<const std::uint32_t> twiddles =
+            work.twiddle_nonzero.view(plan.twiddle_nonzero);
+        BLST_ASSERT(lefts.size() == twiddles.size());
+        BLST_ASSERT(begin <= end);
+        BLST_ASSERT(end <= lefts.size());
+        const std::size_t half = std::size_t{1} << stage;
+        for (std::size_t idx = begin; idx < end; ++idx) {
+                const std::size_t left = lefts[idx];
+                const std::size_t right = left + half;
+                const F& w = roots[twiddles[idx]];
+                G u = values[left];
+                G t = CoeffCtx::mult(values[right], w);
+                values[left] = CoeffCtx::plus(u, t);
+                values[right] = CoeffCtx::minus(u, t);
+        }
+}
+
+// Executes a range of one inverse stage. The immutable schedule contains the
+// left coefficient; the stage determines both its partner and twiddle stride.
+template<typename G, typename F, typename CoeffCtx>
+inline void fft_inverse_stage_range(
+    std::span<G> values,
+    std::span<const F> inverse_roots,
+    const FftInverseTruncatedRangePlan& plan,
+    const std::size_t stage,
+    const std::size_t begin,
+    const std::size_t end)
+{
+        BLST_ASSERT(stage < plan.stage_left.size());
+        const std::span<const std::uint32_t> lefts =
+            plan.stage_left[stage].view(plan.left_indices);
+        BLST_ASSERT(begin <= end);
+        BLST_ASSERT(end <= lefts.size());
+        const std::size_t half = std::size_t{1} << stage;
+        const std::size_t len = half << 1;
+        const std::size_t stride = plan.n / len;
+        for (std::size_t idx = begin; idx < end; ++idx) {
+                const std::size_t left = lefts[idx];
+                const std::size_t right = left + half;
+                const std::size_t j = left & (half - 1);
+                if (j == 0) {
+                        G u = values[left];
+                        G t = values[right];
+                        values[left] = CoeffCtx::plus(u, t);
+                        values[right] = CoeffCtx::minus(u, t);
+                }
+                else {
+                        const F& w = inverse_roots[j * stride];
+                        G u = values[left];
+                        G t = CoeffCtx::mult(values[right], w);
+                        values[left] = CoeffCtx::plus(u, t);
+                        values[right] = CoeffCtx::minus(u, t);
+                }
+        }
+}
+
 inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, std::size_t xn)
 {
         if (!blst::fft_detail::valid_transform_size(n) || xn == 0 || xn > n) {
