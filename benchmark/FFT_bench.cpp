@@ -25,10 +25,10 @@ using namespace blst;
 
 namespace
 {
-	template<class T>
-	static size_t vector_storage_bytes(const std::vector<T>& values)
+	template<class Vector>
+	static size_t vector_storage_bytes(const Vector& values)
 	{
-		return values.capacity() * sizeof(T);
+		return values.capacity() * sizeof(typename Vector::value_type);
 	}
 
 	template<class Workspace>
@@ -802,7 +802,7 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b(
 			std::span<const G2Point>(B_orig), n, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductWorkspace workspace;
+		MiddleProductWorkspace workspace(precomputed_b.fft_size);
 
 		double time_fft_g1 = 0;
 		double time_input_copy = 0;
@@ -869,7 +869,7 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b_scalar(
 			std::span<const G2Point>(B_orig), n, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductWorkspaceScalar workspace;
+		MiddleProductWorkspaceScalar workspace(precomputed_b.fft_size);
 
 		double time_fft_g1 = 0;
 		double time_input_copy = 0;
@@ -936,7 +936,7 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b_avx(
 			std::span<const G2Point>(B_orig), n);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductWorkspaceAvx workspace;
+		MiddleProductWorkspaceAvx workspace(precomputed_b.fft_size);
 
 		for (auto _ : state) {
 			benchmark::DoNotOptimize(out.data());
@@ -961,7 +961,7 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b_avx(
 			std::span<const G2Point>(B_orig), n, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductWorkspaceAvx workspace;
+		MiddleProductWorkspaceAvx workspace(precomputed_b.fft_size);
 
 		double time_fft_g1 = 0;
 		double time_input_copy = 0;

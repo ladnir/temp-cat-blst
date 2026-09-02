@@ -167,7 +167,10 @@ namespace
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbea80000ULL + batch_size);
 
         std::vector<blst::GT> out(batch_size, blst::GT::identity());
-        blst::MiddleProductWorkspace workspace;
+        blst::MiddleProductWorkspace workspace(
+            ctx.prepared_public_parameters
+                .fft_precomputed_b_by_batch_size[batch_size]
+                .fft_size);
 
         for (auto _ : state) {
             blst::middle_product(

@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <new>
 #include <span>
 #include <stdexcept>
 #include <type_traits>
@@ -52,9 +53,11 @@ namespace blst {
      * The algorithms are variable-time with respect to their public points and
      * sizes. Precomputation and convenience overloads allocate and can throw
      * `std::bad_alloc`; malformed shapes throw `std::invalid_argument`, and an
-     * unsupported length throws `std::length_error`. Workspace-taking overloads
-     * reuse their owned vectors after capacity is established, but backend
-     * operations may still allocate as documented by their concrete context.
+     * unsupported length or insufficient workspace capacity throws
+     * `std::length_error`. FFT workspaces allocate fixed, 64-byte-aligned
+     * storage at construction and never resize; selected-native evaluation
+     * performs no allocation. Backend operations may still allocate where
+     * documented by their concrete context.
      * The AVX multipair workspace also retains all six batch-final-exponentiation
      * buffers, so that stage performs no allocation after its capacity grows.
      * Selected-backend entry points consume their input spans directly; only
@@ -214,6 +217,58 @@ namespace blst {
     }
 
     namespace detail {
+
+        inline constexpr std::size_t middle_product_workspace_alignment = 64;
+
+        template<class T, std::size_t Alignment>
+        struct MiddleProductAlignedAllocator {
+            static_assert(Alignment >= alignof(T));
+            static_assert((Alignment & (Alignment - 1)) == 0);
+
+            using value_type = T;
+            using is_always_equal = std::true_type;
+
+            constexpr MiddleProductAlignedAllocator() noexcept = default;
+
+            template<class U>
+            constexpr MiddleProductAlignedAllocator(
+                const MiddleProductAlignedAllocator<U, Alignment>&) noexcept
+            {
+            }
+
+            [[nodiscard]] T* allocate(const std::size_t count)
+            {
+                if (count > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
+                    throw std::bad_array_new_length();
+                }
+                return static_cast<T*>(::operator new(
+                    count * sizeof(T),
+                    std::align_val_t{Alignment}));
+            }
+
+            void deallocate(T* const allocation, std::size_t) noexcept
+            {
+                ::operator delete(allocation, std::align_val_t{Alignment});
+            }
+
+            template<class U>
+            struct rebind {
+                using other = MiddleProductAlignedAllocator<U, Alignment>;
+            };
+        };
+
+        template<class T, class U, std::size_t Alignment>
+        constexpr bool operator==(
+            const MiddleProductAlignedAllocator<T, Alignment>&,
+            const MiddleProductAlignedAllocator<U, Alignment>&) noexcept
+        {
+            return true;
+        }
+
+        template<class T>
+        using MiddleProductAlignedVector = std::vector<
+            T,
+            MiddleProductAlignedAllocator<T, middle_product_workspace_alignment>>;
 
         struct BasicMiddleProductCoeffCtx {
             template<typename G, typename F>
@@ -626,31 +681,68 @@ namespace blst {
             FftInverseTruncatedRangePlan inverse_plan;
         };
 
-        /// Mutable, non-thread-safe FFT evaluation storage reusable at one size.
+        /// Mutable, non-thread-safe FFT evaluation storage reusable for every
+        /// precompute no larger than its construction capacity. Buffer sizes
+        /// and addresses remain fixed for the lifetime of the workspace.
         template<class Context>
         struct MiddleProductWorkspaceImpl {
-            std::vector<typename Context::G1Point> a_fft;
-            std::vector<typename Context::G1AffinePoint> a_fft_affine;
-            std::vector<typename Context::G1Point::Field_type> affine_prefix_products;
-            std::vector<typename Context::GtFftElement> c_fft;
+        private:
+            std::size_t max_fft_capacity_;
 
-            void ensure_size(std::size_t m)
+        public:
+            using G1Point = typename Context::G1Point;
+            using G1AffinePoint = typename Context::G1AffinePoint;
+            using AffinePrefix = typename Context::G1Point::Field_type;
+            using GtFftElement = typename Context::GtFftElement;
+
+            explicit MiddleProductWorkspaceImpl(
+                const std::size_t max_fft_capacity)
+                : max_fft_capacity_(validate_capacity(max_fft_capacity)),
+                  a_fft(max_fft_capacity_),
+                  a_fft_affine(
+                      Context::batch_affine_pointwise ? max_fft_capacity_ : 0),
+                  affine_prefix_products(
+                      Context::batch_affine_pointwise ? max_fft_capacity_ : 0),
+                  c_fft(max_fft_capacity_)
             {
-                if (a_fft.size() != m) {
-                    a_fft.assign(m, Context::g1_infinity());
-                }
-                if (c_fft.size() != m) {
-                    c_fft.assign(m, Context::identity());
-                }
-                if constexpr (Context::batch_affine_pointwise) {
-                    if (a_fft_affine.size() != m) {
-                        a_fft_affine.resize(m);
-                    }
-                    if (affine_prefix_products.size() != m) {
-                        affine_prefix_products.resize(m);
-                    }
+            }
+
+            [[nodiscard]] std::size_t capacity() const noexcept
+            {
+                return max_fft_capacity_;
+            }
+
+            [[nodiscard]] bool has_capacity(
+                const std::size_t required_fft_size) const noexcept
+            {
+                return required_fft_size <= max_fft_capacity_;
+            }
+
+            void require_capacity(const std::size_t required_fft_size) const
+            {
+                if (!has_capacity(required_fft_size)) {
+                    throw std::length_error(
+                        "middle-product workspace capacity is too small");
                 }
             }
+
+            MiddleProductAlignedVector<G1Point> a_fft;
+            MiddleProductAlignedVector<G1AffinePoint> a_fft_affine;
+            MiddleProductAlignedVector<AffinePrefix> affine_prefix_products;
+            MiddleProductAlignedVector<GtFftElement> c_fft;
+
+        private:
+            [[nodiscard]] static std::size_t validate_capacity(
+                const std::size_t max_fft_capacity)
+            {
+                if (!fft_detail::valid_transform_size(max_fft_capacity) ||
+                    max_fft_capacity > middle_product_max_fft_size) {
+                    throw std::invalid_argument(
+                        "invalid middle-product workspace capacity");
+                }
+                return max_fft_capacity;
+            }
+
         };
 
         template<class Context>
@@ -811,17 +903,22 @@ namespace blst {
                 throw std::invalid_argument("invalid middle-product precompute state");
             }
 
-            workspace.ensure_size(precomputed_b.fft_size);
-            std::span<typename Context::G1Point> a_fft(workspace.a_fft);
-            std::span<typename Context::GtFftElement> c_fft(workspace.c_fft);
+            workspace.require_capacity(precomputed_b.fft_size);
+            std::span<typename Context::G1Point> a_fft(
+                workspace.a_fft.data(), precomputed_b.fft_size);
+            std::span<typename Context::GtFftElement> c_fft(
+                workspace.c_fft.data(), precomputed_b.fft_size);
 
-            {
-                ScopedTimer timer(timings, "middle_product_pre.fill_a_fft_ns");
-                std::fill(a_fft.begin(), a_fft.end(), Context::g1_infinity());
-            }
             {
                 ScopedTimer timer(timings, "middle_product_pre.copy_a_ns");
                 std::copy(a.begin(), a.end(), a_fft.begin());
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.fill_a_fft_ns");
+                std::fill(
+                    a_fft.begin() + static_cast<std::ptrdiff_t>(n),
+                    a_fft.end(),
+                    Context::g1_infinity());
             }
             const std::size_t xn_a = fft_admissible_size(n, precomputed_b.fft_size);
             {
@@ -838,10 +935,13 @@ namespace blst {
                 ScopedTimer timer(timings, "middle_product_pre.pointwise_ns");
                 if constexpr (Context::batch_affine_pointwise) {
                     Context::batch_to_affine_g1(
-                        std::span<typename Context::G1AffinePoint>(workspace.a_fft_affine),
+                        std::span<typename Context::G1AffinePoint>(
+                            workspace.a_fft_affine.data(),
+                            precomputed_b.fft_size),
                         std::span<const typename Context::G1Point>(a_fft),
                         std::span<typename Context::G1Point::Field_type>(
-                            workspace.affine_prefix_products));
+                            workspace.affine_prefix_products.data(),
+                            precomputed_b.fft_size));
                     for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
                         if (precomputed_b.b_fft_is_zero[i] != 0 ||
                             Context::G1AffinePoint::is_inf(workspace.a_fft_affine[i]) != 0) {
@@ -972,7 +1072,7 @@ namespace blst {
 
             const auto precomputed =
                 precompute_middle_product_b_public<Context>(b, n, timings);
-            MiddleProductWorkspaceImpl<Context> workspace;
+            MiddleProductWorkspaceImpl<Context> workspace(precomputed.fft_size);
             middle_product_public<Context>(a, precomputed, out, workspace, timings);
         }
 
@@ -1705,6 +1805,7 @@ namespace blst {
      * @brief Evaluate a precomputed pairing middle product using reusable
      * caller-owned workspace.
      * @pre `a.size() == precomputed_b.n` and `out.size() >= a.size()`.
+     * @pre `workspace.capacity() >= precomputed_b.fft_size`.
      * @pre Every input is a reduced G1 subgroup point and output is disjoint
      * from all inputs. No Release membership validation is performed.
      * @post The first `a.size()` outputs contain GT elements.
@@ -2038,7 +2139,7 @@ namespace blst {
         std::span<GT> out,
         TimingStats* timings = nullptr)
     {
-        MiddleProductWorkspaceScalar workspace;
+        MiddleProductWorkspaceScalar workspace(precomputed_b.fft_size);
         middle_product_scalar(a, precomputed_b, out, workspace, timings);
     }
 
@@ -2059,7 +2160,7 @@ namespace blst {
         std::span<GT> out,
         TimingStats* timings = nullptr)
     {
-        MiddleProductWorkspaceAvx workspace;
+        MiddleProductWorkspaceAvx workspace(precomputed_b.fft_size);
         middle_product_avx(a, precomputed_b, out, workspace, timings);
     }
 
@@ -2080,7 +2181,7 @@ namespace blst {
         std::span<GT> out,
         TimingStats* timings = nullptr)
     {
-        MiddleProductWorkspace workspace;
+        MiddleProductWorkspace workspace(precomputed_b.fft_size);
         middle_product(a, precomputed_b, out, workspace, timings);
     }
 

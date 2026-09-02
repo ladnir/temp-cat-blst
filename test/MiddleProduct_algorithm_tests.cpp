@@ -387,8 +387,8 @@ TEST(MiddleProductPrecompute, ScalarPlansRemainStableAcrossEvaluations)
     const auto* const inverse_storage = precomputed.inverse_plan.left_indices.data();
     std::vector<GT> first(n, GT::identity());
     std::vector<GT> second(n, GT::identity());
-    blst::MiddleProductWorkspaceScalar first_workspace;
-    blst::MiddleProductWorkspaceScalar second_workspace;
+    blst::MiddleProductWorkspaceScalar first_workspace(precomputed.fft_size);
+    blst::MiddleProductWorkspaceScalar second_workspace(precomputed.fft_size);
 
     blst::middle_product_scalar(a, precomputed, first, first_workspace);
     blst::middle_product_scalar(a, precomputed, second, second_workspace);
@@ -399,6 +399,124 @@ TEST(MiddleProductPrecompute, ScalarPlansRemainStableAcrossEvaluations)
         EXPECT_TRUE(GT::equal(first[i], second[i]));
     }
 }
+
+TEST(MiddleProductWorkspace, ScalarCapacityIsAlignedStableAndReusableAcrossAnchors)
+{
+    constexpr std::size_t small_n = 5;
+    constexpr std::size_t large_n = 17;
+    const std::vector<G1Point> small_a = make_g1_data(small_n);
+    const std::vector<G2Point> small_b = make_g2_data(small_n);
+    const std::vector<G1Point> large_a = make_g1_data(large_n);
+    const std::vector<G2Point> large_b = make_g2_data(large_n);
+    const auto small_precomputed =
+        blst::precompute_middle_product_b_scalar(small_b, small_n);
+    const auto large_precomputed =
+        blst::precompute_middle_product_b_scalar(large_b, large_n);
+    ASSERT_LT(small_precomputed.fft_size, large_precomputed.fft_size);
+
+    blst::MiddleProductWorkspaceScalar workspace(large_precomputed.fft_size);
+    EXPECT_EQ(workspace.capacity(), large_precomputed.fft_size);
+    ASSERT_NE(workspace.a_fft.data(), nullptr);
+    ASSERT_NE(workspace.c_fft.data(), nullptr);
+    EXPECT_EQ(
+        reinterpret_cast<std::uintptr_t>(workspace.a_fft.data()) % 64,
+        std::uintptr_t{0});
+    EXPECT_EQ(
+        reinterpret_cast<std::uintptr_t>(workspace.c_fft.data()) % 64,
+        std::uintptr_t{0});
+    const auto* const a_address = workspace.a_fft.data();
+    const auto* const c_address = workspace.c_fft.data();
+
+    std::vector<GT> small_expected(small_n, GT::identity());
+    std::vector<GT> small_actual(small_n, GT::identity());
+    std::vector<GT> large_out(large_n, GT::identity());
+    blst::middle_product_scalar(small_a, small_precomputed, small_expected);
+    blst::middle_product_scalar(
+        large_a, large_precomputed, large_out, workspace);
+    blst::middle_product_scalar(
+        small_a, small_precomputed, small_actual, workspace);
+
+    EXPECT_EQ(workspace.a_fft.data(), a_address);
+    EXPECT_EQ(workspace.c_fft.data(), c_address);
+    for (std::size_t i = 0; i < small_n; ++i) {
+        EXPECT_TRUE(GT::equal(small_expected[i], small_actual[i])) << i;
+    }
+}
+
+TEST(MiddleProductWorkspace, CapacityMismatchFailsBeforeOutputPublication)
+{
+    constexpr std::size_t small_n = 5;
+    constexpr std::size_t large_n = 17;
+    const std::vector<G1Point> large_a = make_g1_data(large_n);
+    const std::vector<G2Point> large_b = make_g2_data(large_n);
+    const auto large_precomputed =
+        blst::precompute_middle_product_b_scalar(large_b, large_n);
+    const std::size_t small_capacity = blst::middle_product_fft_size(small_n);
+    ASSERT_LT(small_capacity, large_precomputed.fft_size);
+    blst::MiddleProductWorkspaceScalar workspace(small_capacity);
+    const std::vector<GT> canary(large_n, GT::generator());
+    std::vector<GT> output = canary;
+
+    EXPECT_THROW(
+        blst::middle_product_scalar(
+            large_a, large_precomputed, output, workspace),
+        std::length_error);
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        EXPECT_TRUE(GT::equal(output[i], canary[i])) << i;
+    }
+
+    EXPECT_THROW(blst::MiddleProductWorkspaceScalar(0), std::invalid_argument);
+    EXPECT_THROW(blst::MiddleProductWorkspaceScalar(3), std::invalid_argument);
+}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+TEST(MiddleProductWorkspace, AvxCapacityAlignsEveryNativeBuffer)
+{
+    constexpr std::size_t small_n = 5;
+    constexpr std::size_t large_n = 17;
+    const std::vector<G1Point> small_a = make_g1_data(small_n);
+    const std::vector<G2Point> small_b = make_g2_data(small_n);
+    const std::vector<G1Point> large_a = make_g1_data(large_n);
+    const std::vector<G2Point> large_b = make_g2_data(large_n);
+    const auto small_precomputed =
+        blst::precompute_middle_product_b_avx(small_b, small_n);
+    const auto large_precomputed =
+        blst::precompute_middle_product_b_avx(large_b, large_n);
+    blst::MiddleProductWorkspaceAvx workspace(large_precomputed.fft_size);
+
+    const auto expect_aligned = [](const auto* const address) {
+        ASSERT_NE(address, nullptr);
+        EXPECT_EQ(
+            reinterpret_cast<std::uintptr_t>(address) % 64,
+            std::uintptr_t{0});
+    };
+    expect_aligned(workspace.a_fft.data());
+    expect_aligned(workspace.a_fft_affine.data());
+    expect_aligned(workspace.affine_prefix_products.data());
+    expect_aligned(workspace.c_fft.data());
+    const auto* const a_address = workspace.a_fft.data();
+    const auto* const affine_address = workspace.a_fft_affine.data();
+    const auto* const prefix_address = workspace.affine_prefix_products.data();
+    const auto* const c_address = workspace.c_fft.data();
+
+    std::vector<GT> small_expected(small_n, GT::identity());
+    std::vector<GT> small_actual(small_n, GT::identity());
+    std::vector<GT> large_out(large_n, GT::identity());
+    blst::middle_product_avx(small_a, small_precomputed, small_expected);
+    blst::middle_product_avx(
+        large_a, large_precomputed, large_out, workspace);
+    blst::middle_product_avx(
+        small_a, small_precomputed, small_actual, workspace);
+
+    EXPECT_EQ(workspace.a_fft.data(), a_address);
+    EXPECT_EQ(workspace.a_fft_affine.data(), affine_address);
+    EXPECT_EQ(workspace.affine_prefix_products.data(), prefix_address);
+    EXPECT_EQ(workspace.c_fft.data(), c_address);
+    for (std::size_t i = 0; i < small_n; ++i) {
+        EXPECT_TRUE(GT::equal(small_expected[i], small_actual[i])) << i;
+    }
+}
+#endif
 
 TEST(MiddleProductMultipair, ScalarMatchesFft)
 {

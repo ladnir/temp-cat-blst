@@ -148,6 +148,29 @@ if(NOT BLST_ASAN AND NOT BLST_UBSAN)
     target_link_libraries(blst_tests PRIVATE bte)
 endif()
 
+# A standalone allocation-failure probe keeps global operator-new replacement
+# out of the main GTest executable. Construction may allocate; native scalar
+# and AVX evaluation must succeed after every allocation route is disabled.
+add_executable(middle_product_workspace_allocation_test
+    "middle_product_workspace_allocation_test.cpp"
+)
+target_include_directories(middle_product_workspace_allocation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+    "${CMAKE_BINARY_DIR}"
+    "${CMAKE_BINARY_DIR}/blst"
+)
+target_link_libraries(middle_product_workspace_allocation_test PRIVATE
+    blst_static
+    blst_avx_headers
+)
+add_test(
+    NAME unit.middle_product_workspace_allocation
+    COMMAND middle_product_workspace_allocation_test
+)
+set_tests_properties(unit.middle_product_workspace_allocation PROPERTIES
+    LABELS "unit;fft;allocation"
+)
+
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)

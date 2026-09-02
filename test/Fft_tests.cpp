@@ -1341,7 +1341,7 @@ TEST(Fft, MiddleProductWorkspaceMatchesDefault)
 
         std::vector<GT> out_default(n, GT::identity());
         std::vector<GT> out_ws(n, GT::identity());
-        MiddleProductWorkspace workspace;
+        MiddleProductWorkspace workspace(precomputed_b.fft_size);
 
         middle_product(
             std::span<const G1Point>(a_points),

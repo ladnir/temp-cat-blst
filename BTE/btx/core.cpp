@@ -427,7 +427,7 @@ namespace bte::btx
                 const auto precomputed_b = blst::precompute_middle_product_b(
                     std::span<const blst::G2Point>(b.data(), b.size()),
                     batch_size);
-                blst::MiddleProductWorkspace workspace;
+                blst::MiddleProductWorkspace workspace(precomputed_b.fft_size);
                 blst::middle_product(
                     std::span<const blst::G1Point>(a.data(), a.size()),
                     precomputed_b,
@@ -497,10 +497,12 @@ namespace bte::btx
             }
 
             std::vector<blst::GT> beta(batch_size, blst::GT::identity());
-            blst::MiddleProductWorkspace workspace;
+            const blst::MiddleProductPrecomputedB& precomputed_b =
+                ensure_precomputed_beta(prepared_public_parameters, batch_size);
+            blst::MiddleProductWorkspace workspace(precomputed_b.fft_size);
             blst::middle_product(
                 std::span<const blst::G1Point>(a.data(), a.size()),
-                ensure_precomputed_beta(prepared_public_parameters, batch_size),
+                precomputed_b,
                 std::span<blst::GT>(beta.data(), beta.size()),
                 workspace);
             return beta;

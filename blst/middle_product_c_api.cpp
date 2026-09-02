@@ -72,7 +72,7 @@ inline void run_scalar(
     const ScalarPrecomputedB& precomputed_b,
     std::span<PublicGt> out)
 {
-    ScalarWorkspace workspace;
+    ScalarWorkspace workspace(precomputed_b.fft_size);
     blst::detail::middle_product_impl<blst::MiddleProductScalarContext>(
         a,
         precomputed_b,
@@ -146,7 +146,7 @@ inline void run_native(
     std::span<PublicGt> out)
 {
     const std::vector<NativeG1> converted = convert_g1_inputs(a);
-    NativeWorkspace workspace;
+    NativeWorkspace workspace(precomputed_b.fft_size);
     blst::detail::middle_product_impl<blst::MiddleProductAvxContext>(
         std::span<const NativeG1>(converted),
         precomputed_b,
@@ -185,7 +185,7 @@ inline void run_native(
     const NativePrecomputedB& precomputed_b,
     std::span<PublicGt> out)
 {
-    NativeWorkspace workspace;
+    NativeWorkspace workspace(precomputed_b.fft_size);
     blst::detail::middle_product_impl<blst::MiddleProductScalarContext>(
         std::span<const BoundaryG1>(a),
         precomputed_b,
@@ -243,9 +243,10 @@ struct blst_middle_product_workspace_scalar
 
     explicit blst_middle_product_workspace_scalar(
         const blst_middle_product_precomputed_b_scalar& precomputed_b)
-        : n(precomputed_b.n), native_out(precomputed_b.n, PublicGt::identity())
+        : n(precomputed_b.n),
+          value(precomputed_b.value.fft_size),
+          native_out(precomputed_b.n, PublicGt::identity())
     {
-        value.ensure_size(precomputed_b.value.fft_size);
     }
 };
 
@@ -273,10 +274,10 @@ struct blst_middle_product_workspace_avx
     explicit blst_middle_product_workspace_avx(
         const blst_middle_product_precomputed_b_avx& precomputed_b)
         : n(precomputed_b.n),
+          value(precomputed_b.value.fft_size),
           converted_a(precomputed_b.n),
           native_out(precomputed_b.n, PublicGt::identity())
     {
-        value.ensure_size(precomputed_b.value.fft_size);
     }
 };
 
@@ -287,9 +288,8 @@ struct blst_middle_product_workspace_avx_native
 
     explicit blst_middle_product_workspace_avx_native(
         const blst_middle_product_precomputed_b_avx& precomputed_b)
-        : n(precomputed_b.n)
+        : n(precomputed_b.n), value(precomputed_b.value.fft_size)
     {
-        value.ensure_size(precomputed_b.value.fft_size);
     }
 };
 #else
