@@ -281,6 +281,121 @@ TEST(FftCore, PlanConstructionRejectsInvalidAndOverflowedShapes)
         std::invalid_argument);
 }
 
+TEST(FftCore, FlatSchedulesPreserveLegacyButterflyOrder)
+{
+    constexpr std::size_t n = 16;
+    const std::vector<FftBitReverseSwap> expected_swaps = {
+        {1, 8}, {2, 4}, {3, 12}, {5, 10}, {7, 14}, {11, 13}
+    };
+
+    for (const std::size_t xn : {std::size_t{1}, std::size_t{5}, n}) {
+        const FftTruncatedForwardPlan plan =
+            make_fft_truncated_forward_plan(n, xn);
+        EXPECT_EQ(plan.bit_reverse_swaps, expected_swaps);
+
+        std::vector<unsigned char> active(n, 0);
+        std::vector<unsigned char> next_active(n, 0);
+        for (std::size_t i = 0; i < xn; ++i) {
+            active[i] = 1;
+        }
+        bit_reverse<unsigned char>(active);
+
+        for (std::size_t stage_index = 0, len = 2;
+             len <= n;
+             len <<= 1, ++stage_index) {
+            const std::size_t half = len >> 1;
+            const std::size_t stride = n / len;
+            std::vector<std::uint32_t> expected_j0;
+            std::vector<std::uint32_t> expected_nonzero;
+            std::vector<std::uint32_t> expected_twiddles;
+            std::fill(next_active.begin(), next_active.end(), 0);
+
+            for (std::size_t i = 0; i < n; i += len) {
+                for (std::size_t j = 0; j < half; ++j) {
+                    const std::size_t left = i + j;
+                    const std::size_t right = left + half;
+                    if (!(active[left] || active[right])) {
+                        continue;
+                    }
+                    if (j == 0) {
+                        expected_j0.push_back(static_cast<std::uint32_t>(left));
+                    } else {
+                        expected_nonzero.push_back(static_cast<std::uint32_t>(left));
+                        expected_twiddles.push_back(
+                            static_cast<std::uint32_t>(j * stride));
+                    }
+                    next_active[left] = 1;
+                    next_active[right] = 1;
+                }
+            }
+
+            const auto& stage = plan.stage_work[stage_index];
+            const std::span<const std::uint32_t> actual_j0 =
+                stage.left_j0.view(plan.left_j0);
+            const std::span<const std::uint32_t> actual_nonzero =
+                stage.left_nonzero.view(plan.left_nonzero);
+            const std::span<const std::uint32_t> actual_twiddles =
+                stage.twiddle_nonzero.view(plan.twiddle_nonzero);
+            EXPECT_EQ(
+                std::vector<std::uint32_t>(actual_j0.begin(), actual_j0.end()),
+                expected_j0);
+            EXPECT_EQ(
+                std::vector<std::uint32_t>(
+                    actual_nonzero.begin(), actual_nonzero.end()),
+                expected_nonzero);
+            EXPECT_EQ(
+                std::vector<std::uint32_t>(
+                    actual_twiddles.begin(), actual_twiddles.end()),
+                expected_twiddles);
+            active.swap(next_active);
+        }
+    }
+
+    for (const auto [start, length] : {
+             std::pair<std::size_t, std::size_t>{0, 1},
+             {3, 7},
+             {15, 1},
+             {0, n}}) {
+        const FftInverseTruncatedRangePlan plan =
+            make_fft_inverse_truncated_range_plan(n, start, length);
+        EXPECT_EQ(plan.bit_reverse_swaps, expected_swaps);
+
+        std::vector<unsigned char> out_need(n, 0);
+        std::vector<unsigned char> in_need(n, 0);
+        for (std::size_t i = 0; i < length; ++i) {
+            out_need[start + i] = 1;
+        }
+
+        for (std::size_t k = plan.stages; k > 0; --k) {
+            const std::size_t len = std::size_t{1} << k;
+            const std::size_t half = len >> 1;
+            std::vector<std::uint32_t> expected_left;
+            std::fill(in_need.begin(), in_need.end(), 0);
+
+            for (std::size_t i = 0; i < n; i += len) {
+                for (std::size_t j = 0; j < half; ++j) {
+                    const std::size_t left = i + j;
+                    const std::size_t right = left + half;
+                    if (!(out_need[left] || out_need[right])) {
+                        continue;
+                    }
+                    expected_left.push_back(static_cast<std::uint32_t>(left));
+                    in_need[left] = 1;
+                    in_need[right] = 1;
+                }
+            }
+
+            const std::span<const std::uint32_t> actual_left =
+                plan.stage_left[k - 1].view(plan.left_indices);
+            EXPECT_EQ(
+                std::vector<std::uint32_t>(
+                    actual_left.begin(), actual_left.end()),
+                expected_left);
+            out_need.swap(in_need);
+        }
+    }
+}
+
 TEST(FftCore, ReusableTruncatedPlansMatchFullTransforms)
 {
     constexpr std::size_t n = 16;

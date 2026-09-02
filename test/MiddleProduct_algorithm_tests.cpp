@@ -383,8 +383,8 @@ TEST(MiddleProductPrecompute, ScalarPlansRemainStableAcrossEvaluations)
     EXPECT_EQ(precomputed.inverse_plan.start, n);
     EXPECT_EQ(precomputed.inverse_plan.length, n);
 
-    const auto* const forward_storage = precomputed.forward_plan.stage_work.data();
-    const auto* const inverse_storage = precomputed.inverse_plan.stage_left.data();
+    const auto* const forward_storage = precomputed.forward_plan.left_nonzero.data();
+    const auto* const inverse_storage = precomputed.inverse_plan.left_indices.data();
     std::vector<GT> first(n, GT::identity());
     std::vector<GT> second(n, GT::identity());
     blst::MiddleProductWorkspaceScalar first_workspace;
@@ -393,8 +393,8 @@ TEST(MiddleProductPrecompute, ScalarPlansRemainStableAcrossEvaluations)
     blst::middle_product_scalar(a, precomputed, first, first_workspace);
     blst::middle_product_scalar(a, precomputed, second, second_workspace);
 
-    EXPECT_EQ(precomputed.forward_plan.stage_work.data(), forward_storage);
-    EXPECT_EQ(precomputed.inverse_plan.stage_left.data(), inverse_storage);
+    EXPECT_EQ(precomputed.forward_plan.left_nonzero.data(), forward_storage);
+    EXPECT_EQ(precomputed.inverse_plan.left_indices.data(), inverse_storage);
     for (std::size_t i = 0; i < n; ++i) {
         EXPECT_TRUE(GT::equal(first[i], second[i]));
     }

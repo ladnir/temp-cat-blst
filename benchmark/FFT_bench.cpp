@@ -45,15 +45,13 @@ namespace
 		const FftInverseTruncatedRangePlan& inverse)
 	{
 		size_t bytes = vector_storage_bytes(forward.stage_work) +
-			vector_storage_bytes(inverse.stage_left);
-		for (const auto& stage : forward.stage_work) {
-			bytes += vector_storage_bytes(stage.left_j0) +
-				vector_storage_bytes(stage.left_nonzero) +
-				vector_storage_bytes(stage.twiddle_nonzero);
-		}
-		for (const auto& stage : inverse.stage_left) {
-			bytes += vector_storage_bytes(stage);
-		}
+			vector_storage_bytes(forward.left_j0) +
+			vector_storage_bytes(forward.left_nonzero) +
+			vector_storage_bytes(forward.twiddle_nonzero) +
+			vector_storage_bytes(forward.bit_reverse_swaps) +
+			vector_storage_bytes(inverse.stage_left) +
+			vector_storage_bytes(inverse.left_indices) +
+			vector_storage_bytes(inverse.bit_reverse_swaps);
 		return bytes;
 	}
 

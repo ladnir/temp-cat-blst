@@ -6,6 +6,7 @@
 #pragma once
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -146,15 +147,45 @@ void fft_forward_truncated_prefix(
         blst::TimingStats* timings = nullptr,
         std::string_view metric_prefix = "fft_trunc");
 
+// A range into one immutable flat schedule array. Offsets and counts remain
+// size_t because their sum across every transform stage can exceed 32 bits,
+// even though each coefficient index is at most 2^30.
+struct FftFlatSpan
+{
+        std::size_t offset = 0;
+        std::size_t count = 0;
+
+        template<typename T>
+        [[nodiscard]] std::span<const T> view(
+            const std::vector<T>& storage) const noexcept
+        {
+                BLST_ASSERT(offset <= storage.size());
+                BLST_ASSERT(count <= storage.size() - offset);
+                return std::span<const T>(storage).subspan(offset, count);
+        }
+};
+
+// One independently executable bit-reversal swap. Transform sizes are at
+// most 2^30, so both coefficient indices fit uint32_t.
+struct FftBitReverseSwap
+{
+        std::uint32_t left = 0;
+        std::uint32_t right = 0;
+
+        friend bool operator==(
+            const FftBitReverseSwap&,
+            const FftBitReverseSwap&) = default;
+};
+
 // Mutable only during construction. Callers that alter the public fields or
 // schedules violate the executor precondition.
 struct FftTruncatedForwardPlan
 {
         struct StageWork
         {
-                std::vector<std::size_t> left_j0;
-                std::vector<std::size_t> left_nonzero;
-                std::vector<std::size_t> twiddle_nonzero;
+                FftFlatSpan left_j0;
+                FftFlatSpan left_nonzero;
+                FftFlatSpan twiddle_nonzero;
         };
 
         std::size_t n = 0;
@@ -164,6 +195,10 @@ struct FftTruncatedForwardPlan
         std::size_t butterflies_executed = 0;
         std::size_t butterflies_skipped = 0;
         std::vector<StageWork> stage_work;
+        std::vector<std::uint32_t> left_j0;
+        std::vector<std::uint32_t> left_nonzero;
+        std::vector<std::uint32_t> twiddle_nonzero;
+        std::vector<FftBitReverseSwap> bit_reverse_swaps;
 };
 
 // Shape plan for an inverse transform that publishes only one output range.
@@ -178,7 +213,9 @@ struct FftInverseTruncatedRangePlan
         std::size_t butterflies_total = 0;
         std::size_t butterflies_executed = 0;
         std::size_t butterflies_skipped = 0;
-        std::vector<std::vector<std::size_t>> stage_left;
+        std::vector<FftFlatSpan> stage_left;
+        std::vector<std::uint32_t> left_indices;
+        std::vector<FftBitReverseSwap> bit_reverse_swaps;
 };
 
 [[nodiscard]] constexpr std::size_t fft_log2_size(std::size_t n) noexcept
@@ -188,6 +225,41 @@ struct FftInverseTruncatedRangePlan
                 ++log2_n;
         }
         return log2_n;
+}
+
+[[nodiscard]] inline std::vector<FftBitReverseSwap>
+make_fft_bit_reverse_swaps(const std::size_t n)
+{
+        BLST_ASSERT(blst::fft_detail::valid_transform_size(n));
+        std::vector<FftBitReverseSwap> swaps;
+        swaps.reserve(n / 2);
+
+        const int signed_n = static_cast<int>(n);
+        for (int i = 1, j = 0; i < signed_n; ++i) {
+                int bit = signed_n >> 1;
+                for (; j & bit; bit >>= 1) {
+                        j ^= bit;
+                }
+                j ^= bit;
+                if (i < j) {
+                        swaps.push_back(FftBitReverseSwap{
+                            static_cast<std::uint32_t>(i),
+                            static_cast<std::uint32_t>(j) });
+                }
+        }
+        return swaps;
+}
+
+template<typename G>
+inline void fft_apply_bit_reverse_swaps(
+    std::span<G> values,
+    std::span<const FftBitReverseSwap> swaps)
+{
+        for (const FftBitReverseSwap& swap : swaps) {
+                BLST_ASSERT(swap.left < values.size());
+                BLST_ASSERT(swap.right < values.size());
+                std::swap(values[swap.left], values[swap.right]);
+        }
 }
 
 inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, std::size_t xn)
@@ -201,28 +273,29 @@ inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, st
         plan.xn = xn;
         plan.log2_n = fft_log2_size(n);
         plan.butterflies_total = (n / 2) * plan.log2_n;
-
-        if (xn == n) {
-                plan.butterflies_executed = plan.butterflies_total;
-                return plan;
-        }
-
         plan.stage_work.resize(plan.log2_n);
+        plan.bit_reverse_swaps = make_fft_bit_reverse_swaps(n);
+        plan.left_j0.reserve(n - 1);
+        plan.left_nonzero.reserve(plan.butterflies_total - (n - 1));
+        plan.twiddle_nonzero.reserve(plan.butterflies_total - (n - 1));
+
         std::vector<unsigned char> active(n, 0);
         std::vector<unsigned char> next_active(n, 0);
         for (std::size_t i = 0; i < xn; ++i) {
                 active[i] = 1;
         }
-        bit_reverse<unsigned char>(std::span<unsigned char>(active));
+        fft_apply_bit_reverse_swaps<unsigned char>(
+            std::span<unsigned char>(active),
+            std::span<const FftBitReverseSwap>(plan.bit_reverse_swaps));
 
         std::size_t stage_idx = 0;
         for (std::size_t len = 2; len <= n; len <<= 1, ++stage_idx) {
                 const std::size_t half = len >> 1;
                 const std::size_t stride = n / len;
                 auto& stage = plan.stage_work[stage_idx];
-                stage.left_j0.reserve(n / len);
-                stage.left_nonzero.reserve((n / 2) - (n / len));
-                stage.twiddle_nonzero.reserve((n / 2) - (n / len));
+                stage.left_j0.offset = plan.left_j0.size();
+                stage.left_nonzero.offset = plan.left_nonzero.size();
+                stage.twiddle_nonzero.offset = plan.twiddle_nonzero.size();
                 std::fill(next_active.begin(), next_active.end(), static_cast<unsigned char>(0));
 
                 for (std::size_t i = 0; i < n; i += len) {
@@ -233,17 +306,27 @@ inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, st
                                         continue;
                                 }
                                 if (j == 0) {
-                                        stage.left_j0.push_back(left);
+                                        plan.left_j0.push_back(
+                                            static_cast<std::uint32_t>(left));
                                 }
                                 else {
-                                        stage.left_nonzero.push_back(left);
-                                        stage.twiddle_nonzero.push_back(j * stride);
+                                        plan.left_nonzero.push_back(
+                                            static_cast<std::uint32_t>(left));
+                                        plan.twiddle_nonzero.push_back(
+                                            static_cast<std::uint32_t>(j * stride));
                                 }
                                 next_active[left] = 1;
                                 next_active[right] = 1;
                         }
                 }
-                plan.butterflies_executed += stage.left_j0.size() + stage.left_nonzero.size();
+                stage.left_j0.count = plan.left_j0.size() - stage.left_j0.offset;
+                stage.left_nonzero.count =
+                    plan.left_nonzero.size() - stage.left_nonzero.offset;
+                stage.twiddle_nonzero.count =
+                    plan.twiddle_nonzero.size() - stage.twiddle_nonzero.offset;
+                BLST_ASSERT(stage.left_nonzero.count == stage.twiddle_nonzero.count);
+                plan.butterflies_executed +=
+                    stage.left_j0.count + stage.left_nonzero.count;
                 active.swap(next_active);
         }
 
@@ -268,6 +351,8 @@ inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
         plan.stages = fft_log2_size(n);
         plan.butterflies_total = (n / 2) * plan.stages;
         plan.stage_left.resize(plan.stages);
+        plan.left_indices.reserve(plan.butterflies_total);
+        plan.bit_reverse_swaps = make_fft_bit_reverse_swaps(n);
 
         std::vector<unsigned char> out_need(n, 0);
         std::vector<unsigned char> in_need(n, 0);
@@ -278,8 +363,8 @@ inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
         for (std::size_t k = plan.stages; k > 0; --k) {
                 const std::size_t len = std::size_t(1) << k;
                 const std::size_t half = len >> 1;
-                auto& lefts = plan.stage_left[k - 1];
-                lefts.reserve(n / 2);
+                FftFlatSpan& lefts = plan.stage_left[k - 1];
+                lefts.offset = plan.left_indices.size();
                 std::fill(in_need.begin(), in_need.end(), static_cast<unsigned char>(0));
 
                 for (std::size_t i = 0; i < n; i += len) {
@@ -289,13 +374,15 @@ inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
                                 if (!(out_need[left] || out_need[right])) {
                                         continue;
                                 }
-                                lefts.push_back(left);
+                                plan.left_indices.push_back(
+                                    static_cast<std::uint32_t>(left));
                                 in_need[left] = 1;
                                 in_need[right] = 1;
                         }
                 }
 
-                plan.butterflies_executed += lefts.size();
+                lefts.count = plan.left_indices.size() - lefts.offset;
+                plan.butterflies_executed += lefts.count;
                 out_need.swap(in_need);
         }
 
@@ -381,27 +468,25 @@ void fft_forward_truncated_prefix(
         BLST_ASSERT(plan.n == n);
         BLST_ASSERT(plan.xn == xn);
         BLST_ASSERT(plan.log2_n == fft_log2_size(n));
-        BLST_ASSERT(xn == n || plan.stage_work.size() == plan.log2_n);
+        BLST_ASSERT(plan.stage_work.size() == plan.log2_n);
 
-        if (xn == n) {
-                fft<G, F, CoeffCtx>(a, roots, false);
-                if (timings != nullptr) {
-                        timings->add(metric_prefix, ".xn", xn);
-                        timings->add(metric_prefix, ".butterflies_total", plan.butterflies_total);
-                        timings->add(metric_prefix, ".butterflies_executed", plan.butterflies_executed);
-                        timings->add(metric_prefix, ".butterflies_skipped", plan.butterflies_skipped);
-                }
-                return;
-        }
-
-        bit_reverse(a);
+        fft_apply_bit_reverse_swaps<G>(
+            a,
+            std::span<const FftBitReverseSwap>(plan.bit_reverse_swaps));
 
         for (std::size_t stage = 0, len = 2; len <= n; len <<= 1, ++stage) {
                 const std::size_t half = len >> 1;
                 const auto& stage_work = plan.stage_work[stage];
+                const std::span<const std::uint32_t> left_j0 =
+                    stage_work.left_j0.view(plan.left_j0);
+                const std::span<const std::uint32_t> left_nonzero =
+                    stage_work.left_nonzero.view(plan.left_nonzero);
+                const std::span<const std::uint32_t> twiddle_nonzero =
+                    stage_work.twiddle_nonzero.view(plan.twiddle_nonzero);
+                BLST_ASSERT(left_nonzero.size() == twiddle_nonzero.size());
 
-                for (std::size_t idx = 0; idx < stage_work.left_j0.size(); ++idx) {
-                        const std::size_t left = stage_work.left_j0[idx];
+                for (std::size_t idx = 0; idx < left_j0.size(); ++idx) {
+                        const std::size_t left = left_j0[idx];
                         const std::size_t right = left + half;
                         G u = a[left];
                         G t = a[right];
@@ -409,10 +494,10 @@ void fft_forward_truncated_prefix(
                         a[right] = CoeffCtx::minus(u, t);
                 }
 
-                for (std::size_t idx = 0; idx < stage_work.left_nonzero.size(); ++idx) {
-                        const std::size_t left = stage_work.left_nonzero[idx];
+                for (std::size_t idx = 0; idx < left_nonzero.size(); ++idx) {
+                        const std::size_t left = left_nonzero[idx];
                         const std::size_t right = left + half;
-                        const F& w = roots[stage_work.twiddle_nonzero[idx]];
+                        const F& w = roots[twiddle_nonzero[idx]];
                         G u = a[left];
                         G t = CoeffCtx::mult(a[right], w);
                         a[left] = CoeffCtx::plus(u, t);
@@ -466,12 +551,15 @@ void fft_inverse_truncated_range(
         BLST_ASSERT(plan.stages == fft_log2_size(n));
         BLST_ASSERT(plan.stage_left.size() == plan.stages);
 
-        bit_reverse(x);
+        fft_apply_bit_reverse_swaps<G>(
+            x,
+            std::span<const FftBitReverseSwap>(plan.bit_reverse_swaps));
 
         for (std::size_t stage = 0, len = 2; len <= n; len <<= 1, ++stage) {
                 const std::size_t half = len >> 1;
                 const std::size_t stride = n / len;
-                const auto& lefts = plan.stage_left[stage];
+                const std::span<const std::uint32_t> lefts =
+                    plan.stage_left[stage].view(plan.left_indices);
 
                 for (std::size_t idx = 0; idx < lefts.size(); ++idx) {
                         const std::size_t left = lefts[idx];
