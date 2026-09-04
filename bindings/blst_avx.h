@@ -725,6 +725,24 @@ bool blst_avx_fp12_in_group(const blst_avx_fp12* a);
 const blst_avx_fp12* blst_avx_fp12_one(void);
 
 /**
+ * Computes one unfinalized Miller-loop contribution in AVX-native form.
+ *
+ * Both inputs must be library-produced prime-order subgroup points; no curve
+ * or subgroup validation is performed. Identity inputs produce the Miller
+ * multiplicative identity. The operation allocates no memory. `out` may not
+ * alias either input and is unspecified on failure.
+ *
+ * Return value:
+ * - `true` on success.
+ * - `false` only when AVX is unavailable or an argument is null; this does
+ *   not report semantic input validation.
+ */
+bool blst_avx_miller_loop(
+    blst_avx_fp12* out,
+    const blst_avx_p1* g1,
+    const blst_avx_p2* g2);
+
+/**
  * Computes final_exponentiation(miller_loop(g2, g1)) in AVX-native form.
  * Both inputs must already be prime-order subgroup points; no point validation
  * is performed and behavior for non-subgroup inputs is not promised. The

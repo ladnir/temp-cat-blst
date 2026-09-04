@@ -2845,6 +2845,31 @@ const blst_avx_fp12* blst_avx_fp12_one(void)
 #endif
 }
 
+bool blst_avx_miller_loop(
+    blst_avx_fp12* out,
+    const blst_avx_p1* g1,
+    const blst_avx_p2* g2)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || g1 == nullptr || g2 == nullptr) {
+        return false;
+    }
+    AvxG1Affine g1_affine = {};
+    AvxG2Affine g2_affine = {};
+    AvxG1::to_affine(g1_affine, *as_avx(g1));
+    AvxG2::to_affine(g2_affine, *as_avx(g2));
+    AvxMillerResult miller = {};
+    AvxGt::miller_loop(miller, &g2_affine, &g1_affine);
+    as_avx(out)->data = miller.data;
+    return true;
+#else
+    (void)out;
+    (void)g1;
+    (void)g2;
+    return false;
+#endif
+}
+
 bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_p2* g2)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)

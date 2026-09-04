@@ -954,6 +954,28 @@ impl MillerLoopResult {
         Ok(Self(Gt::identity()?.0))
     }
 
+    /// Computes one unfinalized Miller-loop contribution from validated
+    /// subgroup points.
+    ///
+    /// The native point wrappers satisfy the C boundary's representation,
+    /// curve, and subgroup preconditions. Identity inputs produce the empty
+    /// product. This operation allocates no memory and performs no final
+    /// exponentiation.
+    #[inline]
+    pub fn from_pair(
+        g1: &G1Projective,
+        g2: &G2Projective,
+    ) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_fp12>::uninit();
+        if unsafe {
+            blst_avx_miller_loop(out.as_mut_ptr(), g1.as_raw(), g2.as_raw())
+        } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
     /// Multiplies two Miller products without allocating.
     pub fn multiply(&self, other: &Self) -> Result<Self, Error> {
         let mut out = MaybeUninit::<blst_avx_fp12>::uninit();
@@ -1881,6 +1903,11 @@ extern "C" {
     ) -> bool;
     pub fn blst_avx_fp12_in_group(input: *const blst_avx_fp12) -> bool;
     pub fn blst_avx_fp12_one() -> *const blst_avx_fp12;
+    pub fn blst_avx_miller_loop(
+        out: *mut blst_avx_fp12,
+        g1: *const blst_avx_p1,
+        g2: *const blst_avx_p2,
+    ) -> bool;
     pub fn blst_avx_gt_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(
         npoints: usize,
@@ -2253,6 +2280,28 @@ mod tests {
         let mut expected = blst_avx_fp12::default();
         assert!(unsafe { blst_avx_pairing(&mut expected, g1, g2) });
         assert!(unsafe { blst_avx_fp12_is_equal(&actual, &expected) });
+    }
+
+    #[test]
+    fn native_miller_loop_finalizes_to_direct_pairing() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let g2 = G2Projective::generator().unwrap();
+        let finalized = MillerLoopResult::from_pair(&g1, &g2)
+            .unwrap()
+            .final_exponentiation()
+            .unwrap();
+        assert_eq!(finalized, Gt::pairing(&g1, &g2).unwrap());
+
+        let identity = G1Projective::identity().unwrap();
+        let empty = MillerLoopResult::from_pair(&identity, &g2)
+            .unwrap()
+            .final_exponentiation()
+            .unwrap();
+        assert_eq!(empty, Gt::identity().unwrap());
     }
 
     #[test]

@@ -1321,4 +1321,20 @@ TEST(AvxCApiContract, PreparedG2LinesMatchDirectPairing)
     EXPECT_TRUE(blst_avx_fp12_is_equal(&prepared, &direct));
 }
 
+TEST(AvxCApiContract, MillerLoopFinalizesToDirectPairing)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    blst_avx_fp12 miller = {};
+    ASSERT_TRUE(blst_avx_miller_loop(
+        &miller, blst_avx_p1_generator(), blst_avx_p2_generator()));
+    blst_avx_fp12 finalized = {};
+    ASSERT_TRUE(blst_avx_fp12_final_exp(&finalized, &miller));
+
+    blst_avx_fp12 direct = {};
+    ASSERT_TRUE(blst_avx_pairing(
+        &direct, blst_avx_p1_generator(), blst_avx_p2_generator()));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&finalized, &direct));
+}
+
 } // namespace
