@@ -7,10 +7,6 @@
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/curve/GT.h"
 
-#ifndef MILLER_LOOP_N_MAX
-# define MILLER_LOOP_N_MAX 16
-#endif
-
 namespace blst::scalar
 {
 #define BLST_GT_GENERATOR_LIMBS                                           \
@@ -265,13 +261,13 @@ Fp6{                                                                      \
 
         size_t offset = 0;
         while (offset < n) {
-            G2Point T[MILLER_LOOP_N_MAX];
-            G2AffinePoint Qbatch[MILLER_LOOP_N_MAX];
-            PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
+            G2Point T[gt_detail::kMillerLoopNMax];
+            G2AffinePoint Qbatch[gt_detail::kMillerLoopNMax];
+            PreparedG1LineScale scales[gt_detail::kMillerLoopNMax];
             MillerResult chunk = {};
             size_t batch = 0;
 
-            while (offset < n && batch < MILLER_LOOP_N_MAX) {
+            while (offset < n && batch < gt_detail::kMillerLoopNMax) {
                 if (G2AffinePoint::is_inf(Q[offset]) || G1AffinePoint::is_inf(P[offset])) {
                     ++offset;
                     continue;
@@ -457,8 +453,8 @@ Fp6{                                                                      \
             return;
         }
 
-        PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
-        const Fp6* line_batch[MILLER_LOOP_N_MAX];
+        PreparedG1LineScale scales[gt_detail::kMillerLoopNMax];
+        const Fp6* line_batch[gt_detail::kMillerLoopNMax];
         size_t batch = 0;
         const Fp6* lines_ptr = NULL;
         const G1AffinePoint* pptr = NULL;
@@ -481,7 +477,7 @@ Fp6{                                                                      \
             Fp::add(scales[batch].y2, pptr->y, pptr->y);
             ++batch;
 
-            if (batch == MILLER_LOOP_N_MAX) {
+            if (batch == gt_detail::kMillerLoopNMax) {
                 MillerResult chunk = {};
                 GT::miller_loop_lines_n_preprocessed(chunk, line_batch, scales, batch);
                 Fp12::mul(out.data, out.data, chunk.data);
@@ -543,9 +539,9 @@ Fp6{                                                                      \
             return;
         }
 
-        G2Point T[MILLER_LOOP_N_MAX];
-        G2AffinePoint Q[MILLER_LOOP_N_MAX];
-        PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
+        G2Point T[gt_detail::kMillerLoopNMax];
+        G2AffinePoint Q[gt_detail::kMillerLoopNMax];
+        PreparedG1LineScale scales[gt_detail::kMillerLoopNMax];
         const G2AffinePoint* Qptr = NULL;
         const G1AffinePoint* Pptr = NULL;
         size_t i, j;
@@ -566,9 +562,9 @@ Fp6{                                                                      \
                 ++i;
             }
 
-            if (i == MILLER_LOOP_N_MAX || (j == n - 1 && i != 0)) {
+            if (i == gt_detail::kMillerLoopNMax || (j == n - 1 && i != 0)) {
                 MillerResult tmp;
-                MillerResult& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
+                MillerResult& ret = j < gt_detail::kMillerLoopNMax ? out : tmp;
 
                 /* first step is ret = 1^2*line, which is just ret = line       */
                 start_dbl_n(ret, T, scales, i);            /* 0x2                  */
@@ -579,7 +575,7 @@ Fp6{                                                                      \
                 add_n_dbl_n(ret, T, Q, scales, i, 16);     /* ..0xd201000000010000 */
                 Fp12::conjugate(ret.data);            /* account for z being negative */
 
-                if (j >= MILLER_LOOP_N_MAX)
+                if (j >= gt_detail::kMillerLoopNMax)
                     Fp12::mul(out.data, out.data, ret.data);
 
                 i = 0;

@@ -81,3 +81,12 @@ or runtime code changed.
 At `daa4eb30`, the four explicit pairing-check declarations inherit the
 clarified complete-membership wording from the C owner. Declaration parity
 remains 253/253; no signature, type, layout, ABI, or runtime code changed.
+
+## 2026-09-03 scalar prepared-G2 range addendum
+
+The generated artifact mirrors the five new scalar prepared-G2 declarations
+and preserves `blst_scalar_prepared_g2_batch` as a distinct opaque C tag. The
+integrity gate now requires exact 258/258 scalar C/raw Rust declarations and
+checks that tag explicitly. Split FFT and middle-product declarations remain
+outside this generated file. Semantic and safety contracts remain owned by
+`bindings/blst_scalar.h` and the safe `scalar::PreparedG2Batch` wrapper.

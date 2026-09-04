@@ -439,6 +439,11 @@ pub struct blst_uniq_context {
     _unused: [u8; 0],
 }
 pub type blst_uniq = blst_uniq_context;
+#[repr(C)]
+#[derive(Debug)]
+pub struct blst_scalar_prepared_g2_batch {
+    _unused: [u8; 0],
+}
 impl BLST_UNIQ_RESULT {
     pub const BLST_UNIQ_INSERTED: BLST_UNIQ_RESULT = BLST_UNIQ_RESULT(0);
 }
@@ -1632,6 +1637,36 @@ extern "C" {
         Qlines: *const blst_fp6,
         P: *const blst_p1_affine,
     );
+}
+extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_new(
+        g2: *const blst_p2,
+        count: usize,
+    ) -> *mut blst_scalar_prepared_g2_batch;
+}
+extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_len(
+        batch: *const blst_scalar_prepared_g2_batch,
+    ) -> usize;
+}
+extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_storage_bytes(
+        batch: *const blst_scalar_prepared_g2_batch,
+    ) -> usize;
+}
+extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_free(
+        batch: *mut blst_scalar_prepared_g2_batch,
+    );
+}
+extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+        out: *mut blst_fp12,
+        g1: *const blst_p1,
+        indices: *const usize,
+        count: usize,
+        batch: *const blst_scalar_prepared_g2_batch,
+    ) -> bool;
 }
 extern "C" {
     #[doc = " Returns the exact storage size, in bytes, required for one `blst_pairing` object."]

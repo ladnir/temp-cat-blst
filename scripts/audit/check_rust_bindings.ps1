@@ -50,10 +50,10 @@ if ($extra.Count -ne 0)
 {
     $errors.Add("Raw Rust bindings contain non-scalar symbols: $($extra -join ', ')")
 }
-if ($cSymbols.Count -ne 253 -or $rustSymbols.Count -ne 253)
+if ($cSymbols.Count -ne 258 -or $rustSymbols.Count -ne 258)
 {
     $errors.Add(
-        "Expected exact 253/253 scalar declaration inventory; found " +
+        "Expected exact 258/258 scalar declaration inventory; found " +
         "$($cSymbols.Count)/$($rustSymbols.Count)."
     )
 }
@@ -106,6 +106,10 @@ foreach ($opaqueType in @('pairing', 'uniq'))
     {
         $errors.Add("Generated bindings do not preserve the distinct opaque $contextType tag and C alias.")
     }
+}
+if ($rustBindings -notmatch '(?s)#\[repr\(C\)\]\s*#\[derive\(Debug\)\]\s*pub struct blst_scalar_prepared_g2_batch\s*\{\s*_unused: \[u8; 0\],\s*\}')
+{
+    $errors.Add('Generated bindings do not preserve the opaque scalar prepared-G2 batch tag.')
 }
 if ($rustBindings -match '(?m)^pub const _STDINT_H\b' -or
     $rustBindings -match '(?m)^pub type __u_char\b' -or

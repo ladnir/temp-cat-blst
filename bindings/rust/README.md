@@ -106,7 +106,8 @@ The Rust crate is split by surface area:
 - `src/primitives.rs`
   - thin helpers around the scalar C ABI
 - `src/scalar.rs`
-  - lean, allocation-free, `blstrs`-inspired types over the scalar backend
+  - lean, `blstrs`-inspired scalar types; arithmetic is allocation-free and
+    explicit reusable precomputations allocate only during construction
 - `src/avx.rs`
   - native AVX representations; these are intentionally distinct from scalar
     curve types

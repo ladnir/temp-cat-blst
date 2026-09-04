@@ -84,6 +84,10 @@ harness = false
 required-features = ["avx"]
 
 [[bench]]
+name = "btx_scalar_prepared_pairing_product"
+harness = false
+
+[[bench]]
 name = "avx_g1_msm"
 harness = false
 required-features = ["avx"]

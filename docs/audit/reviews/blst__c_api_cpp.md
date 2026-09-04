@@ -280,3 +280,25 @@ execution, and continuing Apple CI. Experimental CUDA and frozen BTx/BTE are
 not covered. These gaps do not reopen the exact scalar C boundary because its
 contracts, exception paths, object lifetimes, resource policy, and focused
 code generation have been reviewed directly.
+
+## 2026-09-03 scalar prepared-G2 range addendum
+
+The new opaque owner contains only a fixed logical count, an immutable array of
+68-line scalar G2 tables, and one identity byte per operand. Construction uses
+RAII throughout and catches every exception before returning through C. An
+identity operand never exposes its intentionally unwritten line table because
+evaluation checks the identity byte first.
+
+Indexed evaluation validates every index before arithmetic and publishes the
+output only after the complete product succeeds. It uses fixed arrays sized by
+the scalar engine's shared `kMillerLoopNMax == 16`, batch-converts only finite
+native G1 projective operands, and calls the existing prepared-line Miller
+engine. There is no heap allocation, backend conversion, callback, scheduler,
+or mutable state in evaluation. Concurrent calls read only immutable owner
+storage and use independent stack state.
+
+Focused Release, ASan/UBSan, allocation-failure, composition, identity, and
+concurrency tests are recorded in
+`docs/audit/BTX_SCALAR_PREPARED_PAIRING_RANGES_2026-09-03.md`. The broader
+sanitizer executable still encounters the pre-existing null-output probe in
+`blst_scalar_from_hexascii`; the new focused path is clean.

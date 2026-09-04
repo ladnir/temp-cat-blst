@@ -374,3 +374,21 @@ existing exact output/input alias support and partial-overlap prohibition. This
 lets Rust tests exercise the C contract with raw pointers instead of overlapping
 Rust references. Pinned generation remains exact at 253/253 declarations; no
 signature, implementation, or code generation changed.
+
+## 2026-09-03 scalar prepared-G2 range addendum
+
+Five CatBLST declarations add an opaque scalar prepared-G2 owner and indexed
+Miller-product evaluation. Construction accepts nonempty validated projective
+G2 storage, owns all line tables, accepts identity, translates allocation or
+native failure to null, and is explicitly variable-time. Evaluation requires
+equal logical G1/index extents, in-range indices, nonoverlap with output, and a
+live matching owner. It allocates nothing, supports immutable concurrent use,
+returns the Miller identity for empty input, and leaves output unchanged on
+rejection.
+
+The header names the result as an unfinalized Miller product and does not imply
+GT membership before final exponentiation. It also transfers subgroup
+validation to the caller's typed trust boundary rather than inserting repeated
+Release checks. The scalar C/generated-Rust declaration inventory is now
+258/258, and the new opaque tag is covered by the structural binding gate.
+`DOC-027` records the complete C, native, and safe-Rust family.

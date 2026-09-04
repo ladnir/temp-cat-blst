@@ -1,9 +1,11 @@
 # Lean scalar curve API
 
-The `catblst::scalar` module is an allocation-free Rust interface over
-category-blst's scalar backend. Its type names and operator conventions are
-inspired by `blstrs`, which keeps migration of typed Rust curve code direct.
-It is not a source-compatibility fork of `blstrs`.
+The `catblst::scalar` module is a lean Rust interface over category-blst's
+scalar backend. Arithmetic operations are allocation-free. Explicit reusable
+objects may allocate during construction when they own precomputation;
+evaluation remains allocation-free. Its type names and operator conventions
+are inspired by `blstrs`, which keeps migration of typed Rust curve code
+direct. It is not a source-compatibility fork of `blstrs`.
 
 The Cargo package is temporarily named `blst` for native-link compatibility.
 New Category consumers should alias it as `catblst`; examples and new source use
@@ -51,6 +53,12 @@ The scalar backend owns these distinct transparent wrappers:
 - `catblst::scalar::MillerLoopResult` over a general `blst_fp12`
 - `catblst::scalar::Gt` over a final-exponentiated target-group `blst_fp12`
 
+`catblst::scalar::PreparedG2Batch` is an opaque RAII owner for one immutable
+native Miller-line table per validated G2 projective point. It is not a point
+representation and has no serialization format. Construction accepts a
+nonempty G2 slice, allocates the complete table, and either returns the complete
+owner or an error. Dropping the owner releases the table.
+
 For projective G1 and G2 values, `+`, `-`, and unary `-` are the curve group
 operations, and `point * scalar` is scalar multiplication. `Default` and an
 empty iterator sum return the identity.
@@ -85,6 +93,8 @@ must not be reinterpreted or implicitly converted.
 | Point decoding | Exact type-level compressed or uncompressed size | Native decoding checks flags, canonical coordinates, and the curve equation; the wrapper then checks subgroup membership; the identity is accepted; errors are returned as `BLST_ERROR` |
 | Single Miller loop | Safe G1 and G2 affine inputs | No repeated point validation; identity input contributes the empty product |
 | Batched Miller loop | G1 and G2 slices have equal length | A mismatch returns `PairingError::LengthMismatch` before the native call; empty slices return the empty product |
+| Prepared G2 construction | Nonempty safe G2 projective slice | Allocates one immutable native line table per operand; allocation or native construction failure returns `PreparedG2BatchError`; G2 identity is accepted |
+| Prepared indexed Miller product | Native G1 and prepared-index slices have equal length; every index is below the prepared length | Rust validates shape and every index before FFI; rejection publishes no result; empty slices return the empty product |
 | Final exponentiation | A safe, therefore nonzero, `MillerLoopResult` | No repeated provenance or nonzero check; returns `Gt` |
 | GT decoding | Exactly 576 bytes | Rejects noncanonical base-field coefficients with `BLST_BAD_ENCODING`; rejects values outside the target group with `BLST_POINT_NOT_IN_GROUP`; accepts the identity |
 
@@ -134,15 +144,28 @@ any other operation unless its API documentation makes that guarantee. In
 particular, a method's lack of a `_vartime` suffix is not by itself a timing
 promise.
 
-Cryptographic methods in this module use stack or caller-owned storage and do
-not allocate. Batched Miller loops pass the contiguous transparent-wrapper
-slices to one native batch call through two fixed-size stack descriptor arrays;
-they do not construct pointer arrays proportional to the batch size. The types
-contain no pointers and own no external resources. Independent operations on
-disjoint mutable values may run concurrently under Rust's ordinary aliasing
-rules. Safe methods express their aliasing requirements through Rust borrows.
-An unsafe caller passing raw pointers onward to a native kernel remains
-responsible for the native kernel's aliasing contract.
+Arithmetic methods in this module use stack or caller-owned storage and do not
+allocate. Batched Miller loops pass the contiguous transparent-wrapper slices
+to one native batch call through two fixed-size stack descriptor arrays; they
+do not construct pointer arrays proportional to the batch size.
+
+`PreparedG2Batch::new` is the deliberate allocation exception. It owns
+immutable line tables so repeated evaluations do not prepare G2 points again.
+`miller_loop_product_indices` performs no allocation: it validates the index
+slice, converts at most sixteen finite native G1 points to affine form in one
+stack batch, evaluates the corresponding prepared lines, and accumulates a
+pre-final Miller product. Timing may depend on the public count, index values,
+and identity positions. Callers may split a logical product into independent
+ranges, evaluate them concurrently against one shared prepared batch, multiply
+the range results, and apply final exponentiation once.
+
+Ordinary value wrappers contain no pointers and own no external resources.
+The prepared batch owns only immutable storage and is `Send + Sync`; freeing it
+must not race with evaluation, which Rust ownership prevents. Independent
+operations on disjoint mutable values may run concurrently under Rust's
+ordinary aliasing rules. Safe methods express their aliasing requirements
+through Rust borrows. An unsafe caller passing raw pointers onward to a native
+kernel remains responsible for the native kernel's aliasing contract.
 
 ## Raw boundary
 
@@ -174,9 +197,10 @@ The lean API provides:
 - G1 and G2 identities, generators, complete group arithmetic, constant-time
   and variable-time scalar multiplication, affine/projective conversion,
   canonical encoding, strict decoding, subgroup validation, and native access;
-- single and allocation-free batched Miller loops, explicit final
-  exponentiation, target-group arithmetic, strict GT encoding and decoding, and
-  native access.
+- single and allocation-free batched Miller loops, reusable immutable G2-line
+  preparation with allocation-free indexed range evaluation, explicit final
+  exponentiation, target-group arithmetic, strict GT encoding and decoding,
+  and native access.
 
 ## Deliberate omissions
 
@@ -184,7 +208,7 @@ This surface does not provide:
 
 - `ff`, `group`, or `pairing` trait implementations;
 - Rayon, worker threads, thread pools, or asynchronous work;
-- hidden heap allocation;
+- hidden heap allocation in arithmetic or evaluation calls;
 - Serde integration;
 - generic hash-to-curve abstractions;
 - implicit scalar/AVX point or GT conversions;

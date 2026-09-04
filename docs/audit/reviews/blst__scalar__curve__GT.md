@@ -126,3 +126,11 @@ native raw-field construction remains an intentional expert escape hatch.
 deferred-aggregate tests. Experimental CUDA was deliberately not migrated to
 the new native C++ decoder/Miller contracts and remains outside the scalar/AVX
 production-readiness gate.
+
+## 2026-09-03 shared scalar Miller-batch bound addendum
+
+The former translation-unit macro `MILLER_LOOP_N_MAX` is now the typed internal
+constant `gt_detail::kMillerLoopNMax == 16`. Direct, prepared-line, and C range
+staging therefore use one compile-time batch bound. The arithmetic schedule,
+stack capacity, and public ABI are unchanged. The constant is not runtime
+configuration and introduces no dynamic dispatch.

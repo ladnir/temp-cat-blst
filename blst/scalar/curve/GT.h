@@ -5,6 +5,12 @@
 
 namespace blst::scalar {
 
+	namespace gt_detail {
+		/** Maximum finite-pair count processed by one shared scalar Miller
+		 * schedule. Range callers use the same bound when staging inputs. */
+		inline constexpr size_t kMillerLoopNMax = 16;
+	}
+
 	/** Pre-scaled G1 coordinates used only by scalar prepared-line evaluation. */
 	struct PreparedG1LineScale {
 		Fp neg_x2;

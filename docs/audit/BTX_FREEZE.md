@@ -38,6 +38,12 @@ does not keep a duplicate roadmap.
   Miller product, allocates no memory, and reuses the prepared G2 table already
   retained for alpha processing. Peach evidence is recorded in
   `BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.
+- The matching scalar prepared-G2 range kernel is implemented for review. It
+  reuses one immutable scalar line table, batch-converts native projective G1
+  ranges, and returns composable pre-final Miller products without evaluation
+  allocation. Sixteen-pair serial partitioning has no measurable overhead;
+  four-worker scaling reaches 3.82x at 256 pairs. Evidence is recorded in
+  `BTX_SCALAR_PREPARED_PAIRING_RANGES_2026-09-03.md`.
 - Batch 5 malformed-input parity is complete. The C++
   public-parameter decoder checks the exact SRS dimension and all encoded
   element counts before allocation. Threshold-request decoding likewise

@@ -41,6 +41,7 @@ dependencies = [
  "criterion",
  "rand_chacha",
  "rand_core",
+ "rayon",
  "rmp-serde",
  "serde",
  "zeroize",

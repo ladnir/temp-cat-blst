@@ -18,6 +18,8 @@ extern "C" {
 
 typedef struct blst_pairing_context blst_pairing;
 typedef struct blst_uniq_context blst_uniq;
+/** Immutable scalar-backend prepared-G2 batch. Contents are CatBLST-owned. */
+typedef struct blst_scalar_prepared_g2_batch blst_scalar_prepared_g2_batch;
 
 /** Result of inserting a message into a `blst_uniq` tree. */
 typedef enum BLST_UNIQ_RESULT {
@@ -821,6 +823,52 @@ void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
  * when `P` is null, the G1 generator is used. G1 infinity returns the Miller
  * identity. No point validation is performed. */
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
+/**
+ * Allocates and prepares one scalar Miller-line table per G2 operand.
+ *
+ * `g2` must address `count` library-produced, subgroup-validated projective
+ * points. `count` must be nonzero. G2 identity operands are accepted and later
+ * contribute the Miller identity. Construction is variable-time and may
+ * allocate; failure returns null without retaining caller storage.
+ */
+blst_scalar_prepared_g2_batch* blst_scalar_prepared_g2_batch_new(
+    const blst_p2* g2,
+    size_t count);
+/** Returns the logical operand count, or zero when `batch` is null. */
+size_t blst_scalar_prepared_g2_batch_len(
+    const blst_scalar_prepared_g2_batch* batch);
+/** Returns owned object and line-table bytes, or zero when `batch` is null. */
+size_t blst_scalar_prepared_g2_batch_storage_bytes(
+    const blst_scalar_prepared_g2_batch* batch);
+/** Releases one immutable prepared batch. Null is accepted. */
+void blst_scalar_prepared_g2_batch_free(
+    blst_scalar_prepared_g2_batch* batch);
+/**
+ * Multiplies Miller loops for projective G1 points and prepared G2 operands.
+ *
+ * The operation computes
+ * `out = product_{i=0}^{count-1} miller(g1[i], prepared_g2[indices[i]])`.
+ * `out` is an unfinalized Miller-loop value, not a GT element. Products from
+ * independent ranges may be multiplied before one final exponentiation.
+ *
+ * Preconditions:
+ * - Every G1 point is a library-produced, subgroup-validated scalar point.
+ * - Every index is less than the prepared batch length; repetition is allowed.
+ * - For nonzero `count`, `g1` and `indices` each address `count` elements.
+ * - `out` does not overlap either input array or the prepared batch.
+ *
+ * The prepared batch is immutable and supports concurrent calls. This
+ * function retains no cursor or task state, allocates no memory, and is
+ * variable-time with respect to public count, indices, and point identities.
+ * Empty input returns the multiplicative identity. A rejected pointer or
+ * index leaves a nonnull `out` unchanged and returns false.
+ */
+bool blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+    blst_fp12* out,
+    const blst_p1* g1,
+    const size_t* indices,
+    size_t count,
+    const blst_scalar_prepared_g2_batch* batch);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);
 /** Returns the required alignment for `blst_pairing` storage. */

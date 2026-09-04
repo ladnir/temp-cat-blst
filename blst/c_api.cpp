@@ -19,6 +19,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
+#include <new>
 #include <type_traits>
 
 using blst::byte;
@@ -736,6 +738,29 @@ inline void c_api_points_tile_pippenger(
 }
 
 } // namespace
+
+namespace {
+
+/** One completely initialized scalar Miller-line table. Identity operands do
+ * not read their corresponding table and are tracked by the owning batch. */
+struct ScalarPreparedG2Lines {
+    blst::scalar::Fp6 lines[68];
+};
+
+} // namespace
+
+struct blst_scalar_prepared_g2_batch {
+    std::size_t count;
+    std::unique_ptr<ScalarPreparedG2Lines[]> prepared_lines;
+    std::unique_ptr<std::uint8_t[]> g2_is_identity;
+
+    explicit blst_scalar_prepared_g2_batch(std::size_t count_in)
+        : count(count_in),
+          // Every finite table is completely overwritten during construction.
+          prepared_lines(new ScalarPreparedG2Lines[count_in]),
+          g2_is_identity(new std::uint8_t[count_in])
+    {}
+};
 
 BLST_EXTERN_C_BEGIN_
 
@@ -1867,6 +1892,131 @@ void blst_miller_loop_lines(BoundaryFp12* ret, const BoundaryFp6 Qlines[68], con
     const PublicG1Affine p = P == nullptr ? PublicG1Affine::generator() : boundary_to_public_g1_affine(*P);
     PublicGt::miller_loop_lines(out, Qlines, p);
     *ret = public_miller_to_boundary(out);
+}
+
+blst_scalar_prepared_g2_batch* blst_scalar_prepared_g2_batch_new(
+    const BoundaryG2* g2,
+    size_t count)
+{
+    if (g2 == nullptr || count == 0) {
+        return nullptr;
+    }
+    try {
+        auto batch = std::make_unique<blst_scalar_prepared_g2_batch>(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            const bool is_identity =
+                blst::scalar::G2Point::is_inf(g2[i]) != 0;
+            batch->g2_is_identity[i] =
+                static_cast<std::uint8_t>(is_identity);
+            if (is_identity) {
+                continue;
+            }
+            blst::scalar::G2AffinePoint affine;
+            blst::scalar::G2Point::to_affine(affine, g2[i]);
+            blst::scalar::GT::precompute_lines(
+                batch->prepared_lines[i].lines, affine);
+        }
+        return batch.release();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+size_t blst_scalar_prepared_g2_batch_len(
+    const blst_scalar_prepared_g2_batch* batch)
+{
+    return batch == nullptr ? 0 : batch->count;
+}
+
+size_t blst_scalar_prepared_g2_batch_storage_bytes(
+    const blst_scalar_prepared_g2_batch* batch)
+{
+    if (batch == nullptr ||
+        batch->count >
+            (std::numeric_limits<std::size_t>::max() - sizeof(*batch)) /
+                (sizeof(ScalarPreparedG2Lines) + sizeof(std::uint8_t))) {
+        return 0;
+    }
+    return sizeof(*batch) + batch->count *
+        (sizeof(ScalarPreparedG2Lines) + sizeof(std::uint8_t));
+}
+
+void blst_scalar_prepared_g2_batch_free(
+    blst_scalar_prepared_g2_batch* batch)
+{
+    delete batch;
+}
+
+bool blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+    BoundaryFp12* out,
+    const BoundaryG1* g1,
+    const size_t* indices,
+    size_t count,
+    const blst_scalar_prepared_g2_batch* batch)
+{
+    if (out == nullptr || batch == nullptr ||
+        (count != 0 && (g1 == nullptr || indices == nullptr))) {
+        return false;
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        if (indices[i] >= batch->count) {
+            return false;
+        }
+    }
+
+    try {
+        blst::scalar::MillerResult product =
+            blst::scalar::MillerResult::identity();
+        bool have_product = false;
+        std::size_t offset = 0;
+        while (offset < count) {
+            const blst::scalar::Fp6* line_batch[
+                blst::scalar::gt_detail::kMillerLoopNMax] = {};
+            const blst::scalar::G1Point* g1_projective_ptrs[
+                blst::scalar::gt_detail::kMillerLoopNMax] = {};
+            blst::scalar::G1AffinePoint g1_batch[
+                blst::scalar::gt_detail::kMillerLoopNMax] = {};
+            const blst::scalar::G1AffinePoint* g1_ptrs[
+                blst::scalar::gt_detail::kMillerLoopNMax] = {};
+            std::size_t finite_count = 0;
+
+            while (offset < count &&
+                   finite_count <
+                       blst::scalar::gt_detail::kMillerLoopNMax) {
+                const std::size_t prepared_index = indices[offset];
+                if (batch->g2_is_identity[prepared_index] == 0 &&
+                    blst::scalar::G1Point::is_inf(g1[offset]) == 0) {
+                    g1_projective_ptrs[finite_count] = &g1[offset];
+                    line_batch[finite_count] =
+                        batch->prepared_lines[prepared_index].lines;
+                    ++finite_count;
+                }
+                ++offset;
+            }
+
+            if (finite_count != 0) {
+                blst::scalar::points_to_affine<blst::scalar::Fp>(
+                    g1_batch, g1_projective_ptrs, finite_count);
+                for (std::size_t i = 0; i < finite_count; ++i) {
+                    g1_ptrs[i] = &g1_batch[i];
+                }
+                blst::scalar::MillerResult chunk = {};
+                blst::scalar::GT::miller_loop_lines_n(
+                    chunk, line_batch, g1_ptrs, finite_count);
+                if (have_product) {
+                    blst::scalar::MillerResult::mul(
+                        product, product, chunk);
+                } else {
+                    product = chunk;
+                    have_product = true;
+                }
+            }
+        }
+        *out = product.data;
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 size_t blst_pairing_sizeof(void)

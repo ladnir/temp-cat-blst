@@ -3,8 +3,10 @@
 
 #include "blst/config.h"
 #include "blst/fft/middle_product.h"
+#include "bindings/blst_scalar.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -249,6 +251,42 @@ int main()
     for (std::size_t i = 0; i < 2 * n; ++i) {
         scalar_b.push_back(point_multiple<blst::scalar::G2Point>(i + 3));
     }
+
+    std::array<std::size_t, n> prepared_indices = {};
+    for (std::size_t i = 0; i < n; ++i) {
+        prepared_indices[i] = n - 1 - i;
+    }
+    blst_scalar_prepared_g2_batch* const prepared_batch =
+        blst_scalar_prepared_g2_batch_new(scalar_b.data(), n);
+    if (prepared_batch == nullptr) {
+        return 1;
+    }
+    blst_fp12 prepared_expected = {};
+    if (!blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+            &prepared_expected,
+            scalar_a.data(),
+            prepared_indices.data(),
+            n,
+            prepared_batch)) {
+        blst_scalar_prepared_g2_batch_free(prepared_batch);
+        return 1;
+    }
+    blst_fp12 prepared_actual = {};
+    fail_allocation = true;
+    const bool prepared_succeeded =
+        blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+            &prepared_actual,
+            scalar_a.data(),
+            prepared_indices.data(),
+            n,
+            prepared_batch);
+    fail_allocation = false;
+    blst_scalar_prepared_g2_batch_free(prepared_batch);
+    if (!prepared_succeeded ||
+        !blst_fp12_is_equal(&prepared_expected, &prepared_actual)) {
+        return 1;
+    }
+
     if (!run_native_probe<blst::MiddleProductScalarContext>(
             scalar_a, scalar_b)) {
         return 1;

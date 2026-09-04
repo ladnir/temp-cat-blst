@@ -38,13 +38,15 @@
 //! decoding, encoding, equality, zero or identity tests, affine conversion,
 //! pairing, or other methods unless their documentation says otherwise.
 //!
-//! Every operation in this module uses stack or caller-owned storage and
-//! allocates nothing. The types contain no pointers and own no external
-//! resources. Independent operations on disjoint mutable values are safe to run
-//! concurrently. Immutable values may be shared under Rust's ordinary aliasing
-//! rules. Safe methods enforce their aliasing requirements through Rust
-//! borrows; an unsafe caller passing raw pointers to a native kernel remains
-//! responsible for that kernel's aliasing contract.
+//! Arithmetic operations use stack or caller-owned storage and allocate
+//! nothing. [`PreparedG2Batch`] is the deliberate exception: construction owns
+//! immutable native line tables on the heap, while every evaluation remains
+//! allocation-free. Independent operations on disjoint mutable values are safe
+//! to run concurrently. Immutable values, including a prepared batch, may be
+//! shared under Rust's ordinary aliasing rules. Safe methods enforce their
+//! aliasing requirements through Rust borrows; an unsafe caller passing raw
+//! pointers to a native kernel remains responsible for that kernel's aliasing
+//! contract.
 //!
 //! # Encoding boundary
 //!
@@ -63,6 +65,7 @@ use core::fmt;
 use core::iter::Sum;
 use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ptr::NonNull;
 
 /// A reduced scalar-field element in category-blst's native Montgomery form.
 ///
@@ -1365,6 +1368,166 @@ impl MillerLoopResult {
     }
 }
 
+/// Construction or shape errors for scalar prepared-G2 batch evaluation.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum PreparedG2BatchError {
+    /// A prepared batch must own at least one operand.
+    EmptyBatch,
+    /// Native immutable line-table allocation failed.
+    AllocationFailed,
+    /// Per-pair G1 and prepared-index counts differed.
+    InputLengthMismatch {
+        /// Number of G1 inputs.
+        g1: usize,
+        /// Number of prepared indices.
+        indices: usize,
+    },
+    /// A selected prepared index exceeded the immutable batch.
+    IndexOutOfRange {
+        /// Rejected index.
+        index: usize,
+        /// Prepared batch length.
+        len: usize,
+    },
+    /// The native boundary rejected an input after Rust validation.
+    BackendFailure,
+}
+
+/// Immutable scalar Miller-line tables for validated G2 subgroup points.
+///
+/// Construction allocates and prepares one table per operand. The object owns
+/// no mutable evaluation state, so independent workers may share it. Evaluation
+/// accepts native scalar G1 projective points and performs no representation
+/// conversion through another backend. Identity operands contribute the
+/// Miller identity.
+pub struct PreparedG2Batch {
+    inner: NonNull<blst_scalar_prepared_g2_batch>,
+    len: usize,
+    storage_bytes: usize,
+}
+
+impl PreparedG2Batch {
+    /// Allocates immutable prepared lines for every supplied G2 point.
+    ///
+    /// Each point must already satisfy [`G2Projective`]'s prime-order subgroup
+    /// invariant. Construction is variable-time and rejects an empty slice.
+    pub fn new(g2: &[G2Projective]) -> Result<Self, PreparedG2BatchError> {
+        if g2.is_empty() {
+            return Err(PreparedG2BatchError::EmptyBatch);
+        }
+        let inner = NonNull::new(unsafe {
+            blst_scalar_prepared_g2_batch_new(
+                g2.as_ptr().cast::<blst_p2>(),
+                g2.len(),
+            )
+        })
+        .ok_or(PreparedG2BatchError::AllocationFailed)?;
+        let len = unsafe { blst_scalar_prepared_g2_batch_len(inner.as_ptr()) };
+        if len != g2.len() {
+            unsafe { blst_scalar_prepared_g2_batch_free(inner.as_ptr()) };
+            return Err(PreparedG2BatchError::BackendFailure);
+        }
+        let storage_bytes = unsafe {
+            blst_scalar_prepared_g2_batch_storage_bytes(inner.as_ptr())
+        };
+        if storage_bytes == 0 {
+            unsafe { blst_scalar_prepared_g2_batch_free(inner.as_ptr()) };
+            return Err(PreparedG2BatchError::BackendFailure);
+        }
+        Ok(Self {
+            inner,
+            len,
+            storage_bytes,
+        })
+    }
+
+    /// Returns the number of prepared operands.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns whether the prepared sequence is empty.
+    ///
+    /// Construction rejects empty input, so this is always false for a live
+    /// value and exists only for ordinary collection ergonomics.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Returns native object and line-table bytes owned by this batch.
+    #[inline]
+    pub const fn storage_bytes(&self) -> usize {
+        self.storage_bytes
+    }
+
+    /// Multiplies selected prepared Miller-loop contributions.
+    ///
+    /// Element `i` of `g1` is paired with prepared operand `indices[i]`. The
+    /// slices must have equal length and every index must be in range. The
+    /// result remains outside the target group until
+    /// [`MillerLoopResult::final_exponentiation`]. The call allocates nothing,
+    /// retains no state, and may run concurrently against the same immutable
+    /// batch. Timing may depend on public slice length, indices, and point
+    /// identities.
+    pub fn miller_loop_product_indices(
+        &self,
+        g1: &[G1Projective],
+        indices: &[usize],
+    ) -> Result<MillerLoopResult, PreparedG2BatchError> {
+        if g1.len() != indices.len() {
+            return Err(PreparedG2BatchError::InputLengthMismatch {
+                g1: g1.len(),
+                indices: indices.len(),
+            });
+        }
+        if let Some(&index) = indices.iter().find(|&&index| index >= self.len) {
+            return Err(PreparedG2BatchError::IndexOutOfRange {
+                index,
+                len: self.len,
+            });
+        }
+        let mut out = MaybeUninit::<blst_fp12>::uninit();
+        if unsafe {
+            blst_scalar_prepared_g2_batch_miller_loop_product_indices(
+                out.as_mut_ptr(),
+                g1.as_ptr().cast::<blst_p1>(),
+                indices.as_ptr(),
+                g1.len(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(unsafe {
+                MillerLoopResult::from_raw_unchecked(out.assume_init())
+            })
+        } else {
+            Err(PreparedG2BatchError::BackendFailure)
+        }
+    }
+}
+
+impl core::fmt::Debug for PreparedG2Batch {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("PreparedG2Batch")
+            .field("len", &self.len)
+            .field("storage_bytes", &self.storage_bytes)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Drop for PreparedG2Batch {
+    fn drop(&mut self) {
+        unsafe { blst_scalar_prepared_g2_batch_free(self.inner.as_ptr()) };
+    }
+}
+
+// The native object owns immutable line tables and exposes only const
+// evaluation. Destruction still requires exclusive Rust ownership.
+unsafe impl Send for PreparedG2Batch {}
+unsafe impl Sync for PreparedG2Batch {}
+
 impl Default for MillerLoopResult {
     #[inline]
     fn default() -> Self {
@@ -1941,6 +2104,142 @@ mod tests {
         assert_eq!(
             MillerLoopResult::from_pairs(&g1s, &g2s[..1]),
             Err(PairingError::LengthMismatch { g1: 2, g2: 1 })
+        );
+    }
+
+    #[test]
+    fn prepared_g2_miller_products_compose_before_final_exponentiation() {
+        let g1 = G1Projective::generator();
+        let g1_doubled = g1 * Scalar::from(2);
+        let g1_identity = G1Projective::identity();
+        let g2 = G2Projective::generator();
+        let g2_tripled = g2 * Scalar::from(3);
+        let g2_identity = G2Projective::identity();
+        let batch =
+            PreparedG2Batch::new(&[g2, g2_tripled, g2_identity]).unwrap();
+        let g1_points = [g1, g1_doubled, g1_identity];
+        let indices = [0usize, 1, 2];
+
+        let complete = batch
+            .miller_loop_product_indices(&g1_points, &indices)
+            .unwrap()
+            .final_exponentiation();
+        let left = batch
+            .miller_loop_product_indices(&g1_points[..1], &indices[..1])
+            .unwrap();
+        let right = batch
+            .miller_loop_product_indices(&g1_points[1..], &indices[1..])
+            .unwrap();
+        let split = (left * right).final_exponentiation();
+        let expected = Gt::pairing(&g1.to_affine(), &g2.to_affine())
+            + Gt::pairing(&g1_doubled.to_affine(), &g2_tripled.to_affine());
+
+        assert_eq!(complete, expected);
+        assert_eq!(split, expected);
+        assert_eq!(
+            batch
+                .miller_loop_product_indices(&[], &[])
+                .unwrap()
+                .final_exponentiation(),
+            Gt::identity()
+        );
+        assert_eq!(batch.len(), 3);
+        assert!(!batch.is_empty());
+        assert!(batch.storage_bytes() > 0);
+    }
+
+    #[test]
+    fn prepared_g2_miller_products_match_partitions_and_concurrent_ranges() {
+        const COUNT: usize = 37;
+        let g1_generator = G1Projective::generator();
+        let g2_generator = G2Projective::generator();
+        let g1_identity = G1Projective::identity();
+        let g2_identity = G2Projective::identity();
+        let g1: Vec<_> = (0..COUNT)
+            .map(|i| {
+                if i % 11 == 0 {
+                    g1_identity
+                } else {
+                    g1_generator * Scalar::from((i + 1) as u64)
+                }
+            })
+            .collect();
+        let g2: Vec<_> = (0..COUNT)
+            .map(|i| {
+                if i % 13 == 0 {
+                    g2_identity
+                } else {
+                    g2_generator * Scalar::from((2 * i + 1) as u64)
+                }
+            })
+            .collect();
+        let indices: Vec<_> = (0..COUNT).map(|i| (7 * i + 3) % COUNT).collect();
+        let batch = PreparedG2Batch::new(&g2).unwrap();
+
+        let expected = batch
+            .miller_loop_product_indices(&g1, &indices)
+            .unwrap()
+            .final_exponentiation();
+        for grain in [1usize, 2, 5, 10, 16, 31, COUNT] {
+            let product = g1
+                .chunks(grain)
+                .zip(indices.chunks(grain))
+                .map(|(points, prepared_indices)| {
+                    batch
+                        .miller_loop_product_indices(points, prepared_indices)
+                        .unwrap()
+                })
+                .fold(MillerLoopResult::identity(), |left, right| left * right);
+            assert_eq!(product.final_exponentiation(), expected);
+        }
+
+        let concurrent = std::thread::scope(|scope| {
+            let batch_ref = &batch;
+            let g1_ref = &g1;
+            let indices_ref = &indices;
+            let handles: Vec<_> = [(0, 10), (10, 20), (20, 30), (30, COUNT)]
+                .iter()
+                .copied()
+                .map(|(begin, end)| {
+                    scope.spawn(move || {
+                        batch_ref
+                            .miller_loop_product_indices(
+                                &g1_ref[begin..end],
+                                &indices_ref[begin..end],
+                            )
+                            .unwrap()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .rev()
+                .map(|handle| handle.join().unwrap())
+                .fold(MillerLoopResult::identity(), |left, right| left * right)
+                .final_exponentiation()
+        });
+        assert_eq!(concurrent, expected);
+    }
+
+    #[test]
+    fn prepared_g2_batch_rejects_invalid_shapes() {
+        let g1 = G1Projective::generator();
+        let batch = PreparedG2Batch::new(&[G2Projective::generator()]).unwrap();
+
+        assert!(matches!(
+            PreparedG2Batch::new(&[]),
+            Err(PreparedG2BatchError::EmptyBatch)
+        ));
+        assert_eq!(
+            batch.miller_loop_product_indices(&[g1], &[]),
+            Err(PreparedG2BatchError::InputLengthMismatch {
+                g1: 1,
+                indices: 0,
+            })
+        );
+        assert_eq!(
+            batch.miller_loop_product_indices(&[g1], &[1]),
+            Err(PreparedG2BatchError::IndexOutOfRange { index: 1, len: 1 })
         );
     }
 
