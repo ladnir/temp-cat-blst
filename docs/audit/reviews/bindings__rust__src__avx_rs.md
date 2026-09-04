@@ -103,3 +103,20 @@ serial partition overhead at 128 and 256 pairs for the provisional ten-pair
 grain. Four-worker kernel scaling reaches 3.04 and 3.42 times the full prepared
 serial path at those anchors. Detailed evidence is in
 `docs/audit/BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.
+
+## 2026-09-04 alpha-pairing range addendum
+
+`PreparedG2BatchWorkspace::with_capacity` bounds native scratch by the largest
+range assigned to one worker rather than by the complete prepared table.
+`pairing_range_uninit_into` accepts contiguous prepared indices and
+`MaybeUninit<Gt>` output. The wrapper validates the range and workspace
+capacity before FFI, allocates no memory during evaluation, and treats the
+output as initialized only after the C operation succeeds. The ordinary
+initialized-output method delegates to this same boundary.
+
+The immutable prepared owner may be shared between workers. Each concurrent
+call requires a distinct mutable workspace and a disjoint output range. The
+wrapper performs no scalar/AVX conversion: successful output is already the
+native AVX GT representation. Full ownership, failure, and performance notes
+are in `docs/audit/BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`. The focused native
+AVX compatibility test passes under Clang 21 ASan/UBSan on Peach.

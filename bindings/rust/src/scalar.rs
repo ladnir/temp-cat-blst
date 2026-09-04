@@ -1505,6 +1505,76 @@ impl PreparedG2Batch {
             Err(PreparedG2BatchError::BackendFailure)
         }
     }
+
+    /// Evaluates a contiguous range against one shared G1 point.
+    ///
+    /// Element `i` of `out` receives the pairing with prepared operand
+    /// `begin + i`. The range must fit inside the immutable batch. Independent
+    /// calls may share the batch when their output slices do not overlap. The
+    /// operation allocates no memory and converts the shared G1 point to affine
+    /// once per range.
+    pub fn pairing_range_into(
+        &self,
+        g1: &G1Projective,
+        begin: usize,
+        out: &mut [Gt],
+    ) -> Result<(), PreparedG2BatchError> {
+        // SAFETY: `MaybeUninit<Gt>` has the same layout as `Gt`. The delegated
+        // call initializes every element on success. On failure, `out` retains
+        // the same unspecified-output contract as the native operation.
+        let uninit = unsafe {
+            core::slice::from_raw_parts_mut(
+                out.as_mut_ptr().cast::<MaybeUninit<Gt>>(),
+                out.len(),
+            )
+        };
+        self.pairing_range_uninit_into(g1, begin, uninit)
+    }
+
+    /// Evaluates a contiguous range into uninitialized output storage.
+    ///
+    /// On success every output element is initialized and satisfies the `Gt`
+    /// invariant. On failure the caller must continue to treat every element
+    /// as uninitialized. This avoids initializing a task-owned result buffer
+    /// that the native range will overwrite completely.
+    pub fn pairing_range_uninit_into(
+        &self,
+        g1: &G1Projective,
+        begin: usize,
+        out: &mut [MaybeUninit<Gt>],
+    ) -> Result<(), PreparedG2BatchError> {
+        if begin > self.len {
+            return Err(PreparedG2BatchError::IndexOutOfRange {
+                index: begin,
+                len: self.len,
+            });
+        }
+        let end = begin.checked_add(out.len()).ok_or(
+            PreparedG2BatchError::IndexOutOfRange {
+                index: usize::MAX,
+                len: self.len,
+            },
+        )?;
+        if end > self.len {
+            return Err(PreparedG2BatchError::IndexOutOfRange {
+                index: end - 1,
+                len: self.len,
+            });
+        }
+        if unsafe {
+            blst_scalar_prepared_g2_batch_pairing_range(
+                out.as_mut_ptr().cast::<blst_fp12>(),
+                begin,
+                out.len(),
+                g1.as_raw(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(())
+        } else {
+            Err(PreparedG2BatchError::BackendFailure)
+        }
+    }
 }
 
 impl core::fmt::Debug for PreparedG2Batch {
@@ -2149,6 +2219,28 @@ mod tests {
     }
 
     #[test]
+    fn prepared_g2_pairing_ranges_match_direct_pairings() {
+        let g1 = G1Projective::generator() * Scalar::from(5);
+        let generator = G2Projective::generator();
+        let operands = [
+            generator,
+            generator * Scalar::from(2),
+            G2Projective::identity(),
+            generator * Scalar::from(7),
+        ];
+        let batch = PreparedG2Batch::new(&operands).unwrap();
+        let mut out = [Gt::identity(); 3];
+        batch.pairing_range_into(&g1, 1, &mut out).unwrap();
+        for (offset, actual) in out.iter().enumerate() {
+            assert_eq!(
+                *actual,
+                Gt::pairing(&g1.to_affine(), &operands[1 + offset].to_affine())
+            );
+        }
+        batch.pairing_range_into(&g1, batch.len(), &mut []).unwrap();
+    }
+
+    #[test]
     fn prepared_g2_miller_products_match_partitions_and_concurrent_ranges() {
         const COUNT: usize = 37;
         let g1_generator = G1Projective::generator();
@@ -2239,6 +2331,11 @@ mod tests {
         );
         assert_eq!(
             batch.miller_loop_product_indices(&[g1], &[1]),
+            Err(PreparedG2BatchError::IndexOutOfRange { index: 1, len: 1 })
+        );
+        let mut out = [Gt::identity(); 1];
+        assert_eq!(
+            batch.pairing_range_into(&g1, 1, &mut out),
             Err(PreparedG2BatchError::IndexOutOfRange { index: 1, len: 1 })
         );
     }

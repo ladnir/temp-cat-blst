@@ -302,3 +302,18 @@ concurrency tests are recorded in
 `docs/audit/BTX_SCALAR_PREPARED_PAIRING_RANGES_2026-09-03.md`. The broader
 sanitizer executable still encounters the pre-existing null-output probe in
 `blst_scalar_from_hexascii`; the new focused path is clean.
+
+## 2026-09-04 alpha-pairing range addendum
+
+`blst_scalar_prepared_g2_batch_pairing_range` evaluates one checked contiguous
+range against a common native scalar G1 point. It validates pointer and range
+shape before arithmetic, converts the common point to affine once, writes each
+result only after its complete final exponentiation, and performs no heap
+allocation. Empty ranges succeed without publishing output.
+
+The operation reads only the immutable prepared owner and therefore supports
+concurrent calls with disjoint output ranges. It retains no cursor, phase,
+barrier, task identity, callback, or scheduler state. A caught exception cannot
+cross the C boundary; output is specified only when the operation reports
+success. See `docs/audit/BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`.
+The focused scalar-default test passes under Clang 21 ASan/UBSan on Peach.

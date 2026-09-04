@@ -1191,14 +1191,38 @@ impl PreparedG2BatchWorkspace {
     /// Allocates all Miller and batch-final-exponentiation scratch required by
     /// `batch`. No subsequent prefix evaluation allocates.
     pub fn new(batch: &PreparedG2Batch) -> Result<Self, Error> {
+        Self::with_capacity(batch, batch.len)
+    }
+
+    /// Allocates scratch for at most `capacity` pairings from `batch`.
+    ///
+    /// A range worker should use its maximum range grain here instead of
+    /// retaining full-batch scratch. Capacity must be nonzero and may not
+    /// exceed the immutable batch length.
+    pub fn with_capacity(
+        batch: &PreparedG2Batch,
+        capacity: usize,
+    ) -> Result<Self, Error> {
+        if capacity == 0 {
+            return Err(Error::PairingCapacityExceeded {
+                required: 1,
+                capacity: 0,
+            });
+        }
+        if capacity > batch.len {
+            return Err(Error::PairingCapacityExceeded {
+                required: capacity,
+                capacity: batch.len,
+            });
+        }
         let inner = NonNull::new(unsafe {
-            blst_avx_prepared_g2_batch_workspace_new(batch.inner.as_ptr())
+            blst_avx_prepared_g2_batch_workspace_new_with_capacity(
+                batch.inner.as_ptr(),
+                capacity,
+            )
         })
         .ok_or(Error::AllocationFailed)?;
-        Ok(Self {
-            inner,
-            capacity: batch.len,
-        })
+        Ok(Self { inner, capacity })
     }
 
     /// Evaluates the prepared prefix selected by `out.len()`.
@@ -1220,6 +1244,84 @@ impl PreparedG2BatchWorkspace {
         if unsafe {
             blst_avx_prepared_g2_batch_pairing_prefix(
                 Gt::as_raw_slice_mut(out).as_mut_ptr(),
+                out.len(),
+                g1.as_raw(),
+                batch.inner.as_ptr(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Evaluates one contiguous prepared range against a shared G1 point.
+    ///
+    /// Element `i` of `out` receives the pairing with operand `begin + i`.
+    /// The range must fit inside `batch` and the output length must not exceed
+    /// this workspace's capacity. Independent workers may share `batch` but
+    /// require distinct workspaces and disjoint output slices.
+    pub fn pairing_range_into(
+        &mut self,
+        g1: &G1Projective,
+        batch: &PreparedG2Batch,
+        begin: usize,
+        out: &mut [Gt],
+    ) -> Result<(), Error> {
+        // SAFETY: `MaybeUninit<Gt>` has the same layout as `Gt`. The delegated
+        // call initializes every element on success. On failure, `out` retains
+        // the native operation's unspecified-output contract.
+        let uninit = unsafe {
+            core::slice::from_raw_parts_mut(
+                out.as_mut_ptr().cast::<MaybeUninit<Gt>>(),
+                out.len(),
+            )
+        };
+        self.pairing_range_uninit_into(g1, batch, begin, uninit)
+    }
+
+    /// Evaluates a contiguous prepared range into uninitialized output.
+    ///
+    /// On success every element satisfies the native `Gt` invariant. On
+    /// failure the caller must continue to treat every element as
+    /// uninitialized. The range has the same capacity, ownership, and
+    /// thread-safety requirements as [`Self::pairing_range_into`].
+    pub fn pairing_range_uninit_into(
+        &mut self,
+        g1: &G1Projective,
+        batch: &PreparedG2Batch,
+        begin: usize,
+        out: &mut [MaybeUninit<Gt>],
+    ) -> Result<(), Error> {
+        if begin > batch.len {
+            return Err(Error::PreparedIndexOutOfRange {
+                index: begin,
+                len: batch.len,
+            });
+        }
+        let end = begin.checked_add(out.len()).ok_or(
+            Error::PreparedIndexOutOfRange {
+                index: usize::MAX,
+                len: batch.len,
+            },
+        )?;
+        if end > batch.len {
+            return Err(Error::PreparedIndexOutOfRange {
+                index: end - 1,
+                len: batch.len,
+            });
+        }
+        if out.len() > self.capacity {
+            return Err(Error::PairingCapacityExceeded {
+                required: out.len(),
+                capacity: self.capacity,
+            });
+        }
+        if unsafe {
+            blst_avx_prepared_g2_batch_pairing_range(
+                out.as_mut_ptr().cast::<blst_avx_gt>(),
+                begin,
                 out.len(),
                 g1.as_raw(),
                 batch.inner.as_ptr(),
@@ -1962,11 +2064,23 @@ extern "C" {
     pub fn blst_avx_prepared_g2_batch_workspace_new(
         batch: *const blst_avx_prepared_g2_batch,
     ) -> *mut blst_avx_prepared_g2_batch_workspace;
+    pub fn blst_avx_prepared_g2_batch_workspace_new_with_capacity(
+        batch: *const blst_avx_prepared_g2_batch,
+        capacity: usize,
+    ) -> *mut blst_avx_prepared_g2_batch_workspace;
     pub fn blst_avx_prepared_g2_batch_workspace_free(
         workspace: *mut blst_avx_prepared_g2_batch_workspace,
     );
     pub fn blst_avx_prepared_g2_batch_pairing_prefix(
         out: *mut blst_avx_gt,
+        count: usize,
+        g1: *const blst_avx_p1,
+        batch: *const blst_avx_prepared_g2_batch,
+        workspace: *mut blst_avx_prepared_g2_batch_workspace,
+    ) -> bool;
+    pub fn blst_avx_prepared_g2_batch_pairing_range(
+        out: *mut blst_avx_gt,
+        begin: usize,
         count: usize,
         g1: *const blst_avx_p1,
         batch: *const blst_avx_prepared_g2_batch,
@@ -2337,6 +2451,15 @@ mod tests {
             .unwrap();
         assert_eq!(out[0], Gt::pairing(&g1, &points[1]).unwrap());
         assert_eq!(out[1], Gt::pairing(&g1, &points[0]).unwrap());
+
+        let mut range_workspace =
+            PreparedG2BatchWorkspace::with_capacity(&batch, 2).unwrap();
+        assert_eq!(range_workspace.capacity(), 2);
+        range_workspace
+            .pairing_range_into(&g1, &batch, 1, &mut out[..2])
+            .unwrap();
+        assert_eq!(out[0], Gt::pairing(&g1, &points[1]).unwrap());
+        assert_eq!(out[1], gt_identity);
         workspace.pairing_prefix_into(&g1, &batch, &mut []).unwrap();
 
         let g1_identity = G1Projective::identity().unwrap();
@@ -2519,6 +2642,24 @@ mod tests {
         assert_eq!(
             workspace.pairing_indices_into(&g1, &batch, &[1], &mut out[..1]),
             Err(Error::PreparedIndexOutOfRange { index: 1, len: 1 })
+        );
+        assert_eq!(
+            workspace.pairing_range_into(&g1, &batch, 1, &mut out[..1]),
+            Err(Error::PreparedIndexOutOfRange { index: 1, len: 1 })
+        );
+        assert_eq!(
+            PreparedG2BatchWorkspace::with_capacity(&batch, 0).unwrap_err(),
+            Error::PairingCapacityExceeded {
+                required: 1,
+                capacity: 0,
+            }
+        );
+        assert_eq!(
+            PreparedG2BatchWorkspace::with_capacity(&batch, 2).unwrap_err(),
+            Error::PairingCapacityExceeded {
+                required: 2,
+                capacity: 1,
+            }
         );
         assert!(matches!(
             batch.miller_loop_product_indices(&[g1], &[]),

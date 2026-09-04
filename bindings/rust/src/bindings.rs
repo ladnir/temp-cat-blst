@@ -1669,6 +1669,15 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
+    pub fn blst_scalar_prepared_g2_batch_pairing_range(
+        out: *mut blst_fp12,
+        begin: usize,
+        count: usize,
+        g1: *const blst_p1,
+        batch: *const blst_scalar_prepared_g2_batch,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Returns the exact storage size, in bytes, required for one `blst_pairing` object."]
     pub fn blst_pairing_sizeof() -> usize;
 }

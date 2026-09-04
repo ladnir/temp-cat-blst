@@ -1337,4 +1337,43 @@ TEST(AvxCApiContract, MillerLoopFinalizesToDirectPairing)
     EXPECT_TRUE(blst_avx_fp12_is_equal(&finalized, &direct));
 }
 
+TEST(AvxCApiContract, PreparedBatchRangeUsesBoundedWorkspace)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    std::array<blst_avx_p2, 3> points = {
+        *blst_avx_p2_generator(),
+        *blst_avx_p2_generator(),
+        *blst_avx_p2_generator(),
+    };
+    blst_avx_prepared_g2_batch* batch =
+        blst_avx_prepared_g2_batch_new(points.data(), points.size());
+    ASSERT_NE(batch, nullptr);
+    blst_avx_prepared_g2_batch_workspace* workspace =
+        blst_avx_prepared_g2_batch_workspace_new_with_capacity(batch, 2);
+    ASSERT_NE(workspace, nullptr);
+
+    std::array<blst_avx_gt, 2> out = {};
+    ASSERT_TRUE(blst_avx_prepared_g2_batch_pairing_range(
+        out.data(), 1, out.size(), blst_avx_p1_generator(), batch, workspace));
+    blst_avx_gt direct = {};
+    ASSERT_TRUE(blst_avx_pairing(
+        &direct, blst_avx_p1_generator(), blst_avx_p2_generator()));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&out[0], &direct));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&out[1], &direct));
+
+    EXPECT_FALSE(blst_avx_prepared_g2_batch_pairing_range(
+        out.data(), 2, out.size(), blst_avx_p1_generator(), batch, workspace));
+    EXPECT_EQ(
+        blst_avx_prepared_g2_batch_workspace_new_with_capacity(batch, 0),
+        nullptr);
+    EXPECT_EQ(
+        blst_avx_prepared_g2_batch_workspace_new_with_capacity(
+            batch, points.size() + 1),
+        nullptr);
+
+    blst_avx_prepared_g2_batch_workspace_free(workspace);
+    blst_avx_prepared_g2_batch_free(batch);
+}
+
 } // namespace

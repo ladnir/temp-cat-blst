@@ -113,3 +113,20 @@ and concurrent calls. The raw AVX adapter compiles and replays under ASan and
 UBSan. Prepared serial evaluation is 51.16% to 53.18% faster than the prior
 unprepared operation at 32 through 256 pairs. Full measurements and commands
 are in `docs/audit/BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.
+
+## 2026-09-04 alpha-pairing range addendum
+
+`blst_avx_prepared_g2_batch_workspace_new_with_capacity` constructs aligned
+scratch for a public maximum output count. The capacity must be nonzero and no
+larger than the immutable prepared batch. Range evaluation rejects an invalid
+range or insufficient capacity before output writes, converts the common G1
+operand to affine once, fills only the active Miller prefix, and applies the
+existing batch final-exponentiation kernel to that prefix.
+
+The range call performs no allocation and retains no task or phase state. One
+prepared batch supports concurrent reads, while each concurrent range needs a
+distinct workspace and disjoint output storage. Timing may depend on public
+range length and public identities. Unexpected exceptions are contained by
+the C boundary; output is specified only on success. The complete contract is
+recorded in `docs/audit/BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`. The focused
+native-AVX compatibility test passes under Clang 21 ASan/UBSan on Peach.

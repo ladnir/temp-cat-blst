@@ -827,6 +827,19 @@ blst_avx_prepared_g2_batch_workspace*
 blst_avx_prepared_g2_batch_workspace_new(
     const blst_avx_prepared_g2_batch* batch);
 
+/**
+ * Allocates evaluation scratch for at most `capacity` pairings.
+ *
+ * `capacity` must be nonzero and no greater than the immutable batch length.
+ * This form lets independent range workers retain only the scratch required by
+ * their maximum range grain. It has the same ownership and thread-safety rules
+ * as the full-batch constructor.
+ */
+blst_avx_prepared_g2_batch_workspace*
+blst_avx_prepared_g2_batch_workspace_new_with_capacity(
+    const blst_avx_prepared_g2_batch* batch,
+    size_t capacity);
+
 /** Releases one prepared-batch workspace. Null is accepted. */
 void blst_avx_prepared_g2_batch_workspace_free(
     blst_avx_prepared_g2_batch_workspace* workspace);
@@ -859,6 +872,25 @@ bool blst_avx_prepared_g2_batch_pairing_prefix(
 bool blst_avx_prepared_g2_batch_pairing_indices(
     blst_avx_gt* out,
     const size_t* indices,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace);
+
+/**
+ * Computes `out[i] = e(g1, prepared_g2[begin + i])` for `0 <= i < count`.
+ *
+ * The contiguous range must fit inside the immutable batch and `count` must not
+ * exceed the mutable workspace capacity. The operation converts `g1` to affine
+ * once, batches final exponentiation across the range, allocates no memory, and
+ * retains no state. Concurrent calls may share the batch but require distinct
+ * workspaces and disjoint output ranges. Nonempty output must not overlap the
+ * G1 input, prepared batch, or workspace. Inputs must already satisfy the
+ * native point invariants. On failure, output contents are unspecified.
+ */
+bool blst_avx_prepared_g2_batch_pairing_range(
+    blst_avx_gt* out,
+    size_t begin,
     size_t count,
     const blst_avx_p1* g1,
     const blst_avx_prepared_g2_batch* batch,

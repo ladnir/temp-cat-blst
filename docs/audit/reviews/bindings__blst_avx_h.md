@@ -93,3 +93,15 @@ allocation freedom, scratch alignment and disjointness, empty input, and
 failure atomicity. Its matching capacity query documents that the algorithm
 may select shared-doubling GLV wNAF or Pippenger without exposing that policy as
 a caller-visible representation change.
+
+## 2026-09-04 alpha-pairing range addendum
+
+The header adds a capacity-bounded prepared-G2 workspace constructor and one
+contiguous pairing-range operation. The range documentation fixes the native
+point provenance, nonoverlap, immutable-batch sharing, distinct-workspace,
+allocation, public-timing, and failure-output contracts. These are kernel
+operations only; no scheduler or phase state crosses the C boundary.
+
+The reviewed C surface is now 100 functions. `DOC-028` maps both declarations
+to their C++ implementation and safe Rust owner. Focused native-AVX Release and
+ASan/UBSan tests pass on Peach.

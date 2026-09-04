@@ -392,3 +392,13 @@ validation to the caller's typed trust boundary rather than inserting repeated
 Release checks. The scalar C/generated-Rust declaration inventory is now
 258/258, and the new opaque tag is covered by the structural binding gate.
 `DOC-027` records the complete C, native, and safe-Rust family.
+
+## 2026-09-04 alpha-pairing range addendum
+
+One contiguous finalized-pairing range joins the immutable scalar prepared-G2
+owner. The declaration documents subgroup provenance, exact range and output
+shape, nonoverlap, empty input, allocation freedom, immutable concurrent use,
+public variable-time behavior, and failure-atomic rejection of invalid shape.
+The scalar C/generated-Rust inventory is now 259/259. `DOC-027` includes the
+new C, C++, generated, and safe-Rust anchors. The focused scalar-default test
+passes under Clang 21 Release and ASan/UBSan on Peach.

@@ -2019,6 +2019,50 @@ bool blst_scalar_prepared_g2_batch_miller_loop_product_indices(
     }
 }
 
+/**
+ * All public shape checks precede writes. Evaluation reuses one affine G1
+ * conversion for the complete range and performs no allocation.
+ */
+bool blst_scalar_prepared_g2_batch_pairing_range(
+    BoundaryFp12* out,
+    size_t begin,
+    size_t count,
+    const BoundaryG1* g1,
+    const blst_scalar_prepared_g2_batch* batch)
+{
+    if (batch == nullptr || g1 == nullptr || begin > batch->count ||
+        count > batch->count - begin || (count != 0 && out == nullptr)) {
+        return false;
+    }
+    if (count == 0) {
+        return true;
+    }
+
+    try {
+        PublicG1Affine affine = {};
+        const PublicG1 point = boundary_to_public_g1(*g1);
+        PublicG1::to_affine(affine, point);
+        const bool g1_is_identity = PublicG1Affine::is_inf(affine) != 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::size_t prepared_index = begin + i;
+            PublicGt result = PublicGt::identity();
+            if (!g1_is_identity &&
+                batch->g2_is_identity[prepared_index] == 0) {
+                PublicMillerResult miller = {};
+                PublicGt::miller_loop_lines(
+                    miller,
+                    batch->prepared_lines[prepared_index].lines,
+                    affine);
+                PublicGt::final_exp(result, miller);
+            }
+            out[i] = public_to_boundary_gt(result);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 size_t blst_pairing_sizeof(void)
 {
     return blst::blst_pairing_sizeof();

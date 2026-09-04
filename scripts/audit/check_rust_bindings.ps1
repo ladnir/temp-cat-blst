@@ -50,10 +50,10 @@ if ($extra.Count -ne 0)
 {
     $errors.Add("Raw Rust bindings contain non-scalar symbols: $($extra -join ', ')")
 }
-if ($cSymbols.Count -ne 258 -or $rustSymbols.Count -ne 258)
+if ($cSymbols.Count -ne 259 -or $rustSymbols.Count -ne 259)
 {
     $errors.Add(
-        "Expected exact 258/258 scalar declaration inventory; found " +
+        "Expected exact 259/259 scalar declaration inventory; found " +
         "$($cSymbols.Count)/$($rustSymbols.Count)."
     )
 }

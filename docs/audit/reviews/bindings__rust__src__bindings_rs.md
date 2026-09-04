@@ -90,3 +90,12 @@ integrity gate now requires exact 258/258 scalar C/raw Rust declarations and
 checks that tag explicitly. Split FFT and middle-product declarations remain
 outside this generated file. Semantic and safety contracts remain owned by
 `bindings/blst_scalar.h` and the safe `scalar::PreparedG2Batch` wrapper.
+
+## 2026-09-04 alpha-pairing range addendum
+
+The generated artifact mirrors
+`blst_scalar_prepared_g2_batch_pairing_range`. The integrity gate now requires
+exact 259/259 scalar C/raw-Rust declarations. The raw function inherits its
+pointer, range, native-representation, output-publication, and concurrency
+contract from `bindings/blst_scalar.h`; the safe wrapper owns slice validation
+and initialization state.

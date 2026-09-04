@@ -109,3 +109,18 @@ integration must use a parallel tree reduction and choose grain from logical
 batch size and pool width. Cross-platform release matrices remain library-wide
 evidence and are not required to establish this narrow Linux/Clang deployment
 path.
+
+## 2026-09-04 alpha-pairing range addendum
+
+`PreparedG2Batch::pairing_range_uninit_into` evaluates a contiguous prepared
+range against one common native scalar G1 point. It validates the range before
+FFI, allocates no memory, and establishes the native GT invariant for every
+output only after success. The initialized-output method is a convenience
+view over the same operation rather than a second kernel.
+
+The prepared batch is immutable and may be shared between workers; concurrent
+calls require disjoint output ranges. CatBLST retains no cursor, barrier,
+priority, or task identity. The application owns stage ordering and the
+lifetime of the common point and output storage. See
+`docs/audit/BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`. The focused
+scalar-default C API test passes under Clang 21 ASan/UBSan on Peach.

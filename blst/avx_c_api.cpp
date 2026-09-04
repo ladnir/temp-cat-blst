@@ -3069,6 +3069,32 @@ blst_avx_prepared_g2_batch_workspace_new(
 #endif
 }
 
+/**
+ * Capacity validation precedes allocation. The owner contains no batch pointer
+ * or mutable protocol state and may be reused with any sufficiently large
+ * prepared batch.
+ */
+blst_avx_prepared_g2_batch_workspace*
+blst_avx_prepared_g2_batch_workspace_new_with_capacity(
+    const blst_avx_prepared_g2_batch* batch,
+    size_t capacity)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr || capacity == 0 || capacity > batch->count) {
+        return nullptr;
+    }
+    try {
+        return new blst_avx_prepared_g2_batch_workspace(capacity);
+    } catch (...) {
+        return nullptr;
+    }
+#else
+    (void)batch;
+    (void)capacity;
+    return nullptr;
+#endif
+}
+
 void blst_avx_prepared_g2_batch_workspace_free(
     blst_avx_prepared_g2_batch_workspace* workspace)
 {
@@ -3116,6 +3142,62 @@ bool blst_avx_prepared_g2_batch_pairing_prefix(
     }
 #else
     (void)out;
+    (void)count;
+    (void)g1;
+    (void)batch;
+    (void)workspace;
+    return false;
+#endif
+}
+
+/**
+ * All public shape checks precede writes. Evaluation fills only the active
+ * workspace prefix and performs no allocation.
+ */
+bool blst_avx_prepared_g2_batch_pairing_range(
+    blst_avx_gt* out,
+    size_t begin,
+    size_t count,
+    const blst_avx_p1* g1,
+    const blst_avx_prepared_g2_batch* batch,
+    blst_avx_prepared_g2_batch_workspace* workspace)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (batch == nullptr || workspace == nullptr || g1 == nullptr ||
+        begin > batch->count || count > batch->count - begin ||
+        count > workspace->max_count || (count != 0 && out == nullptr)) {
+        return false;
+    }
+    if (count == 0) {
+        return true;
+    }
+    try {
+        AvxG1Affine affine;
+        AvxG1::to_affine(affine, *as_avx(g1));
+        const bool g1_is_zero = AvxG1Affine::is_inf(affine) != 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::size_t prepared_index = begin + i;
+            if (g1_is_zero || batch->g2_is_zero[prepared_index] != 0) {
+                workspace->millers[i] = AvxMillerResult::identity();
+            } else {
+                AvxGt::miller_loop_lines_finite(
+                    workspace->millers[i],
+                    batch->prepared_lines[prepared_index].lines,
+                    affine);
+            }
+        }
+        AvxGt::final_exp_n(
+            reinterpret_cast<AvxGt*>(out),
+            workspace->millers.get(),
+            count,
+            workspace->final_exp_scratch);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)out;
+    (void)begin;
     (void)count;
     (void)g1;
     (void)batch;

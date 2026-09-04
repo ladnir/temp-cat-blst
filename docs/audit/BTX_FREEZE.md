@@ -44,6 +44,11 @@ does not keep a duplicate roadmap.
   allocation. Sixteen-pair serial partitioning has no measurable overhead;
   four-worker scaling reaches 3.82x at 256 pairs. Evidence is recorded in
   `BTX_SCALAR_PREPARED_PAIRING_RANGES_2026-09-03.md`.
+- Contiguous scalar and native-AVX prepared-pairing ranges for alpha
+  computation are implemented for review. AVX workspaces may be bounded to a
+  range grain, and both Rust namespaces can write directly into uninitialized
+  caller storage. The interface and remaining gates are recorded in
+  `BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`.
 - Batch 5 malformed-input parity is complete. The C++
   public-parameter decoder checks the exact SRS dimension and all encoded
   element counts before allocation. Threshold-request decoding likewise

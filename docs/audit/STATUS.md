@@ -1418,3 +1418,16 @@ Clang 21 Release A/B runs, including reversed order, show mean improvements of
 production AVX policy, guarded by `static_assert`; direct projective pointwise
 pairing remains only in the scalar specialization. No runtime selector or hot
 path allocation was added.
+
+Contiguous prepared-pairing ranges for BTX alpha computation are implemented
+for review in both scalar and native-AVX namespaces. The scalar boundary
+converts the common G1 point once and allocates no memory. The AVX boundary
+uses a capacity-bounded aligned workspace, fills only the active Miller
+prefix, and batch-final-exponentiates that prefix. Both Rust wrappers support
+direct writes into caller-owned uninitialized GT storage and establish native
+GT values only after success. The CatBLST boundary retains no task or phase
+state. Focused Release tests pass on Peach; focused scalar-default and
+native-AVX ASan/UBSan tests also pass. Exact-source Rust binding runs pass 75
+scalar and 76 AVX-feature tests. Sequential and parallel performance
+selection remains the open gate recorded in
+`BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`.

@@ -2210,6 +2210,22 @@ TEST(CApi, ScalarPreparedG2BatchComposesAndRejectsInvalidRangesAtomically)
         &empty, nullptr, nullptr, 0, batch));
     EXPECT_TRUE(blst_fp12_is_one(&empty));
 
+    constexpr size_t range_begin = 7;
+    constexpr size_t range_count = 10;
+    std::array<BoundaryGt, range_count> range = {};
+    ASSERT_TRUE(blst_scalar_prepared_g2_batch_pairing_range(
+        range.data(), range_begin, range.size(), &ps[0], batch));
+    for (size_t i = 0; i < range.size(); ++i) {
+        BoundaryGt miller = {};
+        BoundaryGt expected_pairing = {};
+        blst_miller_loop(
+            &miller, &qs_affine[range_begin + i], &ps_affine[0]);
+        blst_final_exp(&expected_pairing, &miller);
+        EXPECT_TRUE(blst_fp12_is_equal(&range[i], &expected_pairing));
+    }
+    ASSERT_TRUE(blst_scalar_prepared_g2_batch_pairing_range(
+        nullptr, npoints, 0, &ps[0], batch));
+
     const size_t bad_index = npoints;
     BoundaryGt unchanged = expected;
     EXPECT_FALSE(blst_scalar_prepared_g2_batch_miller_loop_product_indices(
@@ -2219,6 +2235,9 @@ TEST(CApi, ScalarPreparedG2BatchComposesAndRejectsInvalidRangesAtomically)
         nullptr, ps.data(), indices.data(), npoints, batch));
     EXPECT_FALSE(blst_scalar_prepared_g2_batch_miller_loop_product_indices(
         &unchanged, ps.data(), indices.data(), npoints, nullptr));
+    EXPECT_FALSE(blst_scalar_prepared_g2_batch_pairing_range(
+        &unchanged, npoints, 1, &ps[0], batch));
+    EXPECT_TRUE(blst_fp12_is_equal(&unchanged, &expected));
 
     blst_scalar_prepared_g2_batch_free(batch);
     blst_scalar_prepared_g2_batch_free(nullptr);

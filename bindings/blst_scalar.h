@@ -869,6 +869,26 @@ bool blst_scalar_prepared_g2_batch_miller_loop_product_indices(
     const size_t* indices,
     size_t count,
     const blst_scalar_prepared_g2_batch* batch);
+/**
+ * Evaluates one contiguous range of pairings against a shared G1 point.
+ *
+ * The operation computes `out[i] = e(g1, prepared_g2[begin + i])` for
+ * `0 <= i < count`. `begin + count` must not exceed the prepared batch.
+ * `g1` must be a library-produced, subgroup-validated scalar point. The output
+ * must address `count` GT elements and must not overlap the input or prepared
+ * batch. Empty ranges are accepted.
+ *
+ * The immutable batch supports concurrent disjoint-output calls. This function
+ * converts `g1` to affine once per range, allocates no memory, retains no state,
+ * and is variable-time with respect to public range length and point identity.
+ * Invalid pointers or ranges return false without publishing any output.
+ */
+bool blst_scalar_prepared_g2_batch_pairing_range(
+    blst_fp12* out,
+    size_t begin,
+    size_t count,
+    const blst_p1* g1,
+    const blst_scalar_prepared_g2_batch* batch);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);
 /** Returns the required alignment for `blst_pairing` storage. */
