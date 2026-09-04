@@ -58,6 +58,7 @@ serde = { version = "1.0.152", optional = true, default-features = false, featur
 [dev-dependencies]
 rand_core = { version = "0.6", features = ["std"] }
 rand_chacha = "0.3"
+rayon = "1.12"
 rmp-serde = "1.1.1"
 
 [target.'cfg(any(unix, windows))'.dev-dependencies]
@@ -74,6 +75,11 @@ required-features = ["avx"]
 
 [[bench]]
 name = "btx_prepared_g2_construction"
+harness = false
+required-features = ["avx"]
+
+[[bench]]
+name = "btx_prepared_pairing_product"
 harness = false
 required-features = ["avx"]
 

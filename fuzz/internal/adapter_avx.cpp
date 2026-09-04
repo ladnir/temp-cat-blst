@@ -533,6 +533,23 @@ namespace catblst::fuzz::adapter
                 &avx_g1, raw_batch, raw_workspace));
             require(::blst_avx_fp12_is_equal(
                 &prepared_outputs[0], &avx_gt));
+            blst_avx_fp12 prepared_miller{};
+            require(
+                ::blst_avx_prepared_g2_batch_miller_loop_product_indices(
+                    &prepared_miller, &avx_g1, indices.data(),
+                    indices.size(), raw_batch));
+            blst_avx_fp12 prepared_product{};
+            require(::blst_avx_fp12_final_exp(
+                &prepared_product, &prepared_miller));
+            require(::blst_avx_fp12_is_equal(
+                &prepared_product, &avx_gt));
+            constexpr std::array<std::size_t, 1> bad_indices{1};
+            blst_avx_fp12 unchanged = avx_gt;
+            require(
+                !::blst_avx_prepared_g2_batch_miller_loop_product_indices(
+                    &unchanged, &avx_g1, bad_indices.data(),
+                    bad_indices.size(), raw_batch));
+            require(::blst_avx_fp12_is_equal(&unchanged, &avx_gt));
             ::blst_avx_prepared_g2_batch_workspace_free(raw_workspace);
             ::blst_avx_prepared_g2_batch_free(raw_batch);
         }

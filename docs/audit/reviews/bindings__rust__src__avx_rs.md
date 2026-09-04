@@ -83,3 +83,23 @@ results and C malformed-input coverage are recorded in the C++ owner reviews.
 The downstream BTX benchmark uses Lagrange coefficients for nonconsecutive
 validator indices rather than sparse integer scalars; its eight-point AVX path
 measures 60.032 us versus 404.37 us for the scalar backend on Peach.
+
+## 2026-09-03 prepared-pairing range addendum
+
+`PreparedG2Batch::miller_loop_product_indices` accepts equally sized native G1
+and prepared-index slices. It reports shape and index errors before FFI and
+allocates no memory. The immutable prepared batch is `Send + Sync`; the new
+operation needs no mutable workspace.
+
+`MillerLoopResult` is a distinct transparent owner for a pre-final Miller
+product. It exposes only identity construction, multiplication, and final
+exponentiation. The typed interface therefore does not represent a Miller
+product as `Gt`, even though the C ABI uses compatible opaque Fp12 storage.
+
+Peach tests compare direct, complete, partitioned, reordered, and concurrent
+evaluation. Native AVX unit and conformance tests pass. The C adapter also
+passes its ASan and UBSan corpus replay. The benchmark records 1.70% and 1.74%
+serial partition overhead at 128 and 256 pairs for the provisional ten-pair
+grain. Four-worker kernel scaling reaches 3.04 and 3.42 times the full prepared
+serial path at those anchors. Detailed evidence is in
+`docs/audit/BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.

@@ -47,6 +47,7 @@ using AvxG2 = blst::avx::G2Point;
 using AvxG2Affine = blst::avx::G2AffinePoint;
 using AvxGt = blst::avx::GT;
 using AvxMillerResult = blst::avx::MillerResult;
+using AvxPreparedG2Line = blst::avx::avx_gt_detail::PreparedLine;
 using AvxPreparedG2Lines = blst::avx::PreparedLineTable;
 
 static_assert(BLST_AVX_P1_SIZE == sizeof(AvxG1));
@@ -3151,6 +3152,76 @@ bool blst_avx_prepared_g2_batch_pairing_indices(
     (void)g1;
     (void)batch;
     (void)workspace;
+    return false;
+#endif
+}
+
+bool blst_avx_prepared_g2_batch_miller_loop_product_indices(
+    blst_avx_fp12* out,
+    const blst_avx_p1* g1,
+    const size_t* indices,
+    size_t count,
+    const blst_avx_prepared_g2_batch* batch)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || batch == nullptr ||
+        (count != 0 && (g1 == nullptr || indices == nullptr))) {
+        return false;
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        if (indices[i] >= batch->count) {
+            return false;
+        }
+    }
+
+    try {
+        AvxMillerResult product = AvxMillerResult::identity();
+        bool have_product = false;
+        std::size_t offset = 0;
+        while (offset < count) {
+            const AvxPreparedG2Line* line_batch[
+                blst::avx::avx_gt_detail::kMillerLoopNMax] = {};
+            AvxG1Affine g1_batch[
+                blst::avx::avx_gt_detail::kMillerLoopNMax] = {};
+            std::size_t finite_count = 0;
+
+            while (offset < count &&
+                   finite_count < blst::avx::avx_gt_detail::kMillerLoopNMax) {
+                const std::size_t prepared_index = indices[offset];
+                if (batch->g2_is_zero[prepared_index] == 0 &&
+                    AvxG1::is_inf(*as_avx(&g1[offset])) == 0) {
+                    AvxG1::to_affine(
+                        g1_batch[finite_count], *as_avx(&g1[offset]));
+                    line_batch[finite_count] =
+                        batch->prepared_lines[prepared_index].lines;
+                    ++finite_count;
+                }
+                ++offset;
+            }
+
+            if (finite_count != 0) {
+                AvxMillerResult chunk = {};
+                AvxGt::miller_loop_lines_n_preprocessed(
+                    chunk, line_batch, g1_batch, finite_count);
+                if (have_product) {
+                    AvxMillerResult::mul(product, product, chunk);
+                } else {
+                    product = chunk;
+                    have_product = true;
+                }
+            }
+        }
+        as_avx(out)->data = product.data;
+        return true;
+    } catch (...) {
+        return false;
+    }
+#else
+    (void)out;
+    (void)g1;
+    (void)indices;
+    (void)count;
+    (void)batch;
     return false;
 #endif
 }

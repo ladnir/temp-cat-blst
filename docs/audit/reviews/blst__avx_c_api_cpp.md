@@ -91,3 +91,25 @@ scalar staging when the capacity crosses the large-input path. The C boundary
 checks overflow, 64-byte alignment, exact scratch capacity, pairwise range
 disjointness, and null/empty shape before arithmetic. Release retains the
 documented prevalidated-subgroup precondition; Debug asserts it.
+
+## 2026-09-03 prepared-pairing range addendum
+
+`blst_avx_prepared_g2_batch_miller_loop_product_indices` computes a pre-final
+Miller product for one native G1 slice and selected entries in one immutable
+prepared-G2 batch. The boundary validates every index before arithmetic. It
+computes into local storage and publishes only after successful completion.
+A rejected null pointer, an out-of-range index, or a caught exception leaves a
+nonnull output unchanged.
+
+The implementation filters public identity operands and invokes the existing
+branch-free prepared-line engine in fixed batches of at most 16 finite pairs.
+It uses aligned native stack objects and performs no allocation. The boundary
+retains no workspace, cursor, task identifier, callback, or scheduler. One
+immutable prepared batch supports concurrent calls.
+
+Peach Clang 21 native tests cover direct equality, empty and identity inputs,
+arbitrary index permutations, varied partitions, reverse completion order,
+and concurrent calls. The raw AVX adapter compiles and replays under ASan and
+UBSan. Prepared serial evaluation is 51.16% to 53.18% faster than the prior
+unprepared operation at 32 through 256 pairs. Full measurements and commands
+are in `docs/audit/BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.

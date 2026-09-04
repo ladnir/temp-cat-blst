@@ -39,7 +39,7 @@ consumers:
   testing;
 - GT identity, multiplication, squaring, inversion, fixed-width scalar
   multiplication, pairing, canonical encoding, strict decoding, and equality;
-- immutable prepared-G2 line tables;
+- immutable prepared-G2 line tables and range-composable Miller products;
 - a fixed-capacity batched-pairing workspace;
 - caller-owned scratch for randomized G2 batch subgroup validation;
 - a caller-owned projective G1 MSM workspace; and
@@ -110,6 +110,7 @@ After construction:
 - `PreparedG2Lines::pairing` allocates nothing;
 - `PreparedG2BatchWorkspace::pairing_prefix_into` and
   `pairing_indices_into` allocate nothing;
+- `PreparedG2Batch::miller_loop_product_indices` allocates nothing;
 - `PairingWorkspace::clear`, `push`, and `evaluate` allocate nothing;
 - `G1MsmWorkspace::msm_into` and `secret_msm_into` allocate nothing; and
 - typed native middle-product evaluation allocates nothing.
@@ -152,6 +153,15 @@ another prepared batch only when its recorded capacity covers the request.
 One immutable batch may be shared, but each concurrent evaluation requires a
 distinct mutable workspace and output slice.
 
+`PreparedG2Batch::miller_loop_product_indices` instead pairs one native G1
+point with each selected prepared operand and returns one unfinalized
+Miller product. It uses fixed stack batches of at most 16 finite public pairs,
+allocates no memory, and needs no mutable workspace. Independent callers may
+share the immutable prepared batch. Products from disjoint ranges compose by
+Fp12 multiplication; the caller applies exactly one final exponentiation to
+the aggregate. `MillerLoopResult` keeps this intermediate distinct from `Gt`
+at the typed boundary.
+
 ## Failure and validation
 
 Safe methods return `catblst::avx::Error`; they do not panic for malformed
@@ -172,8 +182,11 @@ Prepared-batch construction reports `EmptyPreparedBatch` for empty input and
 reports native allocation or preparation failure separately. The safe
 evaluators report pairing length, workspace capacity, and out-of-range index
 errors before entering the native kernel.
-The C boundary likewise validates all sparse indices before publishing output;
-after a backend exception, output contents are unspecified.
+The C boundary likewise validates all sparse indices before publishing output.
+The stateless Miller-product call computes into local storage and leaves its
+output unchanged after invalid arguments or a backend exception. The mutable
+prepared-workspace evaluators still leave output unspecified after a backend
+exception.
 
 ## Deliberate omissions
 

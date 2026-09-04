@@ -846,6 +846,35 @@ bool blst_avx_prepared_g2_batch_pairing_indices(
     const blst_avx_prepared_g2_batch* batch,
     blst_avx_prepared_g2_batch_workspace* workspace);
 
+/**
+ * Multiplies Miller loops for per-pair G1 points and prepared G2 operands.
+ *
+ * The operation computes
+ * `out = product_{i=0}^{count-1} miller(g1[i], prepared_g2[indices[i]])`.
+ * `out` is an unfinalized Miller-loop value, not a GT element. The caller may
+ * multiply products from disjoint ranges and apply one final exponentiation to
+ * the aggregate.
+ *
+ * Preconditions:
+ * - Every G1 point is a library-produced, subgroup-validated native point.
+ * - Every index is less than the prepared batch length; repetition is allowed.
+ * - For nonzero `count`, `g1` and `indices` each address `count` elements.
+ * - `out` does not overlap either input array or the prepared batch.
+ *
+ * The prepared batch is immutable, so concurrent calls are permitted. The
+ * function retains no cursor or task state, allocates no memory, and is
+ * variable-time with respect to the public count, indices, and point
+ * identities. Empty input returns the multiplicative identity. Rejected null
+ * pointers, out-of-range indices, backend unavailability, or a caught
+ * exception return false without changing a nonnull `out`.
+ */
+bool blst_avx_prepared_g2_batch_miller_loop_product_indices(
+    blst_avx_fp12* out,
+    const blst_avx_p1* g1,
+    const size_t* indices,
+    size_t count,
+    const blst_avx_prepared_g2_batch* batch);
+
 #ifdef __cplusplus
 }
 #endif

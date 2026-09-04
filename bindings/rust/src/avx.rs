@@ -365,6 +365,8 @@ pub enum Error {
     EmptyPreparedBatch,
     /// Sparse prepared-pairing index and output counts differed.
     PairingLengthMismatch { indices: usize, outputs: usize },
+    /// Per-pair G1 and prepared-index counts differed.
+    PairingInputLengthMismatch { g1: usize, indices: usize },
     /// A sparse prepared-pairing index exceeded the immutable batch.
     PreparedIndexOutOfRange { index: usize, len: usize },
     /// Caller-owned scratch was too small for the requested operation.
@@ -407,6 +409,10 @@ impl core::fmt::Display for Error {
             Self::PairingLengthMismatch { indices, outputs } => write!(
                 formatter,
                 "prepared pairing length mismatch: indices={indices}, outputs={outputs}"
+            ),
+            Self::PairingInputLengthMismatch { g1, indices } => write!(
+                formatter,
+                "prepared Miller-loop input mismatch: g1={g1}, indices={indices}"
             ),
             Self::PreparedIndexOutOfRange { index, len } => write!(
                 formatter,
@@ -922,6 +928,65 @@ impl PartialEq for Gt {
 
 impl Eq for Gt {}
 
+/// Backend-native product of one or more Miller loops before final
+/// exponentiation.
+///
+/// This type deliberately does not implement target-group operations. Combine
+/// independently computed Miller products with [`Self::multiply`], then call
+/// [`Self::final_exponentiation`] exactly once to obtain a [`Gt`]. All
+/// operations are allocation-free. Timing may depend on public point
+/// identities, index selections, and batch lengths.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct MillerLoopResult(blst_avx_fp12);
+
+const _: () = {
+    assert!(size_of::<MillerLoopResult>() == size_of::<blst_avx_fp12>());
+    assert!(
+        core::mem::align_of::<MillerLoopResult>()
+            == core::mem::align_of::<blst_avx_fp12>()
+    );
+};
+
+impl MillerLoopResult {
+    /// Returns the multiplicative identity in the Miller-result domain.
+    pub fn identity() -> Result<Self, Error> {
+        Ok(Self(Gt::identity()?.0))
+    }
+
+    /// Multiplies two Miller products without allocating.
+    pub fn multiply(&self, other: &Self) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_fp12>::uninit();
+        if unsafe { blst_avx_fp12_mul(out.as_mut_ptr(), &self.0, &other.0) } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
+    /// Applies the final exponentiation and returns a target-group value.
+    pub fn final_exponentiation(&self) -> Result<Gt, Error> {
+        let mut out = MaybeUninit::<blst_avx_gt>::uninit();
+        if unsafe { blst_avx_fp12_final_exp(out.as_mut_ptr(), &self.0) } {
+            Ok(Gt(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+}
+
+impl core::fmt::Debug for MillerLoopResult {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        formatter
+            .debug_tuple("MillerLoopResult")
+            .field(&"<native-avx>")
+            .finish()
+    }
+}
+
 /// Immutable native Miller lines for one validated G2 point.
 #[derive(Debug)]
 pub struct PreparedG2Lines {
@@ -974,9 +1039,10 @@ impl PreparedG2Lines {
 
 /// Immutable native Miller-line tables for a sequence of validated G2 points.
 ///
-/// Construction allocates and prepares every operand. Evaluations use a
-/// distinct [`PreparedG2BatchWorkspace`], so this object may be shared by
-/// concurrent workers.
+/// Construction allocates and prepares every operand. Workspace-based batch
+/// evaluations use a distinct [`PreparedG2BatchWorkspace`] per worker. The
+/// stateless Miller-product operation needs no workspace. Both forms may share
+/// this immutable object across concurrent workers.
 pub struct PreparedG2Batch {
     inner: NonNull<blst_avx_prepared_g2_batch>,
     len: usize,
@@ -1028,6 +1094,47 @@ impl PreparedG2Batch {
     #[inline]
     pub fn storage_bytes(&self) -> usize {
         self.storage_bytes
+    }
+
+    /// Multiplies pairings of per-pair G1 points with selected prepared G2
+    /// operands, without final exponentiation.
+    ///
+    /// The slices must have equal length. Every G1 point must already be a
+    /// validated native subgroup point, and every index must address this
+    /// prepared batch. The operation performs no allocation and retains no
+    /// state, so callers may use the immutable batch concurrently. Timing may
+    /// depend on the public indices, point identities, and slice length.
+    pub fn miller_loop_product_indices(
+        &self,
+        g1: &[G1Projective],
+        indices: &[usize],
+    ) -> Result<MillerLoopResult, Error> {
+        if g1.len() != indices.len() {
+            return Err(Error::PairingInputLengthMismatch {
+                g1: g1.len(),
+                indices: indices.len(),
+            });
+        }
+        if let Some(&index) = indices.iter().find(|&&index| index >= self.len) {
+            return Err(Error::PreparedIndexOutOfRange {
+                index,
+                len: self.len,
+            });
+        }
+        let mut out = MaybeUninit::<blst_avx_fp12>::uninit();
+        if unsafe {
+            blst_avx_prepared_g2_batch_miller_loop_product_indices(
+                out.as_mut_ptr(),
+                G1Projective::as_raw_slice(g1).as_ptr(),
+                indices.as_ptr(),
+                g1.len(),
+                self.inner.as_ptr(),
+            )
+        } {
+            Ok(MillerLoopResult(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
     }
 }
 
@@ -1846,6 +1953,13 @@ extern "C" {
         batch: *const blst_avx_prepared_g2_batch,
         workspace: *mut blst_avx_prepared_g2_batch_workspace,
     ) -> bool;
+    pub fn blst_avx_prepared_g2_batch_miller_loop_product_indices(
+        out: *mut blst_avx_fp12,
+        g1: *const blst_avx_p1,
+        indices: *const usize,
+        count: usize,
+        batch: *const blst_avx_prepared_g2_batch,
+    ) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2184,6 +2298,150 @@ mod tests {
     }
 
     #[test]
+    fn prepared_g2_miller_products_compose_before_one_final_exponentiation() {
+        if !is_available() {
+            return;
+        }
+
+        let g1 = G1Projective::generator().unwrap();
+        let g1_doubled = g1.multiply(&Scalar::from(2u64)).unwrap();
+        let g1_identity = G1Projective::identity().unwrap();
+        let g2 = G2Projective::generator().unwrap();
+        let g2_tripled = g2.multiply(&Scalar::from(3u64)).unwrap();
+        let g2_identity = G2Projective::identity().unwrap();
+        let batch =
+            PreparedG2Batch::new(&[g2, g2_tripled, g2_identity]).unwrap();
+        let g1_points = [g1, g1_doubled, g1_identity];
+        let indices = [0usize, 1, 2];
+
+        let complete = batch
+            .miller_loop_product_indices(&g1_points, &indices)
+            .unwrap()
+            .final_exponentiation()
+            .unwrap();
+        let left = batch
+            .miller_loop_product_indices(&g1_points[..1], &indices[..1])
+            .unwrap();
+        let right = batch
+            .miller_loop_product_indices(&g1_points[1..], &indices[1..])
+            .unwrap();
+        let split = left
+            .multiply(&right)
+            .unwrap()
+            .final_exponentiation()
+            .unwrap();
+        let expected = Gt::pairing(&g1, &g2)
+            .unwrap()
+            .multiply(&Gt::pairing(&g1_doubled, &g2_tripled).unwrap())
+            .unwrap();
+
+        assert_eq!(complete, expected);
+        assert_eq!(split, expected);
+        assert_eq!(
+            batch
+                .miller_loop_product_indices(&[], &[])
+                .unwrap()
+                .final_exponentiation()
+                .unwrap(),
+            Gt::identity().unwrap()
+        );
+    }
+
+    #[test]
+    fn prepared_g2_miller_products_match_partitioned_and_concurrent_ranges() {
+        if !is_available() {
+            return;
+        }
+
+        const COUNT: usize = 37;
+        let g1_generator = G1Projective::generator().unwrap();
+        let g2_generator = G2Projective::generator().unwrap();
+        let g1_identity = G1Projective::identity().unwrap();
+        let g2_identity = G2Projective::identity().unwrap();
+        let g1: Vec<_> = (0..COUNT)
+            .map(|i| {
+                if i % 11 == 0 {
+                    g1_identity
+                } else {
+                    g1_generator
+                        .multiply(&Scalar::from((i + 1) as u64))
+                        .unwrap()
+                }
+            })
+            .collect();
+        let g2: Vec<_> = (0..COUNT)
+            .map(|i| {
+                if i % 13 == 0 {
+                    g2_identity
+                } else {
+                    g2_generator
+                        .multiply(&Scalar::from((2 * i + 1) as u64))
+                        .unwrap()
+                }
+            })
+            .collect();
+        let indices: Vec<_> = (0..COUNT).map(|i| (7 * i + 3) % COUNT).collect();
+        let batch = PreparedG2Batch::new(&g2).unwrap();
+
+        let mut expected = Gt::identity().unwrap();
+        for (point, &index) in g1.iter().zip(&indices) {
+            expected = expected
+                .multiply(&Gt::pairing(point, &g2[index]).unwrap())
+                .unwrap();
+        }
+        assert_eq!(
+            batch
+                .miller_loop_product_indices(&g1, &indices)
+                .unwrap()
+                .final_exponentiation()
+                .unwrap(),
+            expected
+        );
+
+        for grain in [1usize, 2, 5, 10, 16, 31, COUNT] {
+            let mut product = MillerLoopResult::identity().unwrap();
+            for (points, prepared_indices) in
+                g1.chunks(grain).zip(indices.chunks(grain))
+            {
+                product = product
+                    .multiply(
+                        &batch
+                            .miller_loop_product_indices(
+                                points,
+                                prepared_indices,
+                            )
+                            .unwrap(),
+                    )
+                    .unwrap();
+            }
+            assert_eq!(product.final_exponentiation().unwrap(), expected);
+        }
+
+        let concurrent = std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            let batch = &batch;
+            let g1 = &g1;
+            let indices = &indices;
+            for (begin, end) in [(0, 10), (10, 20), (20, 30), (30, COUNT)] {
+                handles.push(scope.spawn(move || {
+                    batch
+                        .miller_loop_product_indices(
+                            &g1[begin..end],
+                            &indices[begin..end],
+                        )
+                        .unwrap()
+                }));
+            }
+            let mut product = MillerLoopResult::identity().unwrap();
+            for handle in handles.into_iter().rev() {
+                product = product.multiply(&handle.join().unwrap()).unwrap();
+            }
+            product.final_exponentiation().unwrap()
+        });
+        assert_eq!(concurrent, expected);
+    }
+
+    #[test]
     fn prepared_g2_batch_workspace_rejects_an_oversized_prefix() {
         if !is_available() {
             return;
@@ -2213,6 +2471,14 @@ mod tests {
             workspace.pairing_indices_into(&g1, &batch, &[1], &mut out[..1]),
             Err(Error::PreparedIndexOutOfRange { index: 1, len: 1 })
         );
+        assert!(matches!(
+            batch.miller_loop_product_indices(&[g1], &[]),
+            Err(Error::PairingInputLengthMismatch { g1: 1, indices: 0 })
+        ));
+        assert!(matches!(
+            batch.miller_loop_product_indices(&[g1], &[1]),
+            Err(Error::PreparedIndexOutOfRange { index: 1, len: 1 })
+        ));
         assert!(matches!(
             PreparedG2Batch::new(&[]),
             Err(Error::EmptyPreparedBatch)

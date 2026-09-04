@@ -33,6 +33,11 @@ does not keep a duplicate roadmap.
 - Scalar prepared-alpha comparison is complete. Rust selected the existing
   generic prepared Miller-line boundary rather than ordinary `update`; no
   BTX-specific C++ kernel was added.
+- A stateless native-AVX prepared-pairing range kernel is implemented for
+  ciphertext-side verification precomputation. It returns a typed pre-final
+  Miller product, allocates no memory, and reuses the prepared G2 table already
+  retained for alpha processing. Peach evidence is recorded in
+  `BTX_PREPARED_PAIRING_RANGES_2026-09-03.md`.
 - Batch 5 malformed-input parity is complete. The C++
   public-parameter decoder checks the exact SRS dimension and all encoded
   element counts before allocation. Threshold-request decoding likewise
