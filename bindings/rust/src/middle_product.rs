@@ -462,7 +462,9 @@ impl ScalarMiddleProductWorkspace {
     ///
     /// # Safety
     ///
-    /// `out` must be valid and initialized for `out_len` target-group elements.
+    /// `out` must point to writable storage for `out_len` target-group
+    /// elements. Elements in the addressed range may be uninitialized: this
+    /// call does not read them and initializes all of them on success.
     /// Concurrent output calls must address disjoint ranges of the same output
     /// allocation. The caller must keep the allocation, precompute, and
     /// workspace alive, must have completed all earlier phases, and must
@@ -762,10 +764,11 @@ impl NativeAvxMiddleProductWorkspace {
     ///
     /// # Safety
     ///
-    /// `out` must be valid and initialized for `out_len` `crate::avx::Gt`
-    /// values. Concurrent calls must address disjoint ranges. All earlier
-    /// phases must be complete, and no one-shot evaluation or destruction may
-    /// overlap this call.
+    /// `out` must point to writable storage for `out_len` `crate::avx::Gt`
+    /// values. Elements in the addressed range may be uninitialized: this call
+    /// does not read them and initializes all of them on success. Concurrent
+    /// calls must address disjoint ranges. All earlier phases must be complete,
+    /// and no one-shot evaluation or destruction may overlap this call.
     #[inline]
     pub unsafe fn output_range(
         &self,
@@ -1180,6 +1183,7 @@ pub fn combine(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::mem::MaybeUninit;
 
     fn assert_send_sync<T: Send + Sync>() {}
 
@@ -1197,7 +1201,8 @@ mod tests {
         a: &[blst_p1],
         precomputed: &ScalarMiddleProductPrecomputedB,
         workspace: &ScalarMiddleProductWorkspace,
-        out: &mut [blst_fp12],
+        out: *mut blst_fp12,
+        out_len: usize,
     ) {
         let execute = |phase, stage| {
             let count = precomputed.range_work_count(phase, stage).unwrap();
@@ -1274,12 +1279,7 @@ mod tests {
         execute(MiddleProductRangePhase::Normalization, 0);
         unsafe {
             workspace
-                .output_range(
-                    precomputed,
-                    out.as_mut_ptr(),
-                    out.len(),
-                    0..out.len(),
-                )
+                .output_range(precomputed, out, out_len, 0..out_len)
                 .unwrap();
         }
     }
@@ -1405,10 +1405,50 @@ mod tests {
             &mut expected,
         )
         .unwrap();
-        scalar_ranged_serial(&a, &small, &workspace, &mut ranged);
+        scalar_ranged_serial(
+            &a,
+            &small,
+            &workspace,
+            ranged.as_mut_ptr(),
+            ranged.len(),
+        );
 
         assert_eq!(workspace.capacity(), large.len());
         assert_eq!(ranged, expected);
+    }
+
+    #[test]
+    fn scalar_output_range_initializes_uninitialized_storage() {
+        let g1 = unsafe { *blst_p1_generator() };
+        let g2 = unsafe { *blst_p2_generator() };
+        let precomputed =
+            ScalarMiddleProductPrecomputedB::new(&[g2; 4]).unwrap();
+        let workspace =
+            ScalarMiddleProductWorkspace::new(&precomputed).unwrap();
+        let mut expected_workspace =
+            ScalarMiddleProductWorkspace::new(&precomputed).unwrap();
+        let a = [g1; 2];
+        let mut expected = [zero_fp12(); 2];
+        let mut ranged = [MaybeUninit::<blst_fp12>::uninit(); 2];
+
+        middle_product_scalar_with_workspace(
+            &a,
+            &precomputed,
+            &mut expected_workspace,
+            &mut expected,
+        )
+        .unwrap();
+        scalar_ranged_serial(
+            &a,
+            &precomputed,
+            &workspace,
+            ranged.as_mut_ptr().cast(),
+            ranged.len(),
+        );
+
+        for (actual, expected) in ranged.iter().zip(expected.iter()) {
+            assert_eq!(unsafe { actual.assume_init_ref() }, expected);
+        }
     }
 
     #[test]

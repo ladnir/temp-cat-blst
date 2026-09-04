@@ -70,7 +70,9 @@ typedef enum blst_middle_product_range_phase {
  *
  * Empty ranges are successful no-ops. Invalid phases, stages, ranges, lengths,
  * handles, or workspace capacity return false before the addressed operation
- * writes. A false output-range call does not publish external output. Calls
+ * writes. Output storage need only be writable: an output-range call does not
+ * read the addressed destination elements and initializes all of them on
+ * success. A false output-range call does not publish external output. Calls
  * allocate nothing and are variable-time only with respect to public points,
  * sizes, and schedules. CatBLST retains no cursor, task, cancellation,
  * priority, callback, thread-pool, or phase-order state. Executing phases out
