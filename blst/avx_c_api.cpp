@@ -426,6 +426,12 @@ inline size_t g1_vartime_msm_required_scratch(size_t npoints)
     if (npoints >= 8) {
         return g1_vartime_msm_scratch_bytes<8>;
     }
+    if (npoints >= 4) {
+        return g1_vartime_msm_scratch_bytes<4>;
+    }
+    if (npoints >= 2) {
+        return g1_vartime_msm_scratch_bytes<2>;
+    }
     return 0;
 }
 
@@ -1998,6 +2004,18 @@ bool blst_avx_p1s_mult_fr_vartime(
                 as_avx(points) + offset, scalars + offset, scratch);
             AvxG1::dadd(result, result, chunk);
             offset += 8;
+        }
+        if (npoints - offset >= 4) {
+            const AvxG1 chunk = g1_vartime_msm_batch<4>(
+                as_avx(points) + offset, scalars + offset, scratch);
+            AvxG1::dadd(result, result, chunk);
+            offset += 4;
+        }
+        if (npoints - offset >= 2) {
+            const AvxG1 chunk = g1_vartime_msm_batch<2>(
+                as_avx(points) + offset, scalars + offset, scratch);
+            AvxG1::dadd(result, result, chunk);
+            offset += 2;
         }
         while (offset < npoints) {
             blst_scalar encoded;

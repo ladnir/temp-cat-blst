@@ -399,8 +399,8 @@ TEST(AvxCApiContract, G1PublicMsmDispatchesFromWnafToPippenger)
     EXPECT_TRUE(blst_avx_p1_is_inf(&out));
 
     for (const size_t count : {
-             1u, 7u, 8u, 31u, 32u, 33u, 64u, 96u, 128u, 191u, 192u,
-             193u}) {
+             1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 31u, 32u, 33u, 64u,
+             96u, 128u, 191u, 192u, 193u}) {
         ASSERT_TRUE(blst_avx_p1s_mult_fr_vartime(
             &out, points.data(), scalars.data(), count,
             scratch.data(), available));
@@ -410,6 +410,13 @@ TEST(AvxCApiContract, G1PublicMsmDispatchesFromWnafToPippenger)
     }
 
     const blst_avx_p1 before = *blst_avx_p1_generator();
+    const size_t two_bytes =
+        blst_avx_p1s_mult_fr_vartime_scratch_sizeof(2);
+    ASSERT_GT(two_bytes, 0u);
+    out = before;
+    EXPECT_FALSE(blst_avx_p1s_mult_fr_vartime(
+        &out, points.data(), scalars.data(), 2, nullptr, 0));
+    EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
     const size_t eight_bytes =
         blst_avx_p1s_mult_fr_vartime_scratch_sizeof(8);
     out = before;

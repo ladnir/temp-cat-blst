@@ -212,9 +212,10 @@ bool blst_avx_p1s_mult_ct(
  * Returns caller-owned scratch capacity for public-scalar native G1 MSM.
  *
  * Storage sized for `max_points` supports every input length through that
- * capacity. The selected implementation uses shared-doubling GLV batches for
- * small inputs and Pippenger for larger inputs. Zero means no scratch is
- * needed, or that the requested capacity is not representable.
+ * capacity. The selected implementation uses shared-doubling GLV batches from
+ * two points through the small-input range and Pippenger for larger inputs.
+ * A one-point capacity needs no scratch. Zero otherwise means that the
+ * requested capacity is not representable.
  */
 size_t blst_avx_p1s_mult_fr_vartime_scratch_sizeof(size_t max_points);
 

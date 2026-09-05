@@ -80,9 +80,10 @@ conversion is present in the hot path.
 `blst_avx_p1s_mult_fr_vartime` is the allocation-free public-scalar companion
 to the secret boundary. It accepts resident AVX projective points and reduced
 native Montgomery `blst_fr` scalars. Through 192 points it executes fixed
-32/16/8 shared-doubling GLV wNAF-5 chunks; above 192 it canonicalizes the public
-scalars into caller scratch and invokes projective Pippenger. The result is
-computed locally and published only on success.
+32/16/8/4/2 shared-doubling GLV wNAF-5 chunks; above 192 it canonicalizes the
+public scalars into caller scratch and invokes projective Pippenger. An odd
+single-point tail retains the existing scalar kernel. The result is computed
+locally and published only on success.
 
 `blst_avx_p1s_mult_fr_vartime_scratch_sizeof` is a capacity query: storage for
 `max_points` supports every smaller input. The query accounts for the maximum
@@ -91,6 +92,20 @@ scalar staging when the capacity crosses the large-input path. The C boundary
 checks overflow, 64-byte alignment, exact scratch capacity, pairwise range
 disjointness, and null/empty shape before arithmetic. Release retains the
 documented prevalidated-subgroup precondition; Debug asserts it.
+
+The 2- and 4-point dispatches were added after direct Peach measurements. For
+public native scalars, the 2-point shared-doubling kernel measures 29.85 us
+versus 45.01 us for two independent multiplications, a 33.7% reduction. The
+4-point kernel measures 45.10 us versus 90.77 us, a 50.3% reduction. Their
+12,864-byte and 25,664-byte aligned scratch requirements remain caller-owned;
+no stack or hidden allocation was added to the C boundary.
+
+The widened dispatch passed the 112-test Clang 21 release AVX slice, the 78
+Rust AVX unit tests and two Rust conformance tests, and the focused G1 MSM C++
+contract under combined AddressSanitizer and UndefinedBehaviorSanitizer. The
+sanitizer source set includes the AVX MSM and AVX C-contract suites whenever an
+AVX backend is selected, so these paths remain covered by ordinary sanitizer
+configuration rather than a one-off build.
 
 ## 2026-09-03 prepared-pairing range addendum
 

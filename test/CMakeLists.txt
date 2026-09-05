@@ -138,6 +138,12 @@ if(BLST_ASAN OR BLST_UBSAN)
         "MiddleProduct_c_api_tests.cpp"
         "scalar/Scalar_mult_window_tests.cpp"
     )
+    if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+        list(APPEND TEST_SOURCES
+            "avx/Avx_c_api_contract_tests.cpp"
+            "avx/Avx_msm_tests.cpp"
+        )
+    endif()
 endif()
 
 # Create the single ordinary runtime test executable.

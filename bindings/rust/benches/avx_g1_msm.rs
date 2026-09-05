@@ -28,13 +28,21 @@ fn benchmark_scalars(count: usize) -> Vec<Scalar> {
 
 fn bench_avx_g1_msm(c: &mut Criterion) {
     let generator = G1Projective::generator().expect("native AVX G1 generator");
+    for count in [2usize, 4] {
+        let workspace =
+            G1MsmWorkspace::for_points(count).expect("small MSM workspace");
+        println!(
+            "AVX_G1_MSM_SCRATCH points={count} bytes={}",
+            workspace.capacity_bytes()
+        );
+    }
     let mut group = c.benchmark_group("avx_g1_msm");
     group.sample_size(10);
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(2));
 
     for count in [
-        8usize, 16, 24, 32, 40, 48, 64, 80, 96, 128, 160, 192, 224, 256,
+        2usize, 4, 8, 16, 24, 32, 40, 48, 64, 80, 96, 128, 160, 192, 224, 256,
     ] {
         let point_scalars = benchmark_scalars(count);
         let points = point_scalars

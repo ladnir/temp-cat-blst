@@ -2886,8 +2886,8 @@ mod tests {
 
         let mut workspace = G1MsmWorkspace::for_points(points.len()).unwrap();
         for count in [
-            1usize, 7, 8, 15, 16, 24, 31, 32, 33, 63, 64, 95, 96, 127, 128,
-            191, 192, 193, 224, 256, 257,
+            1usize, 2, 3, 4, 5, 6, 7, 8, 15, 16, 24, 31, 32, 33, 63, 64, 95,
+            96, 127, 128, 191, 192, 193, 224, 256, 257,
         ] {
             let mut actual = G1Projective::identity().unwrap();
             workspace
@@ -2905,13 +2905,13 @@ mod tests {
             })
         );
 
-        let mut undersized = G1MsmWorkspace::for_points(7).unwrap();
+        let mut undersized = G1MsmWorkspace::for_points(1).unwrap();
         let available = undersized.capacity_bytes();
         let required =
-            unsafe { blst_avx_p1s_mult_fr_vartime_scratch_sizeof(8) };
+            unsafe { blst_avx_p1s_mult_fr_vartime_scratch_sizeof(2) };
         assert!(available < required);
         assert_eq!(
-            undersized.msm_into(&mut out, &points[..8], &scalars[..8]),
+            undersized.msm_into(&mut out, &points[..2], &scalars[..2]),
             Err(Error::ScratchTooSmall {
                 required,
                 available,

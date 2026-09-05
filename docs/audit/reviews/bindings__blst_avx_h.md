@@ -92,7 +92,9 @@ functions. `blst_avx_p1s_mult_fr_vartime` explicitly restricts its resident
 allocation freedom, scratch alignment and disjointness, empty input, and
 failure atomicity. Its matching capacity query documents that the algorithm
 may select shared-doubling GLV wNAF or Pippenger without exposing that policy as
-a caller-visible representation change.
+a caller-visible representation change. The shared-doubling path now begins at
+two points. One-point MSM needs no scratch; callers must query and provide the
+nonzero aligned requirement for every larger supported count.
 
 ## 2026-09-04 alpha-pairing range addendum
 
