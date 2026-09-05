@@ -654,6 +654,15 @@ class GLSMult {
     using FP2RingType = FP2Ring<Ring>;
     using ProjectivePoint = typename G2Curve::ProjPoint;
 
+    template<int batch_size>
+    using BatchWnafDigits =
+        std::array<std::array<int8_t, 65>, 4 * batch_size>;
+
+    template<int batch_size, int width=4>
+    using BatchWnafTables = std::array<
+        std::array<ProjectivePoint, size_t{1} << (width - 2)>,
+        4 * batch_size>;
+
     typename Ring::StandardElement psi_x_i;
     typename Ring::StandardElement psi_y_r;
     typename Ring::StandardElement psi_y_i;
@@ -781,6 +790,98 @@ class GLSMult {
             }
         }
         blst::vec_zero(digits, sizeof(digits));
+        return result;
+    }
+
+    /**
+     * Variable-time fixed-batch G2 MSM for public scalars.
+     *
+     * Each scalar is split into four GLS components. Point tables and signed
+     * digits are caller-owned so the large fixed-batch state never occupies
+     * a function stack frame. All components share one 64-bit doubling
+     * schedule. `SK` contains `batch_size` consecutive canonical 32-byte
+     * little-endian scalars. The function allocates nothing.
+     */
+    template<int batch_size, int width=4>
+    ProjectivePoint multiply_batch_vartime(
+        const ProjectivePoint* P,
+        const uint8_t* SK,
+        const FP2RingType& fp2ring,
+        const G2Curve& curve,
+        const Ring& ring,
+        BatchWnafDigits<batch_size>& digits,
+        BatchWnafTables<batch_size, width>& tables) const
+    {
+        static_assert(batch_size > 1);
+        static_assert(width >= 4 && width <= 6);
+        constexpr size_t table_size = size_t{1} << (width - 2);
+        constexpr int component_count = 4 * batch_size;
+        size_t used = 0;
+
+        for (int i = 0; i < batch_size; ++i) {
+            std::array<uint8_t, 32> scalar_bytes;
+            std::memcpy(
+                scalar_bytes.data(), SK + 32 * i, scalar_bytes.size());
+            const auto [low128, high128] = div_by_zz(scalar_bytes);
+            const auto [d0, d1] = div_by_z(low128);
+            const auto [d2, d3] = div_by_z(high128);
+            const std::array<const uint8_t*, 4> scalar_digits = {
+                d0.data(), d1.data(), d2.data(), d3.data()};
+            for (size_t component = 0; component < 4; ++component) {
+                const size_t count =
+                    blst::scalar::recode_wnaf_vartime<64, width>(
+                        digits[4 * i + component].data(),
+                        scalar_digits[component]);
+                BLST_ASSERT(count <= 65);
+                used = std::max(used, count);
+            }
+
+            const ProjectivePoint twice = curve.double_point(P[i], fp2ring);
+            tables[4 * i][0] = P[i];
+            for (size_t j = 1; j < table_size; ++j) {
+                tables[4 * i][j] =
+                    curve.add_point(tables[4 * i][j - 1], twice, fp2ring);
+            }
+            for (size_t j = 0; j < table_size; ++j) {
+                tables[4 * i + 1][j] = minus_psi(tables[4 * i][j], ring);
+                tables[4 * i + 2][j] =
+                    minus_psi(tables[4 * i + 1][j], ring);
+                tables[4 * i + 3][j] =
+                    minus_psi(tables[4 * i + 2][j], ring);
+            }
+        }
+
+        ProjectivePoint result = curve.zero(fp2ring);
+        bool started = false;
+        for (size_t position = used; position != 0;) {
+            --position;
+            if (started) {
+                result = curve.double_point(result, fp2ring);
+            }
+            for (int component = 0; component < component_count; ++component) {
+                const int digit = digits[component][position];
+                if (digit == 0) {
+                    continue;
+                }
+                const unsigned magnitude = digit < 0
+                    ? static_cast<unsigned>(-digit)
+                    : static_cast<unsigned>(digit);
+                BLST_ASSERT((magnitude & 1U) != 0);
+                BLST_ASSERT((magnitude >> 1) < table_size);
+                ProjectivePoint row = tables[component][magnitude >> 1];
+                if (digit < 0) {
+                    row.y = fp2ring.standard_negate(row.y);
+                }
+                if (!started) {
+                    result = row;
+                    started = true;
+                }
+                else {
+                    result = curve.add_point(result, row, fp2ring);
+                }
+            }
+        }
+        blst::vec_zero(&digits, sizeof(digits));
         return result;
     }
 

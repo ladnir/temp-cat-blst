@@ -367,7 +367,11 @@ constexpr int kG1CtMsmMaxBatch = 32;
 // points. At 224 points it is statistically tied with Pippenger, whose
 // asymptotic scaling is better.
 constexpr size_t kG1VartimeSharedDoublingMaxPoints = 192;
+constexpr size_t kG2VartimeSharedDoublingMaxPoints = 32;
 using G1CtMsmGlv = blst::avx::avx_curve_detail::CurveG1GLV;
+using G2VartimeMsmGls = blst::avx::avx_curve_detail::CurveG2GLS;
+using G2VartimeRawPoint =
+    blst::avx::avx_curve_detail::CurveG2::ProjPoint;
 
 template<int Batch>
 using G1CtMsmScalars = G1CtMsmGlv::BatchScalars<Batch>;
@@ -382,12 +386,27 @@ template<int Batch>
 using G1VartimeMsmTables = G1CtMsmGlv::BatchWnafTables<Batch>;
 
 template<int Batch>
+using G2VartimeMsmPoints = std::array<G2VartimeRawPoint, Batch>;
+
+template<int Batch>
+using G2VartimeMsmDigits = G2VartimeMsmGls::BatchWnafDigits<Batch>;
+
+template<int Batch>
+using G2VartimeMsmTables = G2VartimeMsmGls::BatchWnafTables<Batch>;
+
+template<int Batch>
 constexpr size_t g1_ct_msm_scratch_bytes =
     sizeof(G1CtMsmTables<Batch>) + sizeof(G1CtMsmScalars<Batch>);
 
 template<int Batch>
 constexpr size_t g1_vartime_msm_scratch_bytes =
     sizeof(G1VartimeMsmTables<Batch>) + sizeof(G1VartimeMsmDigits<Batch>);
+
+template<int Batch>
+constexpr size_t g2_vartime_msm_scratch_bytes =
+    sizeof(G2VartimeMsmPoints<Batch>) +
+    sizeof(G2VartimeMsmTables<Batch>) +
+    sizeof(G2VartimeMsmDigits<Batch>);
 
 static_assert(alignof(G1CtMsmTables<kG1CtMsmMaxBatch>) <= BLST_AVX_ALIGNMENT);
 static_assert(sizeof(G1CtMsmTables<kG1CtMsmMaxBatch>) %
@@ -400,6 +419,11 @@ static_assert(alignof(G1VartimeMsmTables<kG1CtMsmMaxBatch>) <=
     BLST_AVX_ALIGNMENT);
 static_assert(sizeof(G1VartimeMsmTables<kG1CtMsmMaxBatch>) %
     alignof(G1VartimeMsmDigits<kG1CtMsmMaxBatch>) == 0);
+static_assert(alignof(G2VartimeMsmPoints<16>) <= BLST_AVX_ALIGNMENT);
+static_assert(sizeof(G2VartimeMsmPoints<16>) %
+    alignof(G2VartimeMsmTables<16>) == 0);
+static_assert(sizeof(G2VartimeMsmTables<16>) %
+    alignof(G2VartimeMsmDigits<16>) == 0);
 
 inline size_t g1_ct_msm_required_scratch(size_t npoints)
 {
@@ -431,6 +455,32 @@ inline size_t g1_vartime_msm_required_scratch(size_t npoints)
     }
     if (npoints >= 2) {
         return g1_vartime_msm_scratch_bytes<2>;
+    }
+    return 0;
+}
+
+inline size_t g2_vartime_msm_required_scratch(size_t npoints)
+{
+    if (npoints >= 16) {
+        return g2_vartime_msm_scratch_bytes<16>;
+    }
+    if (npoints >= 12) {
+        return g2_vartime_msm_scratch_bytes<12>;
+    }
+    if (npoints >= 8) {
+        return g2_vartime_msm_scratch_bytes<8>;
+    }
+    if (npoints >= 6) {
+        return g2_vartime_msm_scratch_bytes<6>;
+    }
+    if (npoints >= 4) {
+        return g2_vartime_msm_scratch_bytes<4>;
+    }
+    if (npoints >= 3) {
+        return g2_vartime_msm_scratch_bytes<3>;
+    }
+    if (npoints >= 2) {
+        return g2_vartime_msm_scratch_bytes<2>;
     }
     return 0;
 }
@@ -486,6 +536,34 @@ inline AvxG1 g1_vartime_msm_batch(
     const auto raw = blst::avx::avx_curve_detail::curve_g1_glv()
         .template multiply_batch_vartime<Batch>(
             raw_points.data(), scalar_bytes.data(),
+            blst::avx::avx_curve_detail::curve_ring(),
+            *digits, *tables);
+    return {raw.x, raw.y, raw.z};
+}
+
+template<int Batch>
+inline AvxG2 g2_vartime_msm_batch(
+    const AvxG2* points,
+    const byte* scalars,
+    void* scratch)
+{
+    auto* raw_points =
+        ::new (scratch) G2VartimeMsmPoints<Batch>;
+    auto* tables = ::new (
+        static_cast<byte*>(scratch) + sizeof(G2VartimeMsmPoints<Batch>))
+        G2VartimeMsmTables<Batch>;
+    auto* digits = ::new (
+        static_cast<byte*>(scratch) + sizeof(G2VartimeMsmPoints<Batch>) +
+        sizeof(G2VartimeMsmTables<Batch>))
+        G2VartimeMsmDigits<Batch>;
+    for (int i = 0; i < Batch; ++i) {
+        (*raw_points)[i] = {points[i].X, points[i].Y, points[i].Z};
+    }
+    const auto raw = blst::avx::avx_curve_detail::curve_g2_gls()
+        .template multiply_batch_vartime<Batch>(
+            raw_points->data(), scalars,
+            blst::avx::avx_curve_detail::curve_fp2_ring(),
+            blst::avx::avx_curve_detail::curve_g2(),
             blst::avx::avx_curve_detail::curve_ring(),
             *digits, *tables);
     return {raw.x, raw.y, raw.z};
@@ -2354,6 +2432,194 @@ bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar
 #endif
 }
 
+bool blst_avx_p2_mult_fr_vartime(
+    blst_avx_p2* out,
+    const blst_avx_p2* p,
+    const blst_fr* scalar)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || p == nullptr || scalar == nullptr) {
+        return false;
+    }
+#ifndef NDEBUG
+    BLST_ASSERT(AvxG2::on_curve(*as_avx(p)));
+    BLST_ASSERT(AvxG2::in_subgroup(*as_avx(p)));
+#endif
+    blst_scalar encoded;
+    blst_scalar_from_fr(&encoded, scalar);
+    AvxG2 result;
+    AvxG2::mult_vartime(result, *as_avx(p), encoded.b, 255);
+    *as_avx(out) = result;
+    return true;
+#else
+    (void)out;
+    (void)p;
+    (void)scalar;
+    return false;
+#endif
+}
+
+size_t blst_avx_p2s_mult_fr_vartime_scratch_sizeof(size_t max_points)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (max_points <= 1) {
+        return 0;
+    }
+    const size_t shared_doubling_bytes =
+        g2_vartime_msm_required_scratch(std::min(
+            max_points, kG2VartimeSharedDoublingMaxPoints));
+    size_t algorithm_bytes = shared_doubling_bytes;
+    if (max_points > kG2VartimeSharedDoublingMaxPoints) {
+        const size_t pippenger_bytes =
+            blst_avx_p2s_mult_pippenger_scratch_sizeof(max_points);
+        if (pippenger_bytes == 0) {
+            return 0;
+        }
+        algorithm_bytes = std::max(shared_doubling_bytes, pippenger_bytes);
+    }
+    size_t scalar_bytes = 0;
+    size_t total_bytes = 0;
+    if (algorithm_bytes == 0 ||
+        !blst::avx::avx_msm_detail::checked_mul_size(
+            max_points, size_t{32}, scalar_bytes) ||
+        !checked_add_size(algorithm_bytes, scalar_bytes, total_bytes)) {
+        return 0;
+    }
+    return total_bytes;
+#else
+    (void)max_points;
+    return 0;
+#endif
+}
+
+bool blst_avx_p2s_mult_fr_vartime(
+    blst_avx_p2* out,
+    const blst_avx_p2* points,
+    const blst_fr* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr ||
+        (npoints != 0 && (points == nullptr || scalars == nullptr))) {
+        return false;
+    }
+    if (npoints == 0) {
+        *as_avx(out) = AvxG2::identity();
+        return true;
+    }
+    if (npoints == 1) {
+        return blst_avx_p2_mult_fr_vartime(out, points, scalars);
+    }
+
+    const size_t algorithm_bytes =
+        npoints <= kG2VartimeSharedDoublingMaxPoints
+        ? g2_vartime_msm_required_scratch(npoints)
+        : blst_avx_p2s_mult_pippenger_scratch_sizeof(npoints);
+    const size_t required_scratch =
+        blst_avx_p2s_mult_fr_vartime_scratch_sizeof(npoints);
+    size_t point_bytes = 0;
+    size_t scalar_input_bytes = 0;
+    if (required_scratch == 0 || scratch == nullptr ||
+        scratch_bytes < required_scratch ||
+        !is_aligned(scratch, BLST_AVX_ALIGNMENT) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(
+            npoints, sizeof(AvxG2), point_bytes) ||
+        !blst::avx::avx_msm_detail::checked_mul_size(
+            npoints, sizeof(blst_fr), scalar_input_bytes) ||
+        !byte_ranges_are_disjoint<4>(
+            {out, points, scalars, scratch},
+            {sizeof(AvxG2), point_bytes, scalar_input_bytes,
+             required_scratch})) {
+        return false;
+    }
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i) {
+        BLST_ASSERT(AvxG2::on_curve(as_avx(points)[i]));
+        BLST_ASSERT(AvxG2::in_subgroup(as_avx(points)[i]));
+    }
+#endif
+
+    byte* canonical = static_cast<byte*>(scratch) + algorithm_bytes;
+    for (size_t i = 0; i < npoints; ++i) {
+        blst_scalar encoded;
+        blst_scalar_from_fr(&encoded, &scalars[i]);
+        std::memcpy(canonical + 32 * i, encoded.b, sizeof(encoded.b));
+    }
+    AvxG2 result = AvxG2::identity();
+    bool succeeded = true;
+    if (npoints <= kG2VartimeSharedDoublingMaxPoints) {
+        size_t offset = 0;
+        while (npoints - offset >= 16) {
+            const AvxG2 chunk = g2_vartime_msm_batch<16>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 16;
+        }
+        if (npoints - offset >= 12) {
+            const AvxG2 chunk = g2_vartime_msm_batch<12>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 12;
+        }
+        if (npoints - offset >= 8) {
+            const AvxG2 chunk = g2_vartime_msm_batch<8>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 8;
+        }
+        if (npoints - offset >= 6) {
+            const AvxG2 chunk = g2_vartime_msm_batch<6>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 6;
+        }
+        if (npoints - offset >= 4) {
+            const AvxG2 chunk = g2_vartime_msm_batch<4>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 4;
+        }
+        if (npoints - offset >= 3) {
+            const AvxG2 chunk = g2_vartime_msm_batch<3>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 3;
+        }
+        if (npoints - offset >= 2) {
+            const AvxG2 chunk = g2_vartime_msm_batch<2>(
+                as_avx(points) + offset, canonical + 32 * offset, scratch);
+            AvxG2::dadd(result, result, chunk);
+            offset += 2;
+        }
+        if (offset < npoints) {
+            AvxG2 tail;
+            AvxG2::mult_vartime(
+                tail, as_avx(points)[offset], canonical + 32 * offset, 255);
+            AvxG2::dadd(result, result, tail);
+        }
+    }
+    else {
+        succeeded = g2_pippenger(
+            result, as_avx(points), npoints, canonical, 256,
+            static_cast<blst::limb_t*>(scratch));
+    }
+    if (succeeded) {
+        *as_avx(out) = result;
+    }
+    return succeeded;
+#else
+    (void)out;
+    (void)points;
+    (void)scalars;
+    (void)npoints;
+    (void)scratch;
+    (void)scratch_bytes;
+    return false;
+#endif
+}
+
 size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -3041,6 +3307,33 @@ bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_
     (void)out;
     (void)g1;
     (void)g2;
+    return false;
+#endif
+}
+
+bool blst_avx_miller_loop_n(
+    blst_avx_fp12* out,
+    const blst_avx_p1_affine* g1,
+    const blst_avx_p2_affine* g2,
+    size_t n)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || (n != 0 && (g1 == nullptr || g2 == nullptr))) {
+        return false;
+    }
+    AvxMillerResult miller = {};
+    AvxGt::miller_loop_n(
+        miller,
+        reinterpret_cast<const AvxG2Affine*>(g2),
+        reinterpret_cast<const AvxG1Affine*>(g1),
+        n);
+    as_avx(out)->data = miller.data;
+    return true;
+#else
+    (void)out;
+    (void)g1;
+    (void)g2;
+    (void)n;
     return false;
 #endif
 }

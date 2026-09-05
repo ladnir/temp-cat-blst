@@ -702,6 +702,27 @@ impl G2Projective {
         }
     }
 
+    /// Multiplies by a public typed scalar using the variable-time G2 path.
+    ///
+    /// The point must retain the safe type's G2 subgroup invariant. `scalar`
+    /// must be public: the native kernel branches and indexes tables as a
+    /// function of its value. The reduced Montgomery-form scalar crosses the
+    /// C boundary directly, and the operation allocates nothing.
+    pub fn multiply_vartime(&self, scalar: &Scalar) -> Result<Self, Error> {
+        let mut out = MaybeUninit::<blst_avx_p2>::uninit();
+        if unsafe {
+            blst_avx_p2_mult_fr_vartime(
+                out.as_mut_ptr(),
+                &self.0,
+                scalar.as_raw(),
+            )
+        } {
+            Ok(Self(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
+
     /// Adds two validated G2 points without allocating.
     pub fn add(&self, other: &Self) -> Result<Self, Error> {
         let mut out = MaybeUninit::<blst_avx_p2>::uninit();
@@ -1472,6 +1493,32 @@ impl PairingWorkspace {
             Err(Error::BackendFailure)
         }
     }
+
+    /// Evaluates the product of all staged Miller loops without final
+    /// exponentiation and without allocating.
+    ///
+    /// All staged points were converted from validated native subgroup
+    /// wrappers by [`Self::push`]. An empty workspace returns the Miller
+    /// multiplicative identity. Timing may depend on the public point
+    /// identities and staged length.
+    pub fn evaluate_miller(&self) -> Result<MillerLoopResult, Error> {
+        if self.g1.len() != self.g2.len() {
+            return Err(Error::BackendFailure);
+        }
+        let mut out = MaybeUninit::<blst_avx_fp12>::uninit();
+        let (g1, g2) = if self.g1.is_empty() {
+            (ptr::null(), ptr::null())
+        } else {
+            (self.g1.as_ptr(), self.g2.as_ptr())
+        };
+        if unsafe {
+            blst_avx_miller_loop_n(out.as_mut_ptr(), g1, g2, self.g1.len())
+        } {
+            Ok(MillerLoopResult(unsafe { out.assume_init() }))
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
 }
 
 #[repr(C, align(64))]
@@ -1482,6 +1529,85 @@ struct AlignedScratchBlock([u8; SCRATCH_ALIGNMENT]);
 #[derive(Debug)]
 pub struct G1MsmWorkspace {
     scratch: Vec<MaybeUninit<AlignedScratchBlock>>,
+}
+
+/// Caller-owned, reusable scratch for public-scalar native G2 MSM.
+#[derive(Debug)]
+pub struct G2MsmWorkspace {
+    scratch: Vec<MaybeUninit<AlignedScratchBlock>>,
+}
+
+impl G2MsmWorkspace {
+    /// Allocates fixed aligned scratch for every input length through
+    /// `max_points`. Construction belongs outside the arithmetic hot path.
+    pub fn for_points(max_points: usize) -> Result<Self, Error> {
+        ensure_available()?;
+        let required =
+            unsafe { blst_avx_p2s_mult_fr_vartime_scratch_sizeof(max_points) };
+        if max_points > 1 && required == 0 {
+            return Err(Error::AllocationFailed);
+        }
+        let blocks = required.div_ceil(SCRATCH_ALIGNMENT);
+        let mut scratch = Vec::new();
+        scratch
+            .try_reserve_exact(blocks)
+            .map_err(|_| Error::AllocationFailed)?;
+        scratch.resize_with(blocks, MaybeUninit::uninit);
+        Ok(Self { scratch })
+    }
+
+    /// Returns reusable aligned scratch capacity in bytes.
+    pub fn capacity_bytes(&self) -> usize {
+        self.scratch.len() * SCRATCH_ALIGNMENT
+    }
+
+    /// Computes a variable-time MSM over validated G2 points and public
+    /// reduced scalars, without allocating.
+    pub fn msm_into(
+        &mut self,
+        out: &mut G2Projective,
+        points: &[G2Projective],
+        scalars: &[Scalar],
+    ) -> Result<(), Error> {
+        if points.len() != scalars.len() {
+            return Err(Error::MsmLengthMismatch {
+                points: points.len(),
+                scalars: scalars.len(),
+            });
+        }
+        if points.is_empty() {
+            return Err(Error::EmptyMsm);
+        }
+        let required = unsafe {
+            blst_avx_p2s_mult_fr_vartime_scratch_sizeof(points.len())
+        };
+        let available = self.capacity_bytes();
+        if available < required {
+            return Err(Error::ScratchTooSmall {
+                required,
+                available,
+            });
+        }
+        let scratch = if self.scratch.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.scratch.as_mut_ptr().cast::<core::ffi::c_void>()
+        };
+        if unsafe {
+            blst_avx_p2s_mult_fr_vartime(
+                &mut out.0,
+                G2Projective::as_raw_slice(points).as_ptr(),
+                scalars.as_ptr().cast::<blst_fr>(),
+                points.len(),
+                scratch,
+                available,
+            )
+        } {
+            Ok(())
+        } else {
+            Err(Error::BackendFailure)
+        }
+    }
 }
 
 impl G1MsmWorkspace {
@@ -1833,9 +1959,7 @@ extern "C" {
         width: usize,
         shift: *const blst_avx_p1,
     ) -> bool;
-    pub fn blst_avx_p1_batch_subgroup_challenge_sizeof(
-        count: usize,
-    ) -> usize;
+    pub fn blst_avx_p1_batch_subgroup_challenge_sizeof(count: usize) -> usize;
     pub fn blst_avx_p1_batch_subgroup_challenge_init(
         coefficients: *mut blst_byte,
         coefficient_bytes: usize,
@@ -1907,6 +2031,22 @@ extern "C" {
         p: *const blst_avx_p2,
         scalar: *const blst_byte,
         nbits: usize,
+    ) -> bool;
+    pub fn blst_avx_p2_mult_fr_vartime(
+        out: *mut blst_avx_p2,
+        p: *const blst_avx_p2,
+        scalar: *const blst_fr,
+    ) -> bool;
+    pub fn blst_avx_p2s_mult_fr_vartime_scratch_sizeof(
+        max_points: usize,
+    ) -> usize;
+    pub fn blst_avx_p2s_mult_fr_vartime(
+        out: *mut blst_avx_p2,
+        points: *const blst_avx_p2,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p2_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(
@@ -2027,6 +2167,12 @@ extern "C" {
         out: *mut blst_avx_fp12,
         g1: *const blst_avx_p1,
         g2: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_miller_loop_n(
+        out: *mut blst_avx_fp12,
+        g1: *const blst_avx_p1_affine,
+        g2: *const blst_avx_p2_affine,
+        n: usize,
     ) -> bool;
     pub fn blst_avx_gt_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(
@@ -2796,6 +2942,152 @@ mod tests {
     }
 
     #[test]
+    fn typed_public_g2_multiply_matches_constant_time_result() {
+        if !is_available() {
+            return;
+        }
+
+        let point = G2Projective::generator().unwrap();
+        for scalar in [Scalar::ZERO, Scalar::ONE, Scalar::from(0x1234_5678u64)]
+        {
+            assert_eq!(
+                point.multiply_vartime(&scalar).unwrap(),
+                point.multiply(&scalar).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn typed_public_g2_msm_matches_individual_products() {
+        if !is_available() {
+            return;
+        }
+
+        let generator = G2Projective::generator().unwrap();
+        let points = (1u64..=33)
+            .map(|factor| generator.multiply(&Scalar::from(factor)).unwrap())
+            .collect::<Vec<_>>();
+        let scalars = (34u64..=66).map(Scalar::from).collect::<Vec<_>>();
+        let mut workspace = G2MsmWorkspace::for_points(points.len()).unwrap();
+        for count in [1usize, 2, 3, 4, 6, 8, 12, 16, 17, 31, 32, 33] {
+            let mut expected = G2Projective::identity().unwrap();
+            for (point, scalar) in points[..count].iter().zip(&scalars[..count])
+            {
+                expected = expected
+                    .add(&point.multiply_vartime(scalar).unwrap())
+                    .unwrap();
+            }
+            let mut actual = G2Projective::identity().unwrap();
+            workspace
+                .msm_into(&mut actual, &points[..count], &scalars[..count])
+                .unwrap();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn typed_public_g2_msm_rejects_invalid_shape_and_capacity() {
+        if !is_available() {
+            return;
+        }
+
+        let points = vec![G2Projective::generator().unwrap(); 2];
+        let scalars = vec![Scalar::ONE; 2];
+        let mut out = G2Projective::identity().unwrap();
+        let mut workspace = G2MsmWorkspace::for_points(1).unwrap();
+
+        assert_eq!(
+            workspace.msm_into(&mut out, &points[..1], &scalars[..0]),
+            Err(Error::MsmLengthMismatch {
+                points: 1,
+                scalars: 0,
+            })
+        );
+        assert_eq!(
+            workspace.msm_into(&mut out, &points[..0], &scalars[..0]),
+            Err(Error::EmptyMsm)
+        );
+        let required =
+            unsafe { blst_avx_p2s_mult_fr_vartime_scratch_sizeof(2) };
+        assert_eq!(
+            workspace.msm_into(&mut out, &points, &scalars),
+            Err(Error::ScratchTooSmall {
+                required,
+                available: 0,
+            })
+        );
+        assert!(matches!(
+            G2MsmWorkspace::for_points(usize::MAX),
+            Err(Error::AllocationFailed)
+        ));
+    }
+
+    #[test]
+    #[ignore = "Peach AVX-512 public G2 MSM crossover benchmark"]
+    fn bench_public_g2_msm_crossover() {
+        if !is_available() {
+            return;
+        }
+
+        use std::time::Instant;
+
+        const REPETITIONS: usize = 100;
+        const SAMPLES: usize = 21;
+        let generator = G2Projective::generator().unwrap();
+        let points = (1u64..=16)
+            .map(|factor| generator.multiply(&Scalar::from(factor)).unwrap())
+            .collect::<Vec<_>>();
+        let scalars = (0..16)
+            .map(|index| {
+                Scalar::from(
+                    0x9e37_79b9_7f4a_7c15u64.wrapping_mul(index as u64 + 1),
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut workspace = G2MsmWorkspace::for_points(points.len()).unwrap();
+
+        println!("CATBLST_G2_MSM count,separate_ns,msm_ns,ratio");
+        for count in [2usize, 3, 4, 6, 8, 12, 16] {
+            let mut separate = Vec::with_capacity(SAMPLES);
+            let mut msm = Vec::with_capacity(SAMPLES);
+            for _ in 0..SAMPLES {
+                let started = Instant::now();
+                for _ in 0..REPETITIONS {
+                    let mut out = G2Projective::identity().unwrap();
+                    for (point, scalar) in
+                        points[..count].iter().zip(&scalars[..count])
+                    {
+                        out = out
+                            .add(&point.multiply_vartime(scalar).unwrap())
+                            .unwrap();
+                    }
+                    std::hint::black_box(out);
+                }
+                separate
+                    .push(started.elapsed().as_nanos() / REPETITIONS as u128);
+
+                let started = Instant::now();
+                for _ in 0..REPETITIONS {
+                    let mut out = G2Projective::identity().unwrap();
+                    workspace
+                        .msm_into(&mut out, &points[..count], &scalars[..count])
+                        .unwrap();
+                    std::hint::black_box(out);
+                }
+                msm.push(started.elapsed().as_nanos() / REPETITIONS as u128);
+            }
+            separate.sort_unstable();
+            msm.sort_unstable();
+            let separate = separate[SAMPLES / 2];
+            let msm = msm[SAMPLES / 2];
+            println!(
+                "CATBLST_G2_MSM {count},{separate},{msm},{:.4}",
+                msm as f64 / separate as f64
+            );
+        }
+    }
+
+    #[test]
     fn typed_workspaces_reuse_fixed_capacity() {
         if !is_available() {
             return;
@@ -2815,6 +3107,14 @@ mod tests {
         );
         pairing.clear();
         pairing.push(&g1, &g2).unwrap();
+        assert_eq!(
+            pairing
+                .evaluate_miller()
+                .unwrap()
+                .final_exponentiation()
+                .unwrap(),
+            Gt::pairing(&g1, &g2).unwrap()
+        );
 
         let mut msm = G1MsmWorkspace::for_points(1).unwrap();
         let capacity = msm.capacity_bytes();

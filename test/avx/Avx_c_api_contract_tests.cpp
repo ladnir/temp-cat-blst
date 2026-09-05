@@ -640,6 +640,155 @@ TEST(AvxCApiContract, G2SubgroupMsmHasOneContractAcrossPointCounts)
     EXPECT_TRUE(G2::equal(result, expected_pair));
 }
 
+TEST(AvxCApiContract, G2PublicScalarMultiplicationUsesNativeFr)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    const uint64_t words[4] = {0x123456789abcdef0ULL, 7, 0, 0};
+    blst_fr scalar = {};
+    blst_fr_from_uint64(&scalar, words);
+    blst_scalar encoded = {};
+    blst_scalar_from_fr(&encoded, &scalar);
+
+    blst_avx_p2 expected = {};
+    ASSERT_TRUE(blst_avx_p2_mult(
+        &expected, blst_avx_p2_generator(), encoded.b, 255));
+    blst_avx_p2 actual = {};
+    ASSERT_TRUE(blst_avx_p2_mult_fr_vartime(
+        &actual, blst_avx_p2_generator(), &scalar));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&actual, &expected));
+
+    blst_avx_p2 aliased = *blst_avx_p2_generator();
+    ASSERT_TRUE(blst_avx_p2_mult_fr_vartime(
+        &aliased, &aliased, &scalar));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&aliased, &expected));
+
+    const blst_avx_p2 before = actual;
+    EXPECT_FALSE(blst_avx_p2_mult_fr_vartime(nullptr, &actual, &scalar));
+    EXPECT_FALSE(blst_avx_p2_mult_fr_vartime(&actual, nullptr, &scalar));
+    EXPECT_FALSE(blst_avx_p2_mult_fr_vartime(&actual, &actual, nullptr));
+    EXPECT_EQ(std::memcmp(&actual, &before, sizeof(actual)), 0);
+}
+
+TEST(AvxCApiContract, G2PublicMsmUsesNativeFrAndCallerScratch)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    constexpr size_t max_count = 33;
+    std::array<blst_avx_p2, max_count> points = {};
+    std::array<blst_fr, max_count> scalars = {};
+    for (size_t i = 0; i < max_count; ++i) {
+        const uint64_t words[4] = {i + 1, 0, 0, 0};
+        blst_fr_from_uint64(&scalars[i], words);
+        blst_fr point_scalar = {};
+        const uint64_t point_words[4] = {2 * i + 1, 0, 0, 0};
+        blst_fr_from_uint64(&point_scalar, point_words);
+        ASSERT_TRUE(blst_avx_p2_mult_fr_vartime(
+            &points[i], blst_avx_p2_generator(), &point_scalar));
+    }
+
+    blst_avx_p2 empty = {};
+    ASSERT_TRUE(blst_avx_p2s_mult_fr_vartime(
+        &empty, nullptr, nullptr, 0, nullptr, 0));
+    blst_avx_p2 identity = {};
+    ASSERT_TRUE(blst_avx_p2_identity(&identity));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&empty, &identity));
+
+    blst_avx_p2 aliased = points[0];
+    ASSERT_TRUE(blst_avx_p2s_mult_fr_vartime(
+        &aliased, &aliased, scalars.data(), 1, nullptr, 0));
+    blst_avx_p2 one_expected = {};
+    ASSERT_TRUE(blst_avx_p2_mult_fr_vartime(
+        &one_expected, &points[0], &scalars[0]));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&aliased, &one_expected));
+
+    for (const size_t count :
+         {2u, 3u, 4u, 6u, 8u, 12u, 16u, 17u, 31u, 32u, 33u}) {
+        blst_avx_p2 expected = {};
+        ASSERT_TRUE(blst_avx_p2_identity(&expected));
+        for (size_t i = 0; i < count; ++i) {
+            blst_avx_p2 term = {};
+            ASSERT_TRUE(blst_avx_p2_mult_fr_vartime(
+                &term, &points[i], &scalars[i]));
+            ASSERT_TRUE(blst_avx_p2_add(&expected, &expected, &term));
+        }
+
+        const size_t scratch_bytes =
+            blst_avx_p2s_mult_fr_vartime_scratch_sizeof(count);
+        ASSERT_GT(scratch_bytes, 0u) << count;
+        std::vector<blst_avx_p2> scratch(
+            (scratch_bytes + sizeof(blst_avx_p2) - 1) /
+            sizeof(blst_avx_p2));
+        blst_avx_p2 actual = {};
+        ASSERT_TRUE(blst_avx_p2s_mult_fr_vartime(
+            &actual, points.data(), scalars.data(), count,
+            scratch.data(), scratch.size() * sizeof(blst_avx_p2))) << count;
+        EXPECT_TRUE(blst_avx_p2_is_equal(&actual, &expected)) << count;
+    }
+
+    constexpr size_t failure_count = 12;
+    const size_t scratch_bytes =
+        blst_avx_p2s_mult_fr_vartime_scratch_sizeof(failure_count);
+    std::vector<blst_avx_p2> scratch(
+        (scratch_bytes + sizeof(blst_avx_p2) - 1) /
+        sizeof(blst_avx_p2));
+    blst_avx_p2 actual = points[0];
+    const blst_avx_p2 before = actual;
+    EXPECT_FALSE(blst_avx_p2s_mult_fr_vartime(
+        &actual, points.data(), scalars.data(), failure_count,
+        nullptr, scratch_bytes));
+    EXPECT_FALSE(blst_avx_p2s_mult_fr_vartime(
+        &actual, points.data(), scalars.data(), failure_count,
+        scratch.data(), scratch_bytes - 1));
+    EXPECT_FALSE(blst_avx_p2s_mult_fr_vartime(
+        &actual, points.data(), scalars.data(), failure_count,
+        reinterpret_cast<unsigned char*>(scratch.data()) + 1,
+        scratch.size() * sizeof(blst_avx_p2) - 1));
+    EXPECT_EQ(std::memcmp(&actual, &before, sizeof(actual)), 0);
+
+    scratch[0] = before;
+    EXPECT_FALSE(blst_avx_p2s_mult_fr_vartime(
+        scratch.data(), points.data(), scalars.data(), failure_count,
+        scratch.data(), scratch.size() * sizeof(blst_avx_p2)));
+    EXPECT_EQ(std::memcmp(scratch.data(), &before, sizeof(before)), 0);
+    EXPECT_EQ(
+        blst_avx_p2s_mult_fr_vartime_scratch_sizeof(
+            std::numeric_limits<size_t>::max()),
+        0u);
+}
+
+TEST(AvxCApiContract, BatchedMillerLoopMatchesIndividualProduct)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    constexpr size_t count = 2;
+    std::array<blst_avx_p1_affine, count> g1 = {};
+    std::array<blst_avx_p2_affine, count> g2 = {};
+    for (size_t i = 0; i < count; ++i) {
+        ASSERT_TRUE(blst_avx_p1_to_affine(
+            &g1[i], blst_avx_p1_generator()));
+        ASSERT_TRUE(blst_avx_p2_to_affine(
+            &g2[i], blst_avx_p2_generator()));
+    }
+
+    blst_avx_fp12 batched = {};
+    ASSERT_TRUE(blst_avx_miller_loop_n(
+        &batched, g1.data(), g2.data(), count));
+    blst_avx_fp12 single = {};
+    ASSERT_TRUE(blst_avx_miller_loop(
+        &single, blst_avx_p1_generator(), blst_avx_p2_generator()));
+    blst_avx_fp12 expected = {};
+    ASSERT_TRUE(blst_avx_fp12_mul(&expected, &single, &single));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&batched, &expected));
+
+    blst_avx_fp12 empty = {};
+    ASSERT_TRUE(blst_avx_miller_loop_n(&empty, nullptr, nullptr, 0));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&empty, blst_avx_fp12_one()));
+
+    const blst_avx_fp12 before = batched;
+    EXPECT_FALSE(blst_avx_miller_loop_n(nullptr, g1.data(), g2.data(), count));
+    EXPECT_FALSE(blst_avx_miller_loop_n(&batched, nullptr, g2.data(), count));
+    EXPECT_FALSE(blst_avx_miller_loop_n(&batched, g1.data(), nullptr, count));
+    EXPECT_EQ(std::memcmp(&batched, &before, sizeof(batched)), 0);
+}
+
 TEST(AvxCApiContract, RejectsOversizedScalarsBeforeArithmetic)
 {
     const auto scalar = maximal_scalar();

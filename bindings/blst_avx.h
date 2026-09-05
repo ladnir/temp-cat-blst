@@ -579,6 +579,59 @@ bool blst_avx_p2s_in_g2(
  */
 bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const blst_byte* scalar, size_t nbits);
 
+/**
+ * Variable-time multiplication of one AVX G2 subgroup point by one public
+ * native scalar.
+ *
+ * `p` must already be on-curve and in the prime-order G2 subgroup; Release
+ * does not validate this precondition. `scalar` points to one reduced native
+ * Montgomery-form `blst_fr` value and must not contain a secret. The function
+ * converts that value only inside the arithmetic kernel, allocates nothing,
+ * and branches or indexes tables as a function of the public scalar.
+ *
+ * All pointers must be non-null. `out` may alias `p` or `scalar`. Invalid
+ * pointers or an unavailable AVX backend return false without changing
+ * `out`.
+ */
+bool blst_avx_p2_mult_fr_vartime(
+    blst_avx_p2* out,
+    const blst_avx_p2* p,
+    const blst_fr* scalar);
+
+/**
+ * Returns caller-owned scratch capacity for public-scalar native G2 MSM.
+ * Storage sized for `max_points` supports every input length through that
+ * capacity. A zero- or one-point capacity needs no scratch. For larger
+ * capacities, zero means that the requested capacity is not representable.
+ */
+size_t blst_avx_p2s_mult_fr_vartime_scratch_sizeof(size_t max_points);
+
+/**
+ * Variable-time MSM over AVX G2 projective subgroup points and public scalars.
+ * Computes `out = sum_i scalars[i] * points[i]`.
+ *
+ * Every point must already be on-curve and in G2; Release does not validate
+ * this precondition. `scalars` contains `npoints` consecutive reduced native
+ * Montgomery-form `blst_fr` values and must contain no secrets. CatBLST uses
+ * a shared-doubling GLS schedule for small batches and Pippenger for larger
+ * batches after converting scalars inside the kernel; the native scalar
+ * representation remains the public boundary.
+ *
+ * The function allocates nothing. Nonzero scratch requirements must be
+ * obtained from `blst_avx_p2s_mult_fr_vartime_scratch_sizeof`; `scratch` must
+ * be aligned to `BLST_AVX_ALIGNMENT`, and its used prefix must be disjoint
+ * from both inputs and `out`. Empty input returns the identity. Null `points`
+ * or `scalars` is accepted only for empty input. Failure leaves `out`
+ * unchanged.
+ */
+bool blst_avx_p2s_mult_fr_vartime(
+    blst_avx_p2* out,
+    const blst_avx_p2* points,
+    const blst_fr* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes);
+
 /** Returns aggregate scratch bytes required by subgroup `blst_avx_p2_mult_pippenger`. */
 size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p2_mult_pippenger`. */
@@ -799,6 +852,27 @@ bool blst_avx_miller_loop(
     blst_avx_fp12* out,
     const blst_avx_p1* g1,
     const blst_avx_p2* g2);
+
+/**
+ * Computes the product of `n` unfinalized Miller loops over contiguous native
+ * affine arrays. Empty input returns the Miller multiplicative identity.
+ *
+ * Every input must be a library-produced prime-order subgroup point; no curve
+ * or subgroup validation is performed. The operation allocates no memory,
+ * retains no state, and is variable-time in the public point identities and
+ * `n`. `out` must not overlap either input array and is unspecified on
+ * failure.
+ *
+ * Return value:
+ * - `true` on success.
+ * - `false` only when AVX is unavailable, `out` is null, or a nonempty input
+ *   has a null array; this does not report semantic input validation.
+ */
+bool blst_avx_miller_loop_n(
+    blst_avx_fp12* out,
+    const blst_avx_p1_affine* g1,
+    const blst_avx_p2_affine* g2,
+    size_t n);
 
 /**
  * Computes final_exponentiation(miller_loop(g2, g1)) in AVX-native form.

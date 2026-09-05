@@ -57,3 +57,34 @@ bool blst_avx_public_g1_msm_c_header_probe(
         blst_avx_p1s_mult_fr_vartime(
             out, points, scalars, count, scratch, scratch_bytes);
 }
+
+bool blst_avx_public_g2_mult_c_header_probe(
+    blst_avx_p2* out,
+    const blst_avx_p2* point,
+    const blst_fr* scalar)
+{
+    return blst_avx_p2_mult_fr_vartime(out, point, scalar);
+}
+
+bool blst_avx_public_g2_msm_c_header_probe(
+    blst_avx_p2* out,
+    const blst_avx_p2* points,
+    const blst_fr* scalars,
+    size_t count,
+    void* scratch,
+    size_t scratch_bytes)
+{
+    return blst_avx_p2s_mult_fr_vartime_scratch_sizeof(count) <=
+            scratch_bytes &&
+        blst_avx_p2s_mult_fr_vartime(
+            out, points, scalars, count, scratch, scratch_bytes);
+}
+
+bool blst_avx_miller_loop_n_c_header_probe(
+    blst_avx_fp12* out,
+    const blst_avx_p1_affine* g1,
+    const blst_avx_p2_affine* g2,
+    size_t count)
+{
+    return blst_avx_miller_loop_n(out, g1, g2, count);
+}
