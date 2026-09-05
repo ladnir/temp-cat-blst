@@ -1833,6 +1833,24 @@ extern "C" {
         width: usize,
         shift: *const blst_avx_p1,
     ) -> bool;
+    pub fn blst_avx_p1_batch_subgroup_challenge_sizeof(
+        count: usize,
+    ) -> usize;
+    pub fn blst_avx_p1_batch_subgroup_challenge_init(
+        coefficients: *mut blst_byte,
+        coefficient_bytes: usize,
+        count: usize,
+        fill_random: blst_avx_random_bytes_fn,
+        random_context: *mut core::ffi::c_void,
+    ) -> bool;
+    pub fn blst_avx_p1_batch_subgroup_challenge_check_range(
+        points: *const *const blst_avx_p1,
+        count: usize,
+        coefficients: *const blst_byte,
+        coefficient_bytes: usize,
+        round_begin: usize,
+        round_end: usize,
+    ) -> bool;
     pub fn blst_avx_p1s_in_g1(
         points: *const *const blst_avx_p1,
         count: usize,

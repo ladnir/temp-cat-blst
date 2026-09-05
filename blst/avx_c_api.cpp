@@ -631,20 +631,55 @@ inline bool friendly_batch_subgroup_check_projective(
     return accepted;
 }
 
-template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
-inline bool batch_subgroup_check_projective(
+inline size_t g1_batch_subgroup_challenge_bytes(const size_t count)
+{
+    if (count > std::numeric_limits<size_t>::max() / kBatchSubgroupRounds) {
+        return 0;
+    }
+    return count * kBatchSubgroupRounds;
+}
+
+inline bool init_g1_batch_subgroup_challenge(
+    byte* coefficients,
+    const size_t coefficient_bytes,
+    const size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context)
+{
+    const size_t required = g1_batch_subgroup_challenge_bytes(count);
+    if (count == 0) {
+        return true;
+    }
+    if (required == 0 || coefficients == nullptr ||
+        coefficient_bytes < required || fill_random == nullptr) {
+        return false;
+    }
+
+    byte seed[kBatchSubgroupSeedBytes] = {};
+    if (!fill_random_seed(fill_random, random_context, seed)) {
+        blst::vec_zero(seed, sizeof(seed));
+        return false;
+    }
+
+    TernaryChallengeStream challenges(seed, count, 1);
+    for (size_t i = 0; i < required; ++i) {
+        coefficients[i] = challenges.next();
+    }
+    challenges.clear();
+    blst::vec_zero(seed, sizeof(seed));
+    return true;
+}
+
+template<typename Point, typename AddComplete, typename InSubgroup>
+inline bool batch_subgroup_check_projective_rows(
     const Point* const* points,
     const size_t count,
     const byte* coefficients,
     const size_t width,
     const Point& shift,
     AddComplete add_complete,
-    OnCurve on_curve,
     InSubgroup in_subgroup)
 {
-    if (!on_curve(shift)) {
-        return false;
-    }
     if (width == 0 || count == 0) {
         return true;
     }
@@ -652,7 +687,7 @@ inline bool batch_subgroup_check_projective(
         return false;
     }
     for (size_t i = 0; i < count; ++i) {
-        if (points[i] == nullptr || !on_curve(*points[i])) {
+        if (points[i] == nullptr) {
             return false;
         }
     }
@@ -685,6 +720,36 @@ inline bool batch_subgroup_check_projective(
         }
     }
     return true;
+}
+
+template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
+inline bool batch_subgroup_check_projective(
+    const Point* const* points,
+    const size_t count,
+    const byte* coefficients,
+    const size_t width,
+    const Point& shift,
+    AddComplete add_complete,
+    OnCurve on_curve,
+    InSubgroup in_subgroup)
+{
+    if (!on_curve(shift)) {
+        return false;
+    }
+    if (width == 0 || count == 0) {
+        return true;
+    }
+    if (points == nullptr || coefficients == nullptr) {
+        return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (points[i] == nullptr || !on_curve(*points[i])) {
+            return false;
+        }
+    }
+    return batch_subgroup_check_projective_rows(
+        points, count, coefficients, width, shift,
+        add_complete, in_subgroup);
 }
 
 inline void g1_add_into_bucket(AvxG1& bucket, blst::limb_t booth_idx, const size_t wbits, const AvxG1& point)
@@ -1246,6 +1311,75 @@ bool blst_avx_p1_batch_subgroup_check(
     (void)coefficients;
     (void)width;
     (void)shift;
+    return false;
+#endif
+}
+
+size_t blst_avx_p1_batch_subgroup_challenge_sizeof(size_t count)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return g1_batch_subgroup_challenge_bytes(count);
+#else
+    (void)count;
+    return 0;
+#endif
+}
+
+bool blst_avx_p1_batch_subgroup_challenge_init(
+    byte* coefficients,
+    size_t coefficient_bytes,
+    size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return init_g1_batch_subgroup_challenge(
+        coefficients, coefficient_bytes, count, fill_random, random_context);
+#else
+    (void)coefficients;
+    (void)coefficient_bytes;
+    (void)count;
+    (void)fill_random;
+    (void)random_context;
+    return false;
+#endif
+}
+
+bool blst_avx_p1_batch_subgroup_challenge_check_range(
+    const blst_avx_p1* const* points,
+    size_t count,
+    const byte* coefficients,
+    size_t coefficient_bytes,
+    size_t round_begin,
+    size_t round_end)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    const size_t required = g1_batch_subgroup_challenge_bytes(count);
+    if (round_begin > round_end || round_end > kBatchSubgroupRounds) {
+        return false;
+    }
+    if (count == 0) {
+        return round_begin == 0 && round_end == 0;
+    }
+    if (required == 0 || coefficients == nullptr ||
+        coefficient_bytes < required) {
+        return false;
+    }
+    return batch_subgroup_check_projective_rows(
+        reinterpret_cast<const AvxG1* const*>(points),
+        count,
+        coefficients + round_begin * count,
+        round_end - round_begin,
+        AvxG1::generator(),
+        g1_add_complete,
+        [](const AvxG1& point) { return AvxG1::in_subgroup(point); });
+#else
+    (void)points;
+    (void)count;
+    (void)coefficients;
+    (void)coefficient_bytes;
+    (void)round_begin;
+    (void)round_end;
     return false;
 #endif
 }

@@ -145,3 +145,19 @@ range length and public identities. Unexpected exceptions are contained by
 the C boundary; output is specified only on success. The complete contract is
 recorded in `docs/audit/BTX_ALPHA_PAIRING_RANGES_2026-09-04.md`. The focused
 native-AVX compatibility test passes under Clang 21 ASan/UBSan on Peach.
+
+## 2026-09-04 G1 batch-subgroup range addendum
+
+Challenge construction reuses the existing 81-row domain-separated ternary
+stream and writes a complete caller-owned matrix only after shape and entropy
+validation. The row kernel factors the existing linear-combination arithmetic
+without its repeated curve scan. It checks pointer shape, coefficient values,
+and the subgroup relation for each selected row, but relies on canonical decode
+to have established on-curve inputs.
+
+The kernel is read-only over points and challenges, so disjoint row ranges may
+execute concurrently without a workspace. CatBLST retains no scheduler or
+completion state. The caller's conjunction across all rows preserves the
+existing `(1/3)^81 < 2^-128` false-accept bound. Native Release, combined
+ASan/UBSan, and conservative fresh-thread benchmarks are recorded in
+`docs/audit/BTX_G1_BATCH_SUBGROUP_RANGES_2026-09-04.md`.

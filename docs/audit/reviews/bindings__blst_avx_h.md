@@ -107,3 +107,18 @@ operations only; no scheduler or phase state crosses the C boundary.
 The reviewed C surface is now 100 functions. `DOC-028` maps both declarations
 to their C++ implementation and safe Rust owner. Focused native-AVX Release and
 ASan/UBSan tests pass on Peach.
+
+## 2026-09-04 G1 batch-subgroup range addendum
+
+Three declarations split the existing misuse-resistant G1 batch validator into
+a CatBLST-owned complete challenge and a stateless expert row-range kernel. The
+range contract requires already decoded, on-curve, immutable native points and
+requires the Rust driver to check every fixed challenge row exactly once. It
+does not repeat curve validation, allocate, retain state, or publish partial
+output. The reviewed C surface is now 103 functions.
+
+Native Clang 21 Release and combined AVX ASan/UBSan tests pass on Peach. The
+one-worker range path stays within 1.9% of the one-shot path at 1,024 points;
+sixteen fresh workers reduce 10.5 ms to 1.54 ms. Full contracts, security
+reasoning, and measurements are recorded in
+`docs/audit/BTX_G1_BATCH_SUBGROUP_RANGES_2026-09-04.md`.

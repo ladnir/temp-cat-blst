@@ -161,6 +161,14 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     target_include_directories(avx_g2_batch_subgroup_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     target_include_directories(avx_g2_batch_subgroup_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
     target_link_libraries(avx_g2_batch_subgroup_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
+
+    add_executable(avx_g1_batch_subgroup_benchmarks
+        "main.cpp"
+        "avx/Avx_g1_batch_subgroup_bench.cpp"
+    )
+    target_include_directories(avx_g1_batch_subgroup_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+    target_include_directories(avx_g1_batch_subgroup_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+    target_link_libraries(avx_g1_batch_subgroup_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
 endif()
 
 add_executable(bte_trx_benchmarks

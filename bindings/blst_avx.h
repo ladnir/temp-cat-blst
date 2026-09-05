@@ -377,6 +377,63 @@ bool blst_avx_p1_batch_subgroup_check(
     size_t width,
     const blst_avx_p1* shift);
 /**
+ * Returns the byte size of CatBLST's complete G1 batch-subgroup challenge for
+ * `count` points. The challenge is a row-major matrix with one byte per point
+ * and a fixed CatBLST-owned number of rows. Zero means an empty challenge or
+ * that the multiplication is not representable.
+ */
+size_t blst_avx_p1_batch_subgroup_challenge_sizeof(size_t count);
+/**
+ * Fills the complete CatBLST G1 batch-subgroup challenge.
+ *
+ * The caller must fix the ordered candidate batch before invoking this
+ * function. For nonempty input, `fill_random` must provide one fresh,
+ * unpredictable 32-byte seed. `coefficients` must provide at least the size
+ * returned by `blst_avx_p1_batch_subgroup_challenge_sizeof(count)` and must
+ * remain private until every subgroup-check range has completed. The output
+ * is row-major with coefficients in {0,1,2}, where 2 represents -1. Empty
+ * input succeeds without invoking `fill_random`. Invalid shape or entropy
+ * failure returns false without publishing a partial challenge.
+ *
+ * Callers divide only on complete row boundaries and pass each disjoint row
+ * span to `blst_avx_p1_batch_subgroup_check`. Accept the candidate batch only
+ * if every span succeeds. CatBLST retains no challenge or scheduling state.
+ */
+bool blst_avx_p1_batch_subgroup_challenge_init(
+    blst_byte* coefficients,
+    size_t coefficient_bytes,
+    size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context);
+/**
+ * Checks the half-open row range `[round_begin, round_end)` of a complete G1
+ * batch-subgroup challenge created by
+ * `blst_avx_p1_batch_subgroup_challenge_init`.
+ *
+ * This expert range kernel deliberately does not repeat curve validation.
+ * Every pointed-to native point must remain immutable, nonnull, and on-curve
+ * from challenge construction until all ranges complete. The ordered pointer
+ * array and complete coefficient buffer must remain readable and immutable for
+ * every concurrent call. Distinct calls may read the same points and challenge
+ * concurrently. The range must lie within CatBLST's fixed challenge width;
+ * callers accept the batch only after every row has been checked exactly once
+ * and every call succeeded. This routine is variable-time, allocation-free,
+ * stateless, and publishes no output.
+ *
+ * `coefficient_bytes` must cover the complete challenge, not merely the
+ * selected range. Empty input accepts only the empty range `[0, 0)`. Invalid
+ * shape, coefficient, or range returns false. An on-curve point outside G1 is
+ * a supported adversarial input and is detected probabilistically across the
+ * complete challenge.
+ */
+bool blst_avx_p1_batch_subgroup_challenge_check_range(
+    const blst_avx_p1* const* points,
+    size_t count,
+    const blst_byte* coefficients,
+    size_t coefficient_bytes,
+    size_t round_begin,
+    size_t round_end);
+/**
  * Tests whether every point belongs to G1 using an internally constructed
  * randomized batch check targeting a false-accept probability below 2^-128.
  *

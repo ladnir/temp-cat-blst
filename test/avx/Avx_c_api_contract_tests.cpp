@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <limits>
+#include <thread>
 #include <vector>
 
 #include "bindings/blst.h"
@@ -187,6 +189,144 @@ TEST(AvxCApiContract, FriendlyBatchMembershipOwnsChallengeConstruction)
         g2_points, 1, fill_fixed_random, &random,
         g2_workspace.data(), g2_workspace.size()));
     EXPECT_EQ(random.calls, 4u);
+}
+
+TEST(AvxCApiContract, G1BatchMembershipChallengeSupportsDisjointRowRanges)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    EXPECT_EQ(blst_avx_p1_batch_subgroup_challenge_sizeof(0), 0u);
+    EXPECT_EQ(blst_avx_p1_batch_subgroup_challenge_sizeof(1), 81u);
+    EXPECT_EQ(blst_avx_p1_batch_subgroup_challenge_sizeof(3), 243u);
+    EXPECT_EQ(blst_avx_p1_batch_subgroup_challenge_sizeof(
+        std::numeric_limits<size_t>::max() / 81 + 1), 0u);
+    EXPECT_TRUE(blst_avx_p1_batch_subgroup_challenge_init(
+        nullptr, 0, 0, nullptr, nullptr));
+    EXPECT_TRUE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        nullptr, 0, nullptr, 0, 0, 0));
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        nullptr, 0, nullptr, 0, 0, 1));
+
+    constexpr size_t kCount = 3;
+    const size_t challenge_bytes =
+        blst_avx_p1_batch_subgroup_challenge_sizeof(kCount);
+    ASSERT_EQ(challenge_bytes, 81u * kCount);
+    std::vector<blst_byte> challenge(challenge_bytes, 0xa5);
+    const auto before = challenge;
+
+    FixedRandomSource random;
+    random.seed[0] = 0x31;
+    random.seed[31] = 0x7c;
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_init(
+        challenge.data(), challenge.size() - 1, kCount,
+        fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 0u);
+    EXPECT_EQ(challenge, before);
+
+    random.succeeds = false;
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_init(
+        challenge.data(), challenge.size(), kCount,
+        fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 1u);
+    EXPECT_EQ(challenge, before);
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_init(
+        challenge.data(), challenge.size(), kCount,
+        throw_from_random_callback, nullptr));
+    EXPECT_EQ(challenge, before);
+#endif
+
+    random.succeeds = true;
+    ASSERT_TRUE(blst_avx_p1_batch_subgroup_challenge_init(
+        challenge.data(), challenge.size(), kCount,
+        fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 2u);
+    EXPECT_TRUE(std::all_of(challenge.begin(), challenge.end(),
+        [](blst_byte value) { return value <= 2; }));
+
+    std::vector<blst_byte> duplicate(challenge_bytes);
+    ASSERT_TRUE(blst_avx_p1_batch_subgroup_challenge_init(
+        duplicate.data(), duplicate.size(), kCount,
+        fill_fixed_random, &random));
+    EXPECT_EQ(duplicate, challenge);
+
+    const blst_avx_p1* points[kCount] = {
+        blst_avx_p1_generator(),
+        blst_avx_p1_generator(),
+        blst_avx_p1_generator(),
+    };
+    EXPECT_TRUE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, challenge.data(), challenge.size(), 0, 17));
+    EXPECT_TRUE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, challenge.data(), challenge.size(), 17, 81));
+
+    std::array<bool, 4> concurrent_results = {};
+    std::array<std::thread, 4> workers;
+    for (size_t worker = 0; worker < workers.size(); ++worker) {
+        const size_t begin = 81 * worker / workers.size();
+        const size_t end = 81 * (worker + 1) / workers.size();
+        workers[worker] = std::thread([&, worker, begin, end] {
+            concurrent_results[worker] =
+                blst_avx_p1_batch_subgroup_challenge_check_range(
+                    points, kCount, challenge.data(), challenge.size(),
+                    begin, end);
+        });
+    }
+    for (std::thread& worker : workers) {
+        worker.join();
+    }
+    EXPECT_TRUE(std::all_of(
+        concurrent_results.begin(), concurrent_results.end(),
+        [](bool result) { return result; }));
+
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, challenge.data(), challenge.size(), 17, 82));
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, challenge.data(), challenge.size(), 18, 17));
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, challenge.data(), challenge.size() - 1, 0, 1));
+
+    auto malformed = challenge;
+    malformed[17 * kCount + 1] = 3;
+    EXPECT_TRUE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, malformed.data(), malformed.size(), 0, 17));
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_challenge_check_range(
+        points, kCount, malformed.data(), malformed.size(), 17, 18));
+}
+
+TEST(AvxCApiContract, G1BatchMembershipChallengeRangesRejectLowOrderPoint)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    G1Affine affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&affine, kG1Order11Encoded.data()));
+    ASSERT_TRUE(G1Affine::on_curve(affine));
+    ASSERT_FALSE(G1Affine::in_subgroup(affine));
+    G1 point = {};
+    G1::from_affine(point, affine);
+    blst_avx_p1 avx_point = {};
+    ASSERT_TRUE(blst_avx_p1_from_scalar(&avx_point, &point));
+
+    const blst_avx_p1* points[] = {
+        blst_avx_p1_generator(), &avx_point, blst_avx_p1_generator()};
+    const size_t challenge_bytes =
+        blst_avx_p1_batch_subgroup_challenge_sizeof(3);
+    std::vector<blst_byte> challenge(challenge_bytes);
+    FixedRandomSource random;
+    random.seed.fill(0);
+    ASSERT_TRUE(blst_avx_p1_batch_subgroup_challenge_init(
+        challenge.data(), challenge.size(), 3,
+        fill_fixed_random, &random));
+
+    bool accepted = true;
+    for (size_t begin = 0; begin < 81; begin += 7) {
+        const size_t end = std::min(begin + 7, size_t{81});
+        accepted &= blst_avx_p1_batch_subgroup_challenge_check_range(
+            points, 3, challenge.data(), challenge.size(), begin, end);
+    }
+    EXPECT_FALSE(accepted);
 }
 
 TEST(AvxCApiContract, FriendlyBatchMembershipRejectsLowOrderPoints)
