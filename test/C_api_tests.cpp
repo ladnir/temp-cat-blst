@@ -280,6 +280,15 @@ using PublicG2Affine = blst::G2AffinePoint;
 using PublicGt = blst::GT;
 using PublicMillerResult = blst::MillerResult;
 
+constexpr std::array<unsigned char, 48> kFpModulusBe = {
+    0x1a, 0x01, 0x11, 0xea, 0x39, 0x7f, 0xe6, 0x9a,
+    0x4b, 0x1b, 0xa7, 0xb6, 0x43, 0x4b, 0xac, 0xd7,
+    0x64, 0x77, 0x4b, 0x84, 0xf3, 0x85, 0x12, 0xbf,
+    0x67, 0x30, 0xd2, 0xa0, 0xf6, 0xb0, 0xf6, 0x24,
+    0x1e, 0xab, 0xff, 0xfe, 0xb1, 0x53, 0xff, 0xff,
+    0xb9, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xaa, 0xab,
+};
+
 std::array<unsigned char, 32> scalar_bytes(std::uint64_t value)
 {
     std::array<unsigned char, 32> out = {};
@@ -1318,6 +1327,45 @@ TEST(CApi, G2ProjectiveAndAffineRoundTrip)
     BoundaryG2 restored = {};
     blst_p2_from_affine(&restored, &from_compressed);
     EXPECT_TRUE(blst_p2_is_equal(&point, &restored));
+}
+
+TEST(CApi, PointDecodersRejectCoordinatesAtTheFieldModulus)
+{
+    BoundaryG1Affine g1 = {};
+    std::array<unsigned char, 48> g1_compressed = kFpModulusBe;
+    g1_compressed[0] |= 0x80;
+    EXPECT_EQ(
+        blst_p1_uncompress(&g1, g1_compressed.data()),
+        blst::BLST_BAD_ENCODING);
+
+    for (size_t offset : {size_t{0}, size_t{48}}) {
+        std::array<unsigned char, 96> encoded = {};
+        std::copy(kFpModulusBe.begin(), kFpModulusBe.end(), encoded.begin() + offset);
+        EXPECT_EQ(
+            blst_p1_deserialize(&g1, encoded.data()),
+            blst::BLST_BAD_ENCODING)
+            << "coordinate offset " << offset;
+    }
+
+    BoundaryG2Affine g2 = {};
+    for (size_t offset : {size_t{0}, size_t{48}}) {
+        std::array<unsigned char, 96> encoded = {};
+        std::copy(kFpModulusBe.begin(), kFpModulusBe.end(), encoded.begin() + offset);
+        encoded[0] |= 0x80;
+        EXPECT_EQ(
+            blst_p2_uncompress(&g2, encoded.data()),
+            blst::BLST_BAD_ENCODING)
+            << "coordinate offset " << offset;
+    }
+
+    for (size_t offset : {size_t{0}, size_t{48}, size_t{96}, size_t{144}}) {
+        std::array<unsigned char, 192> encoded = {};
+        std::copy(kFpModulusBe.begin(), kFpModulusBe.end(), encoded.begin() + offset);
+        EXPECT_EQ(
+            blst_p2_deserialize(&g2, encoded.data()),
+            blst::BLST_BAD_ENCODING)
+            << "coordinate offset " << offset;
+    }
 }
 
 TEST(CApi, G1MultipointAffineAndAddMatchSinglePointOps)

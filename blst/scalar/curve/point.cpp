@@ -912,19 +912,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if constexpr (std::is_same_v<Field, Fp2>) {
 
 			G2AffinePoint ret;
-			Fp temp;
 
 			limbs_from_be_bytes(ret.x[1].l, in, sizeof(ret.x[1]));
 			limbs_from_be_bytes(ret.x[0].l, in + 48, sizeof(ret.x[0]));
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.x[1][sizeof(ret.x[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.x[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x[1].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x[1]))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.x[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x[0].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x[0]))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
 			Fp::mul(ret.x[0], ret.x[0], get_BLST_RR());
@@ -942,13 +939,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		}
 		else {
 			AffinePoint ret;
-			Fp temp;
 
 			limbs_from_be_bytes(ret.x.l, in, sizeof(ret.x));
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.x[sizeof(ret.x) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.x, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x.l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 			Fp::mul(ret.x, ret.x, get_BLST_RR());
 
@@ -1016,7 +1011,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if constexpr (std::is_same_v<Field, Fp2>) {
 
 			G2AffinePoint ret;
-			Fp temp;
 
 			limbs_from_be_bytes(ret.x[1].l, in, sizeof(ret.x[1]));
 			limbs_from_be_bytes(ret.x[0].l, in + 48, sizeof(ret.x[0]));
@@ -1025,20 +1019,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.x[1][sizeof(ret.x[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.x[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x[1].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x[1]))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.x[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x[0].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x[0]))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.y[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.y[1].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.y[1]))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.y[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.y[0].l, sizeof(temp)))
+			if (!Fp::is_redc(ret.y[0]))
 				return BLST_BAD_ENCODING;
 
 			Fp::mul(ret.x[0], ret.x[0], get_BLST_RR());
@@ -1057,19 +1047,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		{
 
 			G1AffinePoint ret;
-			Fp temp;
 
 			limbs_from_be_bytes(ret.x.l, in, sizeof(ret.x));
 			limbs_from_be_bytes(ret.y.l, in + 48, sizeof(ret.y));
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.x[sizeof(ret.x) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.x, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.x.l, sizeof(temp)))
+			if (!Fp::is_redc(ret.x))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.y, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.l, ret.y.l, sizeof(temp)))
+			if (!Fp::is_redc(ret.y))
 				return BLST_BAD_ENCODING;
 
 			Fp::mul(ret.x, ret.x, get_BLST_RR());
