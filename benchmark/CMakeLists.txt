@@ -131,7 +131,34 @@ target_link_libraries(middle_product_dispatch_benchmarks PRIVATE
     blst_avx_headers
 )
 
+add_executable(scalar_g1_dft_msm_experiment_benchmarks
+    "main.cpp"
+    "Scalar_g1_dft_msm_experiment_bench.cpp"
+)
+target_include_directories(scalar_g1_dft_msm_experiment_benchmarks PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/..
+)
+target_link_libraries(scalar_g1_dft_msm_experiment_benchmarks PRIVATE
+    benchmark::benchmark
+    blst_static
+)
+
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    add_executable(avx_g1_dft_msm_experiment_benchmarks
+        "main.cpp"
+        "avx/Avx_g1_dft_msm_experiment_bench.cpp"
+    )
+    target_include_directories(avx_g1_dft_msm_experiment_benchmarks PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/..
+    )
+    target_link_libraries(avx_g1_dft_msm_experiment_benchmarks PRIVATE
+        benchmark::benchmark
+        blst_static
+        blst_avx_headers
+    )
+
     add_executable(avx_pairing_ratio_benchmarks
         "main.cpp"
         "avx/Avx_pairing_ratio_bench.cpp"

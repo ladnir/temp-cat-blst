@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <random>
@@ -143,6 +144,212 @@ std::vector<G2Point> make_g2_data(std::size_t n, uint64_t seed)
     }
     return out;
 }
+
+std::vector<G1Point> make_dense_g1_data(std::size_t n, uint64_t seed)
+{
+    std::mt19937_64 rng(seed);
+
+    std::vector<G1Point> out;
+    out.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        std::array<blst::byte, 32> scalar = {};
+        for (std::size_t limb = 0; limb < 4; ++limb) {
+            const uint64_t value = rng();
+            for (std::size_t byte_index = 0; byte_index < 8; ++byte_index) {
+                scalar[limb * 8 + byte_index] = static_cast<blst::byte>(
+                    value >> (byte_index * 8));
+            }
+        }
+        // Point multiplication consumes little-endian scalars.  Clearing the
+        // top two bits produces a non-small 254-bit scalar below the BLS12-381
+        // scalar modulus without a benchmark-only reduction path.
+        scalar[31] &= 0x3f;
+        scalar[31] |= 0x20;
+
+        G1Point point = {};
+        G1Point::mult(
+            point, G1Point::generator(), scalar.data(), scalar.size() * 8);
+        out.push_back(point);
+    }
+    return out;
+}
+
+std::vector<G2Point> make_dense_g2_data(std::size_t n, uint64_t seed)
+{
+    std::mt19937_64 rng(seed);
+
+    std::vector<G2Point> out;
+    out.reserve(2 * n);
+    for (std::size_t i = 0; i < (2 * n); ++i) {
+        std::array<blst::byte, 32> scalar = {};
+        for (std::size_t limb = 0; limb < 4; ++limb) {
+            const uint64_t value = rng();
+            for (std::size_t byte_index = 0; byte_index < 8; ++byte_index) {
+                scalar[limb * 8 + byte_index] = static_cast<blst::byte>(
+                    value >> (byte_index * 8));
+            }
+        }
+        scalar[31] &= 0x3f;
+        scalar[31] |= 0x20;
+
+        G2Point point = {};
+        G2Point::mult(
+            point, G2Point::generator(), scalar.data(), scalar.size() * 8);
+        out.push_back(point);
+    }
+    return out;
+}
+
+void bench_middle_product_online_scalar_fft_dense(benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    TimingStats pre_stats;
+    const auto precomputed =
+        blst::precompute_middle_product_b_scalar(b, n, &pre_stats);
+    blst::MiddleProductWorkspaceScalar workspace(precomputed.fft_size);
+    std::vector<GT> out(n, GT::identity());
+
+    // Match the production reuse model and fault in all workspace storage
+    // before timing. Precomputation remains reported independently.
+    blst::middle_product_scalar(a, precomputed, out, workspace);
+    for (auto _ : state) {
+        blst::middle_product_scalar(a, precomputed, out, workspace);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+    state.counters["fft_size"] = static_cast<double>(precomputed.fft_size);
+    state.counters["offline_precompute_ms"] = benchmark::Counter(
+        static_cast<double>(
+            pre_stats.get_ns("middle_product_precompute.total_ns")) /
+        1e6);
+}
+
+void bench_middle_product_online_scalar_multipair_dense(
+    benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    TimingStats pre_stats;
+    const auto precomputed =
+        blst::precompute_middle_product_b_multipair_scalar(b, n, &pre_stats);
+    blst::MiddleProductWorkspaceMultipairScalar workspace;
+    std::vector<GT> out(n, GT::identity());
+
+    // The first call grows the reusable vectors. Timed calls perform only the
+    // online cryptographic work, matching the FFT workspace treatment above.
+    blst::middle_product_multipair_scalar(
+        a, precomputed, out, workspace);
+    for (auto _ : state) {
+        blst::middle_product_multipair_scalar(
+            a, precomputed, out, workspace);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+    state.counters["pairs"] = benchmark::Counter(
+        static_cast<double>(n) * static_cast<double>(n));
+    state.counters["offline_precompute_ms"] = benchmark::Counter(
+        static_cast<double>(pre_stats.get_ns(
+            "middle_product_multipair_precompute.total_ns")) /
+        1e6);
+}
+
+template<blst::MiddleProductAlgorithm Algorithm>
+void bench_middle_product_one_shot_scalar_dense(benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    std::vector<GT> out(n, GT::identity());
+
+    for (auto _ : state) {
+        blst::middle_product_scalar(a, b, out, Algorithm);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+void bench_middle_product_online_avx_fft_dense(benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    TimingStats pre_stats;
+    const auto precomputed =
+        blst::precompute_middle_product_b_avx(b, n, &pre_stats);
+    blst::MiddleProductWorkspaceAvx workspace(precomputed.fft_size);
+    std::vector<GT> out(n, GT::identity());
+
+    blst::middle_product_avx(a, precomputed, out, workspace);
+    for (auto _ : state) {
+        blst::middle_product_avx(a, precomputed, out, workspace);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+    state.counters["fft_size"] = static_cast<double>(precomputed.fft_size);
+    state.counters["offline_precompute_ms"] = benchmark::Counter(
+        static_cast<double>(
+            pre_stats.get_ns("middle_product_precompute.total_ns")) /
+        1e6);
+}
+
+void bench_middle_product_online_avx_multipair_dense(
+    benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    TimingStats pre_stats;
+    const auto precomputed =
+        blst::precompute_middle_product_b_multipair_avx(b, n, &pre_stats);
+    blst::MiddleProductWorkspaceMultipairAvx workspace;
+    std::vector<GT> out(n, GT::identity());
+
+    blst::middle_product_multipair_avx(a, precomputed, out, workspace);
+    for (auto _ : state) {
+        blst::middle_product_multipair_avx(
+            a, precomputed, out, workspace);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+    state.counters["pairs"] = benchmark::Counter(
+        static_cast<double>(n) * static_cast<double>(n));
+    state.counters["offline_precompute_ms"] = benchmark::Counter(
+        static_cast<double>(pre_stats.get_ns(
+            "middle_product_multipair_precompute.total_ns")) /
+        1e6);
+}
+
+template<blst::MiddleProductAlgorithm Algorithm>
+void bench_middle_product_one_shot_avx_dense(benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_dense_g1_data(n, 0xC20550A1ULL);
+    const std::vector<G2Point> b = make_dense_g2_data(n, 0xC20550B2ULL);
+    std::vector<GT> out(n, GT::identity());
+
+    for (auto _ : state) {
+        blst::middle_product_avx(a, b, out, Algorithm);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+}
+#endif
 
 template<class Context>
 void bench_middle_product_multipair_impl(
@@ -315,6 +522,48 @@ static void bench_middle_product_one_shot_avx_multipair(benchmark::State& state)
 ->Arg(52)->Arg(56)->Arg(64)->Arg(65)->Arg(68)->Arg(70)->Arg(72)->Arg(74)->Arg(76) \
 ->Arg(78)->Arg(80)->Arg(88)->Arg(96)->Arg(112)->Arg(128)
 
+#define MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES \
+->Arg(12)->Arg(13)->Arg(14)->Arg(15)->Arg(16)->Arg(17)->Arg(18)->Arg(19) \
+->Arg(20)->Arg(23)->Arg(24)->Arg(25)->Arg(26)->Arg(28) \
+->Arg(30)->Arg(31)->Arg(32)->Arg(33)->Arg(36)->Arg(37)->Arg(38)->Arg(39) \
+->Arg(40)->Arg(44)->Arg(45)->Arg(46)->Arg(47)->Arg(48)->Arg(64)->Arg(65) \
+->Arg(70)->Arg(72)->Arg(73)->Arg(74)->Arg(76)
+
+#define MIDDLE_PRODUCT_SCALAR_DENSE_ONE_SHOT_BOUNDARIES \
+->Arg(29)->Arg(30)->Arg(31)->Arg(46)->Arg(47)->Arg(48) \
+->Arg(71)->Arg(72)->Arg(73)
+
+#define MIDDLE_PRODUCT_AVX_DENSE_ONE_SHOT_BOUNDARIES \
+->Arg(29)->Arg(30)->Arg(31)->Arg(32) \
+->Arg(47)->Arg(48)->Arg(49)->Arg(50)->Arg(51) \
+->Arg(73)->Arg(74)->Arg(75)->Arg(76)->Arg(77)
+
+BENCHMARK(bench_middle_product_online_scalar_fft_dense)
+MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_online_scalar_multipair_dense)
+MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK_TEMPLATE(
+    bench_middle_product_one_shot_scalar_dense,
+    blst::MiddleProductAlgorithm::Fft)
+MIDDLE_PRODUCT_SCALAR_DENSE_ONE_SHOT_BOUNDARIES
+->Name("bench_middle_product_one_shot_scalar_fft_dense")
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK_TEMPLATE(
+    bench_middle_product_one_shot_scalar_dense,
+    blst::MiddleProductAlgorithm::Multipair)
+MIDDLE_PRODUCT_SCALAR_DENSE_ONE_SHOT_BOUNDARIES
+->Name("bench_middle_product_one_shot_scalar_multipair_dense")
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
 BENCHMARK(bench_middle_product_multipair_scalar)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
 ->Unit(benchmark::kMillisecond)
@@ -336,6 +585,16 @@ MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
 ->UseRealTime();
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+BENCHMARK(bench_middle_product_online_avx_fft_dense)
+MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_online_avx_multipair_dense)
+MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
 BENCHMARK(bench_middle_product_multipair_avx)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
 ->Unit(benchmark::kMillisecond)
@@ -355,4 +614,24 @@ BENCHMARK(bench_middle_product_one_shot_avx_multipair)
 MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+
+BENCHMARK_TEMPLATE(
+    bench_middle_product_one_shot_avx_dense,
+    blst::MiddleProductAlgorithm::Fft)
+MIDDLE_PRODUCT_AVX_DENSE_ONE_SHOT_BOUNDARIES
+->Name("bench_middle_product_one_shot_avx_fft_dense")
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK_TEMPLATE(
+    bench_middle_product_one_shot_avx_dense,
+    blst::MiddleProductAlgorithm::Multipair)
+MIDDLE_PRODUCT_AVX_DENSE_ONE_SHOT_BOUNDARIES
+->Name("bench_middle_product_one_shot_avx_multipair_dense")
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
 #endif
+
+#undef MIDDLE_PRODUCT_SCALAR_ONLINE_CROSSOVER_SIZES
+#undef MIDDLE_PRODUCT_SCALAR_DENSE_ONE_SHOT_BOUNDARIES
+#undef MIDDLE_PRODUCT_AVX_DENSE_ONE_SHOT_BOUNDARIES

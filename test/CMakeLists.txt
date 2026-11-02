@@ -84,6 +84,7 @@ endif()
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND AVX_TEST_SOURCES
         "avx/Avx_add_corner_cases_tests.cpp"
+        "avx/Avx_g1_dft_msm_experiment_tests.cpp"
         "avx/Avx_gt_tests.cpp"
         "avx/Avx_matrixnok_primitive_tests.cpp"
         "avx/Avx_msm_tests.cpp"
