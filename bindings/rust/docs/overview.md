@@ -93,6 +93,9 @@ Recommended entry points:
   - `middle_product`
   - `update`
   - `combine`
+  - use the stateless scalar or native-AVX range methods when the application
+    owns parallel scheduling; [`middle_product.md`](middle_product.md) defines
+    the required phase order and barriers
 - FFT and interpolation:
   - use the explicit `catblst::fft` module
   - prefer prepared domains for repeated transforms

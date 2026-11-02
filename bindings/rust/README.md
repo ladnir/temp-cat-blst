@@ -162,6 +162,11 @@ Middle-product use:
 use catblst::{combine, middle_product, precompute_middle_product_b, update};
 ```
 
+Applications that own a worker pool can use the stateless scalar or
+conversion-free native-AVX range methods. The complete phase order, workspace
+lifetime, disjointness, and barrier contract is documented in
+[`docs/middle_product.md`](docs/middle_product.md).
+
 High-level signature use:
 
 For minimal-pubkey-size operations:
