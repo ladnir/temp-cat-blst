@@ -34,11 +34,14 @@ function Get-Classification
 
     $isBenchmark = $lower.StartsWith('benchmark/')
 
-    $frozenBtx =
-        $lower.StartsWith('bte/') -or
+    $activeBtx =
+        $lower.StartsWith('bte/btx/') -or
         $lower -eq 'bindings/blst_btx.h' -or
-        $lower -eq 'bindings/blst_trx.h' -or
         $lower -like 'test/btx*'
+
+    $frozenBte =
+        $lower.StartsWith('bte/') -or
+        $lower -eq 'bindings/blst_trx.h'
 
     $experimentalCuda =
         $lower.StartsWith('blst/cuda/') -or
@@ -61,7 +64,7 @@ function Get-Classification
         $profiles = 'non_shipping'
         if ($lower -like 'benchmark/btx*')
         {
-            $notes = 'Excluded benchmark in the BTx/BTE subsystem, which is frozen pending a required merge; do not run.'
+            $notes = 'Excluded from file-by-file audit; run only for an explicit BTX performance question and never concurrently with another benchmark.'
         }
         elseif ($lower -match 'cuda')
         {
@@ -72,12 +75,19 @@ function Get-Classification
             $notes = 'Benchmarks are inventoried but explicitly excluded from file-by-file audit.'
         }
     }
-    elseif ($frozenBtx)
+    elseif ($activeBtx)
+    {
+        $disposition = if ($lower.StartsWith('test/')) { 'in_scope_support' } else { 'in_scope_production' }
+        $subsystem = 'btx_bte'
+        $profiles = 'C|C++|scalar|avx512'
+        $notes = 'BTX freeze lifted 2026-08-17; active for performance comparison, specification audit, modification, and extraction.'
+    }
+    elseif ($frozenBte)
     {
         $disposition = 'out_of_scope_frozen'
         $subsystem = 'btx_bte'
         $profiles = 'frozen_pending_merge'
-        $notes = 'Frozen pending a required BTx/BTE merge; do not modify, audit, extract, or remove.'
+        $notes = 'PFE, TRX, or unrelated shared BTE code remains frozen; the 2026-08-17 decision unfroze BTX only.'
     }
     elseif ($experimentalCuda)
     {
@@ -288,8 +298,21 @@ $rows = foreach ($path in @($paths) | Sort-Object)
     if ($oldRows.ContainsKey($path))
     {
         $old = $oldRows[$path]
+        $liftedFreeze =
+            [string]$old.disposition -eq 'out_of_scope_frozen' -and
+            [string]$classification.disposition -ne 'out_of_scope_frozen'
         foreach ($column in $preservedColumns)
         {
+            if ($liftedFreeze -and $column -in @(
+                    'disposition',
+                    'subsystem',
+                    'audit_status',
+                    'profiles',
+                    'notes'
+                ))
+            {
+                continue
+            }
             if ($old.PSObject.Properties.Name -contains $column)
             {
                 $oldValue = [string]$old.$column

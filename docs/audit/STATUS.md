@@ -37,6 +37,22 @@ discovery counters but did not mix corpora or artifacts; the runner now gives
 each target a private working directory. Apple release-candidate replay and
 longer recurring discovery remain future evidence. No benchmark ran.
 
+At source commit `8f75b465`, the first safe Rust discovery pilot runs both
+targets on Peach. Rustc nightly 1.94.0 uses LLVM 21.1.8, `cargo-fuzz` is pinned
+to 0.13.2, and GCC 15.2 builds the portable native dependency. Eight workers
+run for five minutes per target. Decode completes 98,664 executions, and state
+completes 13,657 executions. Their working corpora contain 854 and 80 inputs,
+respectively, totaling 10,432 bytes. Mutation-disabled ASan replay passes all
+934 inputs. A separate native-dependency UBSan replay also passes them. No
+crash, timeout, assertion, sanitizer finding, oracle mismatch, or non-log
+artifact occurs. The discovered seeds remain unpromoted pending minimization
+and review. No library defect or new `AUD-*` item results.
+
+The named coverage-path ledger now includes all nine scalar targets. Five new
+fuzz-only markers cover fields, protocol, pairing state, uniqueness, and MSM.
+Their configuration and structural gates pass; fresh coverage execution is
+still pending. No product or performance-sensitive code changes.
+
 The latest Phase 16 packet completes the file-by-file reviews of the retained
 AVX curve primitive owner and AVX backend README at `5b08edc8`. The AVX MSM
 owner is reviewed at `4c58255b`, which adds only its final contract comment to
