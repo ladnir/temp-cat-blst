@@ -33,6 +33,7 @@ set(PUBLIC_API_TEST_SOURCES
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
     "Pfe_tests.cpp"
+    "Transparent_bte_tests.cpp"
     "Trx_c_api_tests.cpp"
     "Trx_tests.cpp"
 )
