@@ -1,5 +1,13 @@
 # API-Complete Fuzzing Plan
 
+**Current status (2026-11-02):** The exhaustive API inventory and its generated
+Clang/rustdoc snapshots are historical campaign material, not a release gate.
+New library APIs had outgrown the checked-in inventory without adding new fuzz
+behaviors. CI now checks the adapter boundary and named coverage paths, then
+replays the retained scalar C/C++ and safe Rust corpora under sanitizers.
+Discovery, coverage replay, Apple replay, and portable AVX replay remain manual
+workflows. The phase descriptions below record the original campaign design.
+
 ## Objective
 
 The fuzzing program covers every supported C, native C++, and safe Rust API.
@@ -28,7 +36,7 @@ profiles cover safe Rust and native AVX-512 differential execution.
 
 The following areas remain excluded:
 
-- frozen BTx/BTE;
+- BTE application code, archived on the `BTE` branch;
 - experimental CUDA;
 - experimental non-Apple ARM64 and CHERI;
 - benchmarks; and

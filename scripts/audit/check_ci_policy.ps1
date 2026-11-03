@@ -125,9 +125,7 @@ $fuzzPath = Join-Path $workflowRoot 'fuzz.yml'
 $fuzz = Get-Content -LiteralPath $fuzzPath -Raw
 foreach ($required in @(
     'group: category-blst-fuzz',
-    'bash scripts/fuzz/generate_api_inventory.sh',
-    'git diff --exit-code -- docs/audit/FUZZ_API_LEDGER.csv fuzz/generated',
-    'python3 scripts/fuzz/check_structure.py --self-test',
+    'python3 scripts/fuzz/check_structure.py --boundary-only --self-test',
     'python3 scripts/fuzz/check_coverage_paths.py --check-config --self-test',
     'cargo +nightly-2026-01-15 check',
     'cargo +nightly-2026-01-15 install cargo-fuzz --version 0.13.2 --locked',

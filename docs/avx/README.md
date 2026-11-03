@@ -42,7 +42,7 @@ Explicitly excluded:
 - VROOM's vendored BLST copy, examples, baselines, benchmarks, result logs,
   artifact scripts, and dependency installers;
 - arbitrary-precision runtime dependencies or runtime parameter generation;
-- changes to frozen BTx/BTE.
+- BTE application code, archived on the `BTE` branch.
 
 ## Implementation boundary
 

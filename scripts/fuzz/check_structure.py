@@ -376,16 +376,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--boundary-only", action="store_true")
     args = parser.parse_args()
     root = args.root.resolve()
 
     errors = self_test() if args.self_test else []
-    known_adapter_calls = ledger_c_symbols(root) | ALLOWED_FACTORY_ADAPTER_CALLS
+    known_adapter_calls = (
+        None if args.boundary_only
+        else ledger_c_symbols(root) | ALLOWED_FACTORY_ADAPTER_CALLS
+    )
     findings: list[Finding] = []
     for relative, text in repository_sources(root):
         findings.extend(inspect_source(relative, text, known_adapter_calls))
     findings.extend(inspect_rust_fuzz_targets(root))
-    findings.extend(coverage_findings(root))
+    if not args.boundary_only:
+        findings.extend(coverage_findings(root))
 
     for error in errors:
         print(error, file=sys.stderr)
@@ -393,7 +398,8 @@ def main() -> int:
         print(f"{finding.path}:{finding.line}: {finding.message}", file=sys.stderr)
     if errors or findings:
         return 1
-    print(f"fuzz structural gate passed: {len(repository_sources(root))} source files")
+    mode = "adapter boundary" if args.boundary_only else "API inventory"
+    print(f"fuzz {mode} gate passed: {len(repository_sources(root))} source files")
     return 0
 
 

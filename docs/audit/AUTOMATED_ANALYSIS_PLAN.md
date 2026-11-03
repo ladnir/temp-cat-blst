@@ -1,5 +1,9 @@
 # Automated Analysis and Fuzzing Plan
 
+The exhaustive fuzz inventory described below is historical. The current fuzz
+CI gate checks the adapter boundary and named coverage paths and replays the
+retained corpora; see `FUZZING_PLAN.md` for the current scope.
+
 ## Purpose
 
 Automated analysis is an evidence source for the file-by-file audit, not a

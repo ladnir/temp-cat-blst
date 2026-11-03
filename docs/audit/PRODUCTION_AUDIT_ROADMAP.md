@@ -61,8 +61,10 @@ Phase 12 is the first platform milestone, not the end of automated work.
 13-18 own both their hand review and the subsystem-specific automation needed
 to close them.
 
-The API-complete fuzz infrastructure is implemented through Packet 19G and
-`FUZZING_PLAN.md`; `FUZZ_API_LEDGER.csv` is its symbol-level scope authority.
+The original API-complete fuzz infrastructure was implemented through Packet
+19G and is recorded in `FUZZING_PLAN.md`. Its symbol-level
+`FUZZ_API_LEDGER.csv` is now a historical campaign snapshot; the active CI gate
+checks the adapter boundary and named coverage paths before corpus replay.
 Deterministic scalar, safe Rust, and portable-AVX Debug corpus replay is
 complete. Peach Clang 21.1.8 also passes the native AVX-512/IFMA retained
 corpus under ASan and UBSan at source commit `23e8b2cc`. A complete scalar

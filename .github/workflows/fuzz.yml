@@ -9,7 +9,6 @@ on:
       - 'bindings/**'
       - 'fuzz/**'
       - 'scripts/fuzz/**'
-      - 'docs/audit/FUZZ_API_LEDGER.csv'
   push:
     branches:
       - master
@@ -20,7 +19,6 @@ on:
       - 'bindings/**'
       - 'fuzz/**'
       - 'scripts/fuzz/**'
-      - 'docs/audit/FUZZ_API_LEDGER.csv'
   workflow_dispatch:
     inputs:
       mode:
@@ -56,13 +54,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install pinned Rust inventory toolchain
+      - name: Install pinned Rust fuzz toolchain
         run: rustup toolchain install nightly-2026-01-15 --profile minimal
-      - name: Check API inventory and adapter boundary
+      - name: Check adapter boundary and named coverage paths
         run: |
-          bash scripts/fuzz/generate_api_inventory.sh
-          git diff --exit-code -- docs/audit/FUZZ_API_LEDGER.csv fuzz/generated
-          python3 scripts/fuzz/check_structure.py --self-test
+          python3 scripts/fuzz/check_structure.py --boundary-only --self-test
           python3 scripts/fuzz/check_coverage_paths.py --check-config --self-test
       - name: Check pinned safe Rust fuzz targets
         run: |

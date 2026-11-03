@@ -1,5 +1,9 @@
 # BTX Unfreeze Record
 
+This is a historical record. The application sources, C headers, tests, and
+benchmarks were preserved on the `BTE` branch at `12354ffa` and extracted from
+library `master` in `49ebb4f2`. The generic library kernels remain on `master`.
+
 ## State
 
 The BTX freeze was lifted by explicit project-owner direction on 2026-08-17.
