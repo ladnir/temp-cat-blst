@@ -613,10 +613,12 @@ theorem selected_g2_batch_round_full_check_iff_relation
     shiftSafe shiftSound positiveSafe negativeSafe relation
 
 /-!
-The friendly direct path does not use AVX addition. Scalar `in_subgroup`
-is literally `on_curve && point_in_subgroup_relation` in `point.cpp`; the
-specialized helper returns the same relation. This theorem covers the entire
-input list, including an early false from either predicate. -/
+The friendly direct path does not use AVX addition. Native AVX `in_subgroup`
+is `on_curve && g1_in_subgroup_relation` or
+`on_curve && g2_in_subgroup_relation` in `point.h`. The direct path calls the
+same relation after validation. This Boolean theorem covers the entire input
+list, including an early false from either predicate. The separate
+semantic-infinity branch is a representation-level boundary. -/
 
 def cppFullIndividualChecks {P : Type*}
     (onCurve relation : P → Bool) (points : List P) : Bool :=

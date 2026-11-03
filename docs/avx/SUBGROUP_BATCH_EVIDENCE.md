@@ -21,8 +21,9 @@ all challenges except one input whose quotient component is nonzero. For
 either alphabet, at most one coefficient can cancel that component in a row.
 The current randomized G2 path has an ideal false-accept probability at most
 `13^-22 < 2^-80`; the SHA-256 PRF distinguishing advantage is additional.
-The direct path uses the already-proved equivalence between prevalidation plus
-the scalar relation and full individual validation.
+For ordinary points, the direct path uses the already-proved equivalence
+between prevalidation plus the native AVX subgroup relation and full
+individual validation. It handles semantic infinity explicitly.
 
 `CurveBatchValidation.lean` proves coefficient injectivity on a finite
 additive quotient group of cardinality equal to the concrete G2 cofactor,
@@ -30,6 +31,29 @@ the conditioned 22-row uniqueness statement, and `13^22 > 2^80`. It also
 retains the earlier 35- and 41-row statements. The curve-order identity, PRF
 model, and physical AVX addition and doubling correspondence remain explicit
 proof boundaries.
+
+## Current Peach crossover
+
+On 2026-11-02, the restored `master` at `05d5a4f6` and the direct-check
+candidate were built with Clang 21.1.8, native AVX-512/IFMA, and Release
+settings. Google Benchmark ran on CPU 15 with seven repetitions at each
+count. Baseline and candidate ran one after the other under
+`/tmp/hypercat-global-benchmark.lock`; each entry is the median elapsed time
+for an accepted batch of consecutive generator multiples.
+
+| G2 points | Baseline batch | Direct-check candidate | Change |
+| ---: | ---: | ---: | ---: |
+| 1 | 576.569 µs | 18.475 µs | 96.8% faster |
+| 8 | 632.836 µs | 147.742 µs | 76.7% faster |
+| 16 | 695.412 µs | 295.360 µs | 57.5% faster |
+| 22 | 742.328 µs | 406.082 µs | 45.3% faster |
+| 23 | 750.313 µs | 745.064 µs | similar |
+| 256 | 2571.929 µs | 2543.920 µs | similar |
+
+The 22-point cutoff is conservative: it avoids a measurable regression while
+leaving any larger crossover for a separate tuning pass. The direct path has
+no statistical false-accept term once on-curve validation and the native
+subgroup relation agree with their field interpretation.
 
 ## Earlier Peach measurements
 

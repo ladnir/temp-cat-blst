@@ -52,32 +52,34 @@ using AvxPreparedG2Lines = blst::avx::PreparedLineTable;
 
 inline bool validate_batch_g1(const AvxG1& point, bool& noncanonical_infinity)
 {
-    const auto scalar = blst::avx::avx_curve_detail::curve_g1_to_scalar(
-        {point.X, point.Y, point.Z});
-    noncanonical_infinity = !point.Z.is_zero() && ScalarG1::is_inf(scalar);
-    return ScalarG1::on_curve(scalar);
+    blst::bool_t semantic_infinity = 0;
+    if (!blst::avx::avx_curve_detail::on_curve(
+            {point.X, point.Y, point.Z}, semantic_infinity)) {
+        return false;
+    }
+    noncanonical_infinity = semantic_infinity && !point.Z.is_zero();
+    return true;
 }
 
 inline bool validate_batch_g2(const AvxG2& point, bool& noncanonical_infinity)
 {
-    const auto scalar = blst::avx::avx_curve_detail::curve_g2_to_scalar(
-        {point.X, point.Y, point.Z});
-    noncanonical_infinity = !point.Z.is_zero() && ScalarG2::is_inf(scalar);
-    return ScalarG2::on_curve(scalar);
+    blst::bool_t semantic_infinity = 0;
+    if (!blst::avx::avx_curve_detail::on_curve(
+            {point.X, point.Y, point.Z}, semantic_infinity)) {
+        return false;
+    }
+    noncanonical_infinity = semantic_infinity && !point.Z.is_zero();
+    return true;
 }
 
 inline bool batch_g1_relation_assuming_on_curve(const AvxG1& point)
 {
-    return ScalarG1::in_subgroup_assuming_on_curve(
-        blst::avx::avx_curve_detail::curve_g1_to_scalar(
-            {point.X, point.Y, point.Z}));
+    return blst::avx::g1_in_subgroup_relation(point);
 }
 
 inline bool batch_g2_relation_assuming_on_curve(const AvxG2& point)
 {
-    return ScalarG2::in_subgroup_assuming_on_curve(
-        blst::avx::avx_curve_detail::curve_g2_to_scalar(
-            {point.X, point.Y, point.Z}));
+    return blst::avx::g2_in_subgroup_relation(point);
 }
 
 static_assert(BLST_AVX_P1_SIZE == sizeof(AvxG1));
@@ -633,13 +635,15 @@ inline bool friendly_g2_batch_subgroup_check(
         return false;
     }
 
-    // A direct relation test per input uses no more subgroup relations than
-    // the 22 randomized rows, and avoids all bucket additions. It also handles
+    // A direct relation test per input avoids all bucket additions. It handles
     // semantic infinity whose RNS Z is not exactly zero; complete addition
     // recognizes only the exact-zero representation.
     if (count <= kG2DirectSubgroupMaxPoints || noncanonical_infinity) {
         bool accepted = true;
         for (size_t i = 0; i < count; ++i) {
+            if (noncanonical_infinity && AvxG2::is_inf(*points[i])) {
+                continue;
+            }
             if (!batch_g2_relation_assuming_on_curve(*points[i])) {
                 accepted = false;
                 break;
@@ -732,6 +736,9 @@ inline bool friendly_batch_subgroup_check_projective(
     if (count <= kBatchSubgroupRounds || noncanonical_infinity) {
         bool accepted = true;
         for (size_t i = 0; i < count; ++i) {
+            if (noncanonical_infinity && Point::is_inf(*points[i])) {
+                continue;
+            }
             if (!in_subgroup_on_curve(*points[i])) {
                 accepted = false;
                 break;

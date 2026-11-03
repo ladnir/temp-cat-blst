@@ -211,8 +211,6 @@ namespace blst::scalar
 		BLST_HD static limb_t on_curve(const Point& p);
 		/// @brief Return one iff @p p is on-curve and lies in the prime-order subgroup.
 		BLST_HD static limb_t in_subgroup(const Point& p);
-		/// @brief Test subgroup relation when @p p has already passed on_curve.
-		BLST_HD static limb_t in_subgroup_assuming_on_curve(const Point& p);
 		/** @name Serialization */
 		///@{
 		/// @brief Write an on-curve point as uncompressed big-endian affine coordinates.

@@ -520,9 +520,11 @@ inline bool_t on_curve(const CurveG2Affine& point)
     return equal_mod_field(yy, rhs);
 }
 
-inline bool_t on_curve(const CurveG1Projective& point)
+inline bool_t on_curve(
+    const CurveG1Projective& point, bool_t& is_infinity)
 {
-    if (is_zero_mod_field(point.z))
+    is_infinity = is_zero_mod_field(point.z);
+    if (is_infinity)
         return 1;
 
     const auto xx = curve_ring().modmul(point.x, point.x);
@@ -538,9 +540,17 @@ inline bool_t on_curve(const CurveG1Projective& point)
     return equal_mod_field(yyz, rhs);
 }
 
-inline bool_t on_curve(const CurveG2Projective& point)
+inline bool_t on_curve(const CurveG1Projective& point)
 {
-    if (is_zero_mod_field(point.z))
+    bool_t is_infinity = 0;
+    return on_curve(point, is_infinity);
+}
+
+inline bool_t on_curve(
+    const CurveG2Projective& point, bool_t& is_infinity)
+{
+    is_infinity = is_zero_mod_field(point.z);
+    if (is_infinity)
         return 1;
 
     const auto xx = curve_fp2_ring().square(point.x);
@@ -554,6 +564,12 @@ inline bool_t on_curve(const CurveG2Projective& point)
     const auto four_bzzz = two_bzzz * std::integral_constant<int, 2>{};
     const auto rhs = NormalizePointCoord(xxx + four_bzzz, curve_fp2_ring());
     return equal_mod_field(yyz, rhs);
+}
+
+inline bool_t on_curve(const CurveG2Projective& point)
+{
+    bool_t is_infinity = 0;
+    return on_curve(point, is_infinity);
 }
 
 inline const CurveRing::StandardElement& aprime_e1()
