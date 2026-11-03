@@ -222,7 +222,7 @@ pub fn avx_p1s_in_g1(
 /// at least [`blst_avx_p2s_in_g2_workspace_sizeof`] bytes and must be disjoint
 /// from the points. Empty input succeeds without consulting either buffer when
 /// the AVX backend is available. Pointer-list allocation failure returns
-/// `false` rather than panicking. Batches of at most 22 points use direct
+/// `false` rather than panicking. Batches of at most 51 points use direct
 /// subgroup relations after on-curve validation.
 pub fn avx_p2s_in_g2(
     points: &[&blst_avx_p2],

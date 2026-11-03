@@ -548,7 +548,7 @@ size_t blst_avx_p2s_in_g2_workspace_sizeof(void);
  *
  * For a nonempty batch, `fill_random` must provide one fresh, unpredictable
  * 32-byte seed after the batch has been fixed. The pointed-to values must
- * remain unchanged for the duration of the call. For at most 22 points, or a
+ * remain unchanged for the duration of the call. For at most 51 points, or a
  * noncanonical infinity representation, CatBLST checks each prevalidated
  * point's subgroup relation directly. Otherwise it derives 22 rows whose
  * coefficients are uniform in {-6,...,+6} and checks one random linear

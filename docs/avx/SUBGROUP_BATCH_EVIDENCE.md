@@ -7,7 +7,7 @@ cutoff. The G1 cofactor has a factor 3, so the three coefficients are already
 the largest consecutive symmetric alphabet with a one-cancellation-per-row
 argument on every nonzero cofactor component.
 
-The friendly G2 check uses direct relations through 22 points and 22 rows
+The friendly G2 check uses direct relations through 51 points and 22 rows
 with coefficients `0, ±1, ..., ±6` above that. Its randomized path uses a
 caller-owned 12-point bucket workspace. Both groups also use the direct path
 when an input is semantically infinity but its physical RNS `Z` is not exactly
@@ -25,19 +25,20 @@ For ordinary points, the direct path uses the already-proved equivalence
 between prevalidation plus the native AVX subgroup relation and full
 individual validation. It handles semantic infinity explicitly.
 
-`CurveBatchValidation.lean` proves coefficient injectivity on a finite
-additive quotient group of cardinality equal to the concrete G2 cofactor,
+`CurveBatchValidation.lean` derives the selected G2 quotient's cardinality
+from the ambient curve-order identity and the previously proved exact order
+of the selected generator. It proves coefficient injectivity on that quotient,
 the conditioned 22-row uniqueness statement, and `13^22 > 2^80`. It also
-retains the earlier 35- and 41-row statements. The curve-order identity, PRF
-model, and physical AVX addition and doubling correspondence remain explicit
-proof boundaries.
+retains the earlier 35- and 41-row statements. The ambient curve-order
+identity, PRF model, and physical AVX addition and doubling correspondence
+remain explicit proof boundaries.
 
-## Current Peach crossover
+## Peach performance measurements
 
-On 2026-11-02, the restored `master` at `05d5a4f6` and the direct-check
-candidate were built with Clang 21.1.8, native AVX-512/IFMA, and Release
-settings. Google Benchmark ran on CPU 15 with seven repetitions at each
-count. Baseline and candidate ran one after the other under
+On 2026-11-02, the restored `master` at `05d5a4f6` and the initial direct-check
+candidate (with a 22-point cutoff) were built with Clang 21.1.8, native
+AVX-512/IFMA, and Release settings. Google Benchmark ran on CPU 15 with seven
+repetitions at each count. Baseline and candidate ran one after the other under
 `/tmp/hypercat-global-benchmark.lock`; each entry is the median elapsed time
 for an accepted batch of consecutive generator multiples.
 
@@ -50,10 +51,35 @@ for an accepted batch of consecutive generator multiples.
 | 23 | 750.313 µs | 745.064 µs | similar |
 | 256 | 2571.929 µs | 2543.920 µs | similar |
 
-The 22-point cutoff is conservative: it avoids a measurable regression while
-leaving any larger crossover for a separate tuning pass. The direct path has
-no statistical false-accept term once on-curve validation and the native
-subgroup relation agree with their field interpretation.
+The direct path has no statistical false-accept term once on-curve validation
+and the native subgroup relation agree with their field interpretation.
+
+### Direct-path crossover refinement
+
+The Peach scratch build used the same native AVX candidate with its direct
+cutoff temporarily raised to 80 for the coarse sweep and 52 for the exact
+49–52 sweep. The matching restored-master build retained the randomized path.
+Both used the Release settings and CPU 15 above. The two benchmark processes
+ran serially under the shared lock, with seven repetitions
+per size. Each number is the median elapsed time for an accepted generator
+batch; neither time includes point construction.
+
+| G2 points | Direct relations | 22-row buckets | Direct advantage |
+| ---: | ---: | ---: | ---: |
+| 40 | 742 µs | 880 µs | 15.7% |
+| 44 | 817 µs | 911 µs | 10.3% |
+| 48 | 891 µs | 941 µs | 5.3% |
+| 49 | 910 µs | 947 µs | 3.9% |
+| 50 | 929 µs | 955 µs | 2.7% |
+| 51 | 948 µs | 962 µs | 1.5% |
+| 52 | 966 µs | 970 µs | 0.4% |
+| 56 | 1039 µs | 1004 µs | -3.5% |
+| 60 | 1113 µs | 1034 µs | -7.6% |
+| 64 | 1188 µs | 1065 µs | -11.5% |
+
+The production cutoff is 51, leaving the near tie at 52 on the bucket path.
+This is a Peach-specific tuning choice; the security argument for either
+branch does not depend on the cutoff.
 
 ## Earlier Peach measurements
 

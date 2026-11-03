@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 import CatBLST.AVX.MatrixNoK.CurveGroupAdd
 import CatBLST.AVX.MatrixNoK.CanonicalExport
 import CatBLST.AVX.MatrixNoK.CurveSubgroup
+import CatBLST.AVX.MatrixNoK.CurveGeneratorOrder
+import Mathlib.GroupTheory.Coset.Card
 
 /-!
 # Curve validity through AVX batch addition
@@ -660,6 +662,19 @@ theorem g2_cofactor_coprime_small (d : Nat) (lower : 1 ≤ d)
     (upper : d ≤ 12) : g2Cofactor.Coprime d := by
   interval_cases d <;> native_decide
 
+/-- The quotient-cardinality premise used below follows from the ambient
+curve order and the already-proved exact order of the selected generator. -/
+theorem selected_g2_quotient_card
+    (fullOrder : Nat.card selectedG2Weierstrass.toProjective.Point =
+      g2Cofactor * blsScalarOrder) :
+    Nat.card (selectedG2Weierstrass.toProjective.Point ⧸
+      AddSubgroup.zmultiples selectedG2GeneratorPoint) = g2Cofactor := by
+  have product := AddSubgroup.card_eq_card_quotient_mul_card_addSubgroup
+    (AddSubgroup.zmultiples selectedG2GeneratorPoint)
+  rw [fullOrder, selected_g2_generator_span_natCard] at product
+  exact mul_right_cancel₀ (by native_decide : blsScalarOrder ≠ 0)
+    product.symm
+
 def cppThirteenShiftedCoefficient (i : Fin 13) : Nat :=
   match i.val with
   | 0 => 6
@@ -818,6 +833,26 @@ theorem cpp_thirteen_way_22_rows_at_most_one {G : Type*}
         cppThirteenCoefficient x (choices round) = 0} := by
   exact cpp_thirteen_way_conditional_rows_at_most_one_any_rounds
     card x nonzero 22 offset
+
+/-- Instantiate the 22-row uniqueness bound for the selected G2 quotient.
+The ambient curve-order identity is the remaining cardinality premise. -/
+theorem selected_g2_thirteen_way_22_rows_at_most_one
+    (fullOrder : Nat.card selectedG2Weierstrass.toProjective.Point =
+      g2Cofactor * blsScalarOrder)
+    (x : selectedG2Weierstrass.toProjective.Point ⧸
+      AddSubgroup.zmultiples selectedG2GeneratorPoint)
+    (nonzero : x ≠ 0)
+    (offset : Fin 22 →
+      selectedG2Weierstrass.toProjective.Point ⧸
+        AddSubgroup.zmultiples selectedG2GeneratorPoint) :
+    Set.Subsingleton {choices : Fin 22 → Fin 13 |
+      ∀ round, offset round +
+        cppThirteenCoefficient x (choices round) = 0} := by
+  classical
+  letI : Finite selectedG2Weierstrass.toProjective.Point :=
+    Nat.finite_of_card_ne_zero (by rw [fullOrder]; native_decide)
+  exact cpp_thirteen_way_22_rows_at_most_one
+    (selected_g2_quotient_card fullOrder) x nonzero offset
 
 theorem cpp_thirteen_way_22_challenge_space_card :
     Fintype.card (Fin 22 → Fin 13) = 13 ^ 22 := by

@@ -386,7 +386,7 @@ TEST(AvxCApiContract, FriendlyBatchMembershipUsesDirectCutoffsAndSemanticInfinit
     const AvxG1 g1 = AvxG1::generator();
     const AvxG2 g2 = AvxG2::generator();
     std::array<const blst_avx_p1*, 82> g1_points = {};
-    std::array<const blst_avx_p2*, 23> g2_points = {};
+    std::array<const blst_avx_p2*, 52> g2_points = {};
     g1_points.fill(reinterpret_cast<const blst_avx_p1*>(&g1));
     g2_points.fill(reinterpret_cast<const blst_avx_p2*>(&g2));
     std::vector<blst_byte> workspace(
@@ -399,10 +399,10 @@ TEST(AvxCApiContract, FriendlyBatchMembershipUsesDirectCutoffsAndSemanticInfinit
     EXPECT_TRUE(blst_avx_p1s_in_g1(
         g1_points.data(), 82, fill_fixed_random, &random));
     EXPECT_TRUE(blst_avx_p2s_in_g2(
-        g2_points.data(), 22, fill_fixed_random, &random,
+        g2_points.data(), 51, fill_fixed_random, &random,
         workspace.data(), workspace.size()));
     EXPECT_TRUE(blst_avx_p2s_in_g2(
-        g2_points.data(), 23, fill_fixed_random, &random,
+        g2_points.data(), 52, fill_fixed_random, &random,
         workspace.data(), workspace.size()));
     EXPECT_EQ(random.calls, 4u);
 
@@ -418,10 +418,15 @@ TEST(AvxCApiContract, FriendlyBatchMembershipUsesDirectCutoffsAndSemanticInfinit
     g2_points.back() = reinterpret_cast<const blst_avx_p2*>(&g2_low_order);
     EXPECT_FALSE(blst_avx_p1s_in_g1(
         g1_points.data(), g1_points.size(), fill_fixed_random, &random));
+    g2_points[50] = reinterpret_cast<const blst_avx_p2*>(&g2_low_order);
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points.data(), 51, fill_fixed_random, &random,
+        workspace.data(), workspace.size()));
+    g2_points[50] = reinterpret_cast<const blst_avx_p2*>(&g2);
     EXPECT_FALSE(blst_avx_p2s_in_g2(
         g2_points.data(), g2_points.size(), fill_fixed_random, &random,
         workspace.data(), workspace.size()));
-    EXPECT_EQ(random.calls, 6u);
+    EXPECT_EQ(random.calls, 7u);
 
     const auto& ring = blst::avx::avx_curve_detail::curve_ring();
     const blst::avx::avx_curve_detail::CurveRing::StandardElement modulus{
@@ -451,7 +456,7 @@ TEST(AvxCApiContract, FriendlyBatchMembershipUsesDirectCutoffsAndSemanticInfinit
     EXPECT_TRUE(blst_avx_p2s_in_g2(
         g2_points.data(), g2_points.size(), fill_fixed_random, &random,
         workspace.data(), workspace.size()));
-    EXPECT_EQ(random.calls, 8u);
+    EXPECT_EQ(random.calls, 9u);
 }
 
 TEST(AvxCApiContract, G1SubgroupMsmHasOneContractAcrossPointCounts)

@@ -221,7 +221,9 @@ constexpr size_t kBatchSubgroupRounds = 81;
 // twenty-two rows give at most 13^-22 < 2^-81.4 false acceptance. This is
 // deliberately G2-specific; G1 retains the generic ternary construction.
 constexpr size_t kG2BatchSubgroupRounds = 22;
-constexpr size_t kG2DirectSubgroupMaxPoints = kG2BatchSubgroupRounds;
+// On Peach, direct relations still beat the 22-row bucket path at 51 points;
+// the two paths are nearly tied by 52 points.
+constexpr size_t kG2DirectSubgroupMaxPoints = 51;
 constexpr size_t kG2BatchSubgroupMagnitudeBuckets = 6;
 constexpr size_t kG2BatchSubgroupBucketCount =
     2 * kG2BatchSubgroupMagnitudeBuckets;
