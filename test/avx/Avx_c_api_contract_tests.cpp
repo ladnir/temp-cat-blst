@@ -380,6 +380,80 @@ TEST(AvxCApiContract, FriendlyBatchMembershipRejectsLowOrderPoints)
     EXPECT_EQ(random.calls, 4u);
 }
 
+TEST(AvxCApiContract, FriendlyBatchMembershipUsesDirectCutoffsAndSemanticInfinity)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+    const AvxG1 g1 = AvxG1::generator();
+    const AvxG2 g2 = AvxG2::generator();
+    std::array<const blst_avx_p1*, 82> g1_points = {};
+    std::array<const blst_avx_p2*, 23> g2_points = {};
+    g1_points.fill(reinterpret_cast<const blst_avx_p1*>(&g1));
+    g2_points.fill(reinterpret_cast<const blst_avx_p2*>(&g2));
+    std::vector<blst_byte> workspace(
+        blst_avx_p2s_in_g2_workspace_sizeof());
+    FixedRandomSource random;
+    random.seed[0] = 0xa5;
+
+    EXPECT_TRUE(blst_avx_p1s_in_g1(
+        g1_points.data(), 81, fill_fixed_random, &random));
+    EXPECT_TRUE(blst_avx_p1s_in_g1(
+        g1_points.data(), 82, fill_fixed_random, &random));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(
+        g2_points.data(), 22, fill_fixed_random, &random,
+        workspace.data(), workspace.size()));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(
+        g2_points.data(), 23, fill_fixed_random, &random,
+        workspace.data(), workspace.size()));
+    EXPECT_EQ(random.calls, 4u);
+
+    G1Affine g1_low_order_affine = {};
+    G2Affine g2_low_order_affine = {};
+    ASSERT_EQ(BLST_SUCCESS, blst_p1_uncompress(
+        &g1_low_order_affine, kG1Order11Encoded.data()));
+    ASSERT_EQ(BLST_SUCCESS, blst_p2_uncompress(
+        &g2_low_order_affine, kG2Order13Encoded.data()));
+    const AvxG1 g1_low_order = avx_from_scalar(g1_low_order_affine);
+    const AvxG2 g2_low_order = avx_from_scalar(g2_low_order_affine);
+    g1_points.back() = reinterpret_cast<const blst_avx_p1*>(&g1_low_order);
+    g2_points.back() = reinterpret_cast<const blst_avx_p2*>(&g2_low_order);
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        g1_points.data(), g1_points.size(), fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points.data(), g2_points.size(), fill_fixed_random, &random,
+        workspace.data(), workspace.size()));
+    EXPECT_EQ(random.calls, 6u);
+
+    const auto& ring = blst::avx::avx_curve_detail::curve_ring();
+    const blst::avx::avx_curve_detail::CurveRing::StandardElement modulus{
+        blst::avx::avx_curve_detail::CurveRing::StandardResidue(
+            blst::avx::AVXVector<8>(
+                blst::avx::matrixnok::generated::modulus_in_rns_m1)),
+        blst::avx::avx_curve_detail::CurveRing::StandardResidue(
+            blst::avx::AVXVector<8>(
+                blst::avx::matrixnok::generated::modulus_in_rns_m2))};
+    AvxG1 g1_semantic_infinity = AvxG1::identity();
+    g1_semantic_infinity.Z = modulus;
+    AvxG2 g2_semantic_infinity = AvxG2::identity();
+    g2_semantic_infinity.Z =
+        blst::avx::avx_curve_detail::CurveFp2Ring::StandardElement(
+            modulus, ring.zero());
+    ASSERT_FALSE(g1_semantic_infinity.Z.is_zero());
+    ASSERT_FALSE(g2_semantic_infinity.Z.is_zero());
+    ASSERT_TRUE(G1::is_inf(scalar_from_avx(g1_semantic_infinity)));
+    ASSERT_TRUE(G2::is_inf(scalar_from_avx(g2_semantic_infinity)));
+
+    g1_points.back() =
+        reinterpret_cast<const blst_avx_p1*>(&g1_semantic_infinity);
+    g2_points.back() =
+        reinterpret_cast<const blst_avx_p2*>(&g2_semantic_infinity);
+    EXPECT_TRUE(blst_avx_p1s_in_g1(
+        g1_points.data(), g1_points.size(), fill_fixed_random, &random));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(
+        g2_points.data(), g2_points.size(), fill_fixed_random, &random,
+        workspace.data(), workspace.size()));
+    EXPECT_EQ(random.calls, 8u);
+}
+
 TEST(AvxCApiContract, G1SubgroupMsmHasOneContractAcrossPointCounts)
 {
     ASSERT_TRUE(blst_avx_enabled());

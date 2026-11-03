@@ -1220,6 +1220,14 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp>::in_subgroup(const Point<Fp>& P);
 	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp2>::in_subgroup(const Point<Fp2>& P);
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE bool_t Point<Field>::in_subgroup_assuming_on_curve(
+		const Point<Field>& P)
+	{
+		return point_in_subgroup_relation(P);
+	}
+	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp>::in_subgroup_assuming_on_curve(const Point<Fp>& P);
+	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp2>::in_subgroup_assuming_on_curve(const Point<Fp2>& P);
 
 
 

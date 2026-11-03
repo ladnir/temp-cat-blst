@@ -399,6 +399,13 @@ polynomials and `gcd(chi(u), c2) = 1`; the paper supplies the general
 curve-family theorem and published twist-order fact. `AUD-231` is therefore
 validated with that external mathematical dependency. A foundational Lean
 derivation of the BLS12 twist order remains deliberately out of scope.
+`CurveBatchValidation.lean` proves that per-point curve validation followed
+by the subgroup relation gives the same result as full individual validation.
+It also proves that the G2 cofactor is coprime to coefficient differences
+1 through 12, so each ideal 13-value row has at most one cancelling choice;
+22 independent rows give `13^-22 < 2^-80`. The quotient cardinality is an
+explicit premise, and the SHA-256 PRF model and physical AVX bucket-addition
+correspondence remain separate proof boundaries.
 Canonical export followed by scalar REDC and byte weaving remains an explicit
 non-Lean observation boundary for equality, infinity observation, validation,
 and secret normalization rather than a theorem silently inferred from

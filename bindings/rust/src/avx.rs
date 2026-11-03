@@ -189,7 +189,8 @@ unsafe extern "C" fn copy_batch_membership_seed(
 /// check targets a false-accept probability below 2^-128. The seed is erased
 /// from this function's local storage before return. Empty input succeeds
 /// without consulting the seed when the AVX backend is available. Pointer-list
-/// allocation failure returns `false` rather than panicking.
+/// allocation failure returns `false` rather than panicking. Batches of at
+/// most 81 points use direct subgroup relations after on-curve validation.
 pub fn avx_p1s_in_g1(
     points: &[&blst_avx_p1],
     mut random_seed: [blst_byte; 32],
@@ -221,7 +222,8 @@ pub fn avx_p1s_in_g1(
 /// at least [`blst_avx_p2s_in_g2_workspace_sizeof`] bytes and must be disjoint
 /// from the points. Empty input succeeds without consulting either buffer when
 /// the AVX backend is available. Pointer-list allocation failure returns
-/// `false` rather than panicking.
+/// `false` rather than panicking. Batches of at most 22 points use direct
+/// subgroup relations after on-curve validation.
 pub fn avx_p2s_in_g2(
     points: &[&blst_avx_p2],
     mut random_seed: [blst_byte; 32],

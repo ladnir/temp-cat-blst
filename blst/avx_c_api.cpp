@@ -50,6 +50,36 @@ using AvxMillerResult = blst::avx::MillerResult;
 using AvxPreparedG2Line = blst::avx::avx_gt_detail::PreparedLine;
 using AvxPreparedG2Lines = blst::avx::PreparedLineTable;
 
+inline bool validate_batch_g1(const AvxG1& point, bool& noncanonical_infinity)
+{
+    const auto scalar = blst::avx::avx_curve_detail::curve_g1_to_scalar(
+        {point.X, point.Y, point.Z});
+    noncanonical_infinity = !point.Z.is_zero() && ScalarG1::is_inf(scalar);
+    return ScalarG1::on_curve(scalar);
+}
+
+inline bool validate_batch_g2(const AvxG2& point, bool& noncanonical_infinity)
+{
+    const auto scalar = blst::avx::avx_curve_detail::curve_g2_to_scalar(
+        {point.X, point.Y, point.Z});
+    noncanonical_infinity = !point.Z.is_zero() && ScalarG2::is_inf(scalar);
+    return ScalarG2::on_curve(scalar);
+}
+
+inline bool batch_g1_relation_assuming_on_curve(const AvxG1& point)
+{
+    return ScalarG1::in_subgroup_assuming_on_curve(
+        blst::avx::avx_curve_detail::curve_g1_to_scalar(
+            {point.X, point.Y, point.Z}));
+}
+
+inline bool batch_g2_relation_assuming_on_curve(const AvxG2& point)
+{
+    return ScalarG2::in_subgroup_assuming_on_curve(
+        blst::avx::avx_curve_detail::curve_g2_to_scalar(
+            {point.X, point.Y, point.Z}));
+}
+
 static_assert(BLST_AVX_P1_SIZE == sizeof(AvxG1));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG1));
 static_assert(BLST_AVX_P1_AFFINE_SIZE == sizeof(AvxG1Affine));
@@ -189,6 +219,7 @@ constexpr size_t kBatchSubgroupRounds = 81;
 // twenty-two rows give at most 13^-22 < 2^-81.4 false acceptance. This is
 // deliberately G2-specific; G1 retains the generic ternary construction.
 constexpr size_t kG2BatchSubgroupRounds = 22;
+constexpr size_t kG2DirectSubgroupMaxPoints = kG2BatchSubgroupRounds;
 constexpr size_t kG2BatchSubgroupMagnitudeBuckets = 6;
 constexpr size_t kG2BatchSubgroupBucketCount =
     2 * kG2BatchSubgroupMagnitudeBuckets;
@@ -586,16 +617,36 @@ inline bool friendly_g2_batch_subgroup_check(
         workspace_bytes < required_workspace) {
         return false;
     }
+    bool noncanonical_infinity = false;
     for (size_t i = 0; i < count; ++i) {
-        if (points[i] == nullptr || !AvxG2::on_curve(*points[i])) {
+        bool current_noncanonical_infinity = false;
+        if (points[i] == nullptr ||
+            !validate_batch_g2(*points[i], current_noncanonical_infinity)) {
             return false;
         }
+        noncanonical_infinity |= current_noncanonical_infinity;
     }
 
     byte seed[kBatchSubgroupSeedBytes] = {};
     if (!fill_random_seed(fill_random, random_context, seed)) {
         blst::vec_zero(seed, sizeof(seed));
         return false;
+    }
+
+    // A direct relation test per input uses no more subgroup relations than
+    // the 22 randomized rows, and avoids all bucket additions. It also handles
+    // semantic infinity whose RNS Z is not exactly zero; complete addition
+    // recognizes only the exact-zero representation.
+    if (count <= kG2DirectSubgroupMaxPoints || noncanonical_infinity) {
+        bool accepted = true;
+        for (size_t i = 0; i < count; ++i) {
+            if (!batch_g2_relation_assuming_on_curve(*points[i])) {
+                accepted = false;
+                break;
+            }
+        }
+        blst::vec_zero(seed, sizeof(seed));
+        return accepted;
     }
 
     auto address = reinterpret_cast<std::uintptr_t>(workspace);
@@ -642,7 +693,8 @@ inline bool friendly_g2_batch_subgroup_check(
     return accepted;
 }
 
-template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
+template<typename Point, typename AddComplete, typename ValidatePoint,
+         typename InSubgroupOnCurve, typename InSubgroup>
 inline bool friendly_batch_subgroup_check_projective(
     const Point* const* points,
     const size_t count,
@@ -651,7 +703,8 @@ inline bool friendly_batch_subgroup_check_projective(
     const Point& shift,
     const byte group_tag,
     AddComplete add_complete,
-    OnCurve on_curve,
+    ValidatePoint validate_point,
+    InSubgroupOnCurve in_subgroup_on_curve,
     InSubgroup in_subgroup)
 {
     if (count == 0) {
@@ -660,16 +713,32 @@ inline bool friendly_batch_subgroup_check_projective(
     if (points == nullptr || fill_random == nullptr) {
         return false;
     }
+    bool noncanonical_infinity = false;
     for (size_t i = 0; i < count; ++i) {
-        if (points[i] == nullptr || !on_curve(*points[i])) {
+        bool current_noncanonical_infinity = false;
+        if (points[i] == nullptr ||
+            !validate_point(*points[i], current_noncanonical_infinity)) {
             return false;
         }
+        noncanonical_infinity |= current_noncanonical_infinity;
     }
 
     byte seed[kBatchSubgroupSeedBytes] = {};
     if (!fill_random_seed(fill_random, random_context, seed)) {
         blst::vec_zero(seed, sizeof(seed));
         return false;
+    }
+
+    if (count <= kBatchSubgroupRounds || noncanonical_infinity) {
+        bool accepted = true;
+        for (size_t i = 0; i < count; ++i) {
+            if (!in_subgroup_on_curve(*points[i])) {
+                accepted = false;
+                break;
+            }
+        }
+        blst::vec_zero(seed, sizeof(seed));
+        return accepted;
     }
 
     TernaryChallengeStream challenges(seed, count, group_tag);
@@ -1632,7 +1701,8 @@ bool blst_avx_p1s_in_g1(
         AvxG1::generator(),
         1,
         g1_add_complete,
-        [](const AvxG1& point) { return AvxG1::on_curve(point); },
+        validate_batch_g1,
+        batch_g1_relation_assuming_on_curve,
         [](const AvxG1& point) { return AvxG1::in_subgroup(point); });
 #else
     (void)points;

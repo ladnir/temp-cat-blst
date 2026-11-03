@@ -440,7 +440,9 @@ bool blst_avx_p1_batch_subgroup_challenge_check_range(
  * `points` contains `count` on-curve or adversarial AVX projective candidates.
  * For a nonempty batch, `fill_random` must provide one fresh, unpredictable
  * 32-byte seed after the batch has been fixed, and the pointed-to values must
- * remain unchanged for the duration of the call. CatBLST derives independent
+ * remain unchanged for the duration of the call. For at most 81 points, or a
+ * noncanonical infinity representation, CatBLST checks each prevalidated
+ * point's subgroup relation directly. Otherwise it derives independent
  * uniform ternary rows with domain-separated SHA-256 and owns the challenge
  * width and subgroup shift. The stated bound assumes SHA-256 behaves as a PRF
  * for that fresh seed and uses the fact that the selected curve has no
@@ -546,8 +548,10 @@ size_t blst_avx_p2s_in_g2_workspace_sizeof(void);
  *
  * For a nonempty batch, `fill_random` must provide one fresh, unpredictable
  * 32-byte seed after the batch has been fixed. The pointed-to values must
- * remain unchanged for the duration of the call. CatBLST derives 22 rows whose
- * coefficients are uniform in {-6,...,+6}. It checks one random linear
+ * remain unchanged for the duration of the call. For at most 22 points, or a
+ * noncanonical infinity representation, CatBLST checks each prevalidated
+ * point's subgroup relation directly. Otherwise it derives 22 rows whose
+ * coefficients are uniform in {-6,...,+6} and checks one random linear
  * combination per row with a fixed G2 shift.
  *
  * Because 13 is the smallest prime divisor of the BLS12-381 G2 cofactor, a

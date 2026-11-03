@@ -54,3 +54,4 @@ import CatBLST.AVX.MatrixNoK.CurveGenerators
 import CatBLST.AVX.MatrixNoK.CurveDispatch
 import CatBLST.AVX.MatrixNoK.CurveMembership
 import CatBLST.AVX.MatrixNoK.CurveMembershipCardinality
+import CatBLST.AVX.MatrixNoK.CurveBatchValidation

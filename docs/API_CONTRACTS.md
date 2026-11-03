@@ -87,8 +87,11 @@ The standard AVX batch-membership APIs are probabilistic validators. The
 `blst_avx_p2s_in_g2` entry derives 22 rows with coefficients uniform in
 `{-6,...,+6}` and requires caller-owned workspace. Both entries own the
 challenge width and subgroup shift. Both require one fresh unpredictable seed
-after the immutable batch is fixed. Under the SHA-256 PRF assumption, their
-false-accept bounds are below `2^-128` and `2^-81.4`, respectively. The expert
+after the immutable batch is fixed. For at most 81 G1 or 22 G2 points, or for
+noncanonical infinity, they use direct subgroup relations after on-curve
+validation; the seed callback contract still applies. Under the SHA-256 PRF
+assumption, their false-accept bounds are below `2^-128` and `2^-81.4`,
+respectively. The expert
 `batch_subgroup_check` entries expose the relation inputs directly; they are
 not misuse-resistant validation boundaries.
 
