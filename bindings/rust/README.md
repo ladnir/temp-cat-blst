@@ -60,6 +60,10 @@ acknowledgements, not support or ABI guarantees.
 
 Examples:
 
+For the single-threaded `wasm32-unknown-emscripten` target, see the
+[WebAssembly guide](../../docs/WASM.md). It requires an explicit Emscripten
+toolchain, the C++ linker, and matching WebAssembly exception flags.
+
 ```
 cargo test --lib
 cargo test --lib --features full-rust-bindings

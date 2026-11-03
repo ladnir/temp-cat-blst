@@ -14,8 +14,13 @@
 #cmakedefine BLST_ALLOW_UNTESTED_ARM64 // allow experimental ARM64 compilation
 #cmakedefine BLST_ALLOW_UNTESTED_CHERI // allow experimental CHERI compilation
 #cmakedefine BLST_APPLE_ARM64_SUPPORTED // supported Apple Silicon macOS target
+#cmakedefine BLST_TARGET_IS_WASM // Emscripten wasm32 scalar C++ target
 #cmakedefine BLST_FAST_BUILD   // faster build but slower runtime, reduced CUDA inlining.
 #define BLST_LIMB_SIZE ${BLST_LIMB_SIZE}
+
+#if defined(BLST_TARGET_IS_WASM) && (!defined(__EMSCRIPTEN__) || !defined(__wasm32__))
+# error "The WebAssembly configuration requires the Emscripten wasm32 compiler"
+#endif
 
 #if (defined(__aarch64__) || defined(__aarch64) || defined(_M_ARM64) || \
      defined(_M_ARM64EC)) && !defined(BLST_APPLE_ARM64_SUPPORTED) && \

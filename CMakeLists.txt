@@ -2,9 +2,16 @@
 cmake_minimum_required(VERSION 3.27)
 project(blst VERSION 1.0.0 LANGUAGES C CXX)
 
+set(BLST_TARGET_IS_WASM OFF)
+set(BLST_ASM_DEFAULT ON)
+if(EMSCRIPTEN)
+    set(BLST_TARGET_IS_WASM ON)
+    set(BLST_ASM_DEFAULT OFF)
+endif()
+
 option(BLST_BUILD_SHARED "Build shared library" OFF)
 option(BLST_PORTABLE     "Include generic arithmetic assembly fallbacks and runtime CPU dispatch" ON)
-option(BLST_ASM          "Enable assembly optimizations" ON)
+option(BLST_ASM          "Enable assembly optimizations" ${BLST_ASM_DEFAULT})
 option(BLST_ADX          "Enable the x86-64 ADX/BMI2 implementation (deployment CPU must support it)" OFF)
 option(BLST_DEFAULT_ASM  "Select assembly as the default scalar implementation" ${BLST_ASM})
 option(BLST_ASAN         "Enable Address Sanitizer" OFF)
@@ -158,13 +165,23 @@ if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES AND
         "category-blst configuration. Configure arm64 and x86_64 separately.")
 endif()
 
-if(NOT BLST_TARGET_IS_CHERI_PURECAP AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(BLST_TARGET_IS_WASM)
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+        message(FATAL_ERROR "The Emscripten profile currently supports wasm32 only.")
+    endif()
+    if(BLST_ASM OR BLST_DEFAULT_ASM OR BLST_ADX OR BLST_AVX512 OR
+       BLST_AVX512_PORTABLE OR BLST_DEFAULT_AVX OR BLST_CUDA OR BLST_PARALLEL_MSM)
+        message(FATAL_ERROR
+            "The WebAssembly profile requires scalar portable C++: disable "
+            "assembly, ADX, AVX, CUDA, and parallel MSM.")
+    endif()
+elseif(NOT BLST_TARGET_IS_CHERI_PURECAP AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR
         "category-blst supports only 64-bit targets; CMAKE_SIZEOF_VOID_P="
         "${CMAKE_SIZEOF_VOID_P}.")
 endif()
 
-if(NOT BLST_TARGET_IS_X86_64 AND NOT BLST_TARGET_IS_ARM64)
+if(NOT BLST_TARGET_IS_X86_64 AND NOT BLST_TARGET_IS_ARM64 AND NOT BLST_TARGET_IS_WASM)
     message(FATAL_ERROR
         "Unsupported target architecture '${CMAKE_SYSTEM_PROCESSOR}'. "
         "Supported production targets are 64-bit x86_64 and Apple Silicon.")
@@ -387,6 +404,12 @@ endif()
 
 #add_subdirectory(check)
 add_subdirectory(blst)
+if(BLST_TARGET_IS_WASM)
+    # Native Wasm EH keeps C API exception-to-error handling intact without
+    # JavaScript-based exception instrumentation in arithmetic hot paths.
+    target_compile_options(blst_static PUBLIC -fwasm-exceptions)
+    target_link_options(blst_static PUBLIC -fwasm-exceptions)
+endif()
 
 enable_testing()
 

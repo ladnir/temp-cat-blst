@@ -8,6 +8,9 @@ fn main() {
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let host = env::var("HOST").unwrap();
     let target = env::var("TARGET").unwrap();
+    if target_arch == "wasm32" && target_os != "emscripten" {
+        panic!("CatBLST's WebAssembly C++ backend currently requires wasm32-unknown-emscripten");
+    }
     let cross_compiling = host != target;
     let target_no_std = target_os.eq("none")
         || (target_os.eq("unknown") && target_arch.eq("wasm32"))
@@ -39,7 +42,8 @@ fn main() {
 
     let allow_untested_arm64 = env_flag("BLST_ALLOW_UNTESTED_ARM64");
     let allow_untested_cheri = env_flag("BLST_ALLOW_UNTESTED_CHERI");
-    let allow_unsupported_avx_compiler = env_flag("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER");
+    let allow_unsupported_avx_compiler =
+        env_flag("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER");
     let target_is_cheri = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").as_deref()
         == Ok("128")
         || target_env.to_ascii_lowercase().contains("cheri")
@@ -228,6 +232,9 @@ fn validate_build_policy(
     }
     if avx && target_arch != "x86_64" {
         return Err("the `avx` feature is supported only on x86_64 targets");
+    }
+    if force_adx && target_arch == "wasm32" {
+        return Err("the `force-adx` feature is not supported on WebAssembly");
     }
     Ok(())
 }
@@ -443,7 +450,10 @@ fn emit_native_link(lib_dir: &Path, target_env: &str, target_os: &str) {
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=blst");
     if target_env != "msvc" {
-        let cpp_runtime = if target_os == "macos" || target_os == "ios" {
+        let cpp_runtime = if target_os == "macos"
+            || target_os == "ios"
+            || target_os == "emscripten"
+        {
             "c++"
         } else {
             "stdc++"
@@ -464,9 +474,7 @@ fn emit_fuzz_sanitizer_runtime(target_env: &str, target_os: &str) {
         "undefined" => panic!(
             "BLST_FUZZ_NATIVE_SANITIZER=undefined is supported only on Linux"
         ),
-        _ => panic!(
-            "BLST_FUZZ_NATIVE_SANITIZER must be address or undefined"
-        ),
+        _ => panic!("BLST_FUZZ_NATIVE_SANITIZER must be address or undefined"),
     }
 }
 
@@ -539,6 +547,13 @@ mod tests {
     fn avx_is_x86_64_only() {
         assert!(validate_build_policy("x86_64", false, true, false).is_ok());
         assert!(validate_build_policy("aarch64", false, true, false).is_err());
+    }
+    #[test]
+    fn wasm_uses_scalar_cpp_only() {
+        assert!(validate_build_policy("wasm32", false, false, false).is_ok());
+        assert!(validate_build_policy("wasm32", true, false, false).is_ok());
+        assert!(validate_build_policy("wasm32", false, true, false).is_err());
+        assert!(validate_build_policy("wasm32", false, false, true).is_err());
     }
 
     #[test]

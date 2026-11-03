@@ -757,8 +757,12 @@ TEST(MiddleProductRanges, ScalarRandomPartitionsMatchMonolithic)
 
 TEST(MiddleProductRanges, ScalarConcurrentDisjointRangesMatchMonolithic)
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    GTEST_SKIP() << "The single-threaded WebAssembly profile does not provide pthreads";
+#else
     expect_parallel_ranges_match_monolithic<
         blst::MiddleProductScalarContext>(17);
+#endif
 }
 
 TEST(MiddleProductRanges, RejectsInvalidPhaseStageRangeAndCapacity)
