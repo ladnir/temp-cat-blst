@@ -403,9 +403,18 @@ derivation of the BLS12 twist order remains deliberately out of scope.
 by the subgroup relation gives the same result as full individual validation.
 It also proves that the G2 cofactor is coprime to coefficient differences
 1 through 12, so each ideal 13-value row has at most one cancelling choice;
-22 independent rows give `13^-22 < 2^-80`. The quotient cardinality is an
-explicit premise, and the SHA-256 PRF model and physical AVX bucket-addition
+22 independent rows give `13^-22 < 2^-80`. The selected quotient cardinality
+follows from the proved generator order and the ambient curve-order identity;
+that identity, the SHA-256 PRF model, and physical AVX bucket-addition
 correspondence remain separate proof boundaries.
+
+The current correspondence ledger does not map `blst/avx_c_api.cpp`.
+`CurveBatchValidation.lean` models the direct subgroup-check control flow and
+the ideal row-cancellation argument, but it does not prove C pointer validity,
+ABI alignment, workspace separation, entropy-callback behavior, or output
+atomicity. Those remain C API contract, test, and audit obligations rather than
+Lean claims.
+
 Canonical export followed by scalar REDC and byte weaving remains an explicit
 non-Lean observation boundary for equality, infinity observation, validation,
 and secret normalization rather than a theorem silently inferred from
