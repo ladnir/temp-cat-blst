@@ -969,11 +969,7 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
-    #[doc = " Encodes an Fp12 value as twelve canonical 48-byte big-endian Fp
- coefficients. The coefficient order is Fp2 index, then Fp6 half, then Fp
- component. This explicit order is independent of the in-memory `blst_fp12`
- layout and is shared by the scalar and AVX APIs. `out` and `a` must be
- non-null. No allocation is performed."]
+    #[doc = " Encodes an Fp12 value as twelve canonical 48-byte big-endian Fp\n coefficients. The coefficient order is Fp2 index, then Fp6 half, then Fp\n component. This explicit order is independent of the in-memory `blst_fp12`\n layout and is shared by the scalar and AVX APIs. `out` and `a` must be\n non-null. No allocation is performed."]
     pub fn blst_bendian_from_fp12(out: *mut blst_byte, a: *const blst_fp12);
 }
 extern "C" {
@@ -1639,27 +1635,32 @@ extern "C" {
     );
 }
 extern "C" {
+    #[doc = " Allocates and prepares one scalar Miller-line table per G2 operand.\n\n `g2` must address `count` library-produced, subgroup-validated projective\n points. `count` must be nonzero. G2 identity operands are accepted and later\n contribute the Miller identity. Construction is variable-time and may\n allocate; failure returns null without retaining caller storage."]
     pub fn blst_scalar_prepared_g2_batch_new(
         g2: *const blst_p2,
         count: usize,
     ) -> *mut blst_scalar_prepared_g2_batch;
 }
 extern "C" {
+    #[doc = " Returns the logical operand count, or zero when `batch` is null."]
     pub fn blst_scalar_prepared_g2_batch_len(
         batch: *const blst_scalar_prepared_g2_batch,
     ) -> usize;
 }
 extern "C" {
+    #[doc = " Returns owned object and line-table bytes, or zero when `batch` is null."]
     pub fn blst_scalar_prepared_g2_batch_storage_bytes(
         batch: *const blst_scalar_prepared_g2_batch,
     ) -> usize;
 }
 extern "C" {
+    #[doc = " Releases one immutable prepared batch. Null is accepted."]
     pub fn blst_scalar_prepared_g2_batch_free(
         batch: *mut blst_scalar_prepared_g2_batch,
     );
 }
 extern "C" {
+    #[doc = " Multiplies Miller loops for projective G1 points and prepared G2 operands.\n\n The operation computes\n `out = product_{i=0}^{count-1} miller(g1[i], prepared_g2[indices[i]])`.\n `out` is an unfinalized Miller-loop value, not a GT element. Products from\n independent ranges may be multiplied before one final exponentiation.\n\n Preconditions:\n - Every G1 point is a library-produced, subgroup-validated scalar point.\n - Every index is less than the prepared batch length; repetition is allowed.\n - For nonzero `count`, `g1` and `indices` each address `count` elements.\n - `out` does not overlap either input array or the prepared batch.\n\n The prepared batch is immutable and supports concurrent calls. This\n function retains no cursor or task state, allocates no memory, and is\n variable-time with respect to public count, indices, and point identities.\n Empty input returns the multiplicative identity. A rejected pointer or\n index leaves a nonnull `out` unchanged and returns false."]
     pub fn blst_scalar_prepared_g2_batch_miller_loop_product_indices(
         out: *mut blst_fp12,
         g1: *const blst_p1,
@@ -1669,6 +1670,7 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
+    #[doc = " Evaluates one contiguous range of pairings against a shared G1 point.\n\n The operation computes `out[i] = e(g1, prepared_g2[begin + i])` for\n `0 <= i < count`. `begin + count` must not exceed the prepared batch.\n `g1` must be a library-produced, subgroup-validated scalar point. The output\n must address `count` GT elements and must not overlap the input or prepared\n batch. Empty ranges are accepted.\n\n The immutable batch supports concurrent disjoint-output calls. This function\n converts `g1` to affine once per range, allocates no memory, retains no state,\n and is variable-time with respect to public range length and point identity.\n Invalid pointers or ranges return false without publishing any output."]
     pub fn blst_scalar_prepared_g2_batch_pairing_range(
         out: *mut blst_fp12,
         begin: usize,
@@ -2165,5 +2167,6 @@ fn bindgen_test_normal_types() {
     is_normal::<blst_p2_affine>();
     is_normal::<blst_pairing_context>();
     is_normal::<blst_uniq_context>();
+    is_normal::<blst_scalar_prepared_g2_batch>();
     is_normal::<BLST_UNIQ_RESULT>();
 }

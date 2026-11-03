@@ -41,7 +41,8 @@ for (my $i = 0; $i <= $#file; $i++) {
                         "$name PartialEq");
         $seen{fp12}++;
     } elsif ($name eq "blst_pairing_context" ||
-             $name eq "blst_uniq_context") {
+             $name eq "blst_uniq_context" ||
+             $name eq "blst_scalar_prepared_g2_batch") {
         for my $derive (qw(Copy Clone)) {
             require_rewrite(\$file[$i - 1], qr/,\s*$derive/, "",
                             "$name $derive");
@@ -58,7 +59,7 @@ for (my $i = 0; $i <= $#file; $i++) {
     }
 }
 
-my %expected = (point => 4, fp12 => 1, opaque => 2, scalar => 1);
+my %expected = (point => 4, fp12 => 1, opaque => 3, scalar => 1);
 for my $kind (sort keys %expected) {
     my $actual = $seen{$kind} // 0;
     die "bindings trim expected $expected{$kind} $kind types, found $actual\n"

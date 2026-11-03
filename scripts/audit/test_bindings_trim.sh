@@ -38,6 +38,8 @@ pub type blst_pairing = blst_pairing_context;
 #[derive(Debug, Copy, Clone)]
 pub struct blst_uniq_context {}
 pub type blst_uniq = blst_uniq_context;
+#[derive(Debug, Copy, Clone)]
+pub struct blst_scalar_prepared_g2_batch {}
 pub struct BLST_ERROR(pub u32);
 pub struct BLST_UNIQ_RESULT(pub u32);
 pub struct blst_fr {}
@@ -55,7 +57,7 @@ if grep -Fq '\n/\n/**' "$OUTPUT"; then
     echo "adjacent C documentation delimiters leaked into Rust docs" >&2
     exit 1
 fi
-for opaque in blst_pairing_context blst_uniq_context; do
+for opaque in blst_pairing_context blst_uniq_context blst_scalar_prepared_g2_batch; do
     if grep -B1 "pub struct $opaque" "$OUTPUT" | grep -Eq 'Copy|Clone'; then
         echo "$opaque retained a duplicating derive" >&2
         exit 1
