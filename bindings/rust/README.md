@@ -58,6 +58,10 @@ ARM64 Cargo build. A CHERI pure-capability build additionally requires
 `BLST_ALLOW_UNTESTED_CHERI=1`. These environment variables are explicit risk
 acknowledgements, not support or ABI guarantees.
 
+For the single-threaded `wasm32-unknown-emscripten` target, see the
+[WebAssembly guide](../../docs/WASM.md). It requires an explicit Emscripten
+toolchain, the C++ linker, and matching WebAssembly exception flags.
+
 Examples:
 
 ```

@@ -1,0 +1,68 @@
+name: WebAssembly scalar backend
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: wasm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Emscripten
+        shell: bash
+        run: |
+          git init "$RUNNER_TEMP/emsdk"
+          git -C "$RUNNER_TEMP/emsdk" remote add origin https://github.com/emscripten-core/emsdk.git
+          git -C "$RUNNER_TEMP/emsdk" fetch --depth 1 origin d7b4130688bfa348392b921ab04015aa15c4f154
+          git -C "$RUNNER_TEMP/emsdk" checkout --detach FETCH_HEAD
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.13
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.13
+      - name: Build and test native scalar oracle
+        shell: bash
+        run: |
+          cmake -S . -B out/build/wasm-native -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBLST_ASM=OFF -DBLST_DEFAULT_ASM=OFF -DBLST_TEST=ON -DBLST_BENCHMARK=OFF
+          cmake --build out/build/wasm-native --target blst_tests blst_portability_vectors middle_product_workspace_allocation_test --parallel 4
+          # Source-bound formal audit jobs run separately; this job qualifies runtime behavior.
+          ctest --test-dir out/build/wasm-native --output-on-failure --parallel 4 -E '^audit\.'
+      - name: Build and test wasm32
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcmake cmake -S . -B out/build/wasm -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBLST_TEST=ON -DBLST_BENCHMARK=OFF
+          cmake --build out/build/wasm --target blst_tests blst_portability_vectors middle_product_workspace_allocation_test --parallel 4
+          ctest --test-dir out/build/wasm --output-on-failure --parallel 2 -E '^audit\.'
+          node test/wasm/compare-vectors.cjs out/build/wasm-native/test/blst_portability_vectors out/build/wasm/test/blst_portability_vectors.js
+      - name: Run real browser smoke test
+        shell: bash
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory out/build/wasm/test >out/browser-server.log 2>&1 &
+          task_server_pid=$!
+          trap 'kill "$task_server_pid"' EXIT
+          google-chrome --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --disable-background-networking --no-first-run --virtual-time-budget=60000 \
+            --dump-dom http://127.0.0.1:8765/browser-smoke.html >out/browser-result.html
+          grep -q '<pre id="status">PASS</pre>' out/browser-result.html
+      - name: Run Rust bindings in wasm32
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          rustup toolchain install 1.94.1 --profile minimal --target wasm32-unknown-emscripten
+          export CMAKE_TOOLCHAIN_FILE="$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+          export BLST_PREBUILT_LIB="$PWD/out/build/wasm/blst/libblst.a"
+          export BLST_PREBUILT_CONFIG_INCLUDE="$PWD/out/build/wasm/blst"
+          export CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER=em++
+          export CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUNNER=node
+          export RUSTFLAGS='-C link-arg=-fwasm-exceptions -C link-arg=-sSTACK_SIZE=4194304 -C link-arg=-sALLOW_MEMORY_GROWTH=1'
+          cargo +1.94.1 test --manifest-path bindings/rust/Cargo.toml --locked --release --target wasm32-unknown-emscripten --lib
+          cargo +1.94.1 run --manifest-path bindings/rust/Cargo.toml --locked --release --target wasm32-unknown-emscripten --example smoke

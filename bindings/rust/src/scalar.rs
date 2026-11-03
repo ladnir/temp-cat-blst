@@ -2241,6 +2241,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_arch = "wasm32",
+        ignore = "requires native threads; sequential partition/range tests remain enabled"
+    )]
     fn prepared_g2_miller_products_match_partitions_and_concurrent_ranges() {
         const COUNT: usize = 37;
         let g1_generator = G1Projective::generator();

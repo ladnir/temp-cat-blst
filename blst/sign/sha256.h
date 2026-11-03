@@ -19,8 +19,8 @@ namespace blst
         "SHA-256 requires a 32-bit unsigned int");
     static_assert(std::numeric_limits<std::uint64_t>::digits == 64,
         "SHA-256 requires a 64-bit byte counter");
-    static_assert(sizeof(size_t) == sizeof(std::uint64_t),
-        "CatBLST supports only 64-bit size_t");
+    static_assert(sizeof(size_t) <= sizeof(std::uint64_t),
+        "SHA-256 input lengths must fit the 64-bit byte counter");
 
     /**
      * Native streaming SHA-256 state.

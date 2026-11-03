@@ -517,6 +517,10 @@ mod tests {
 
     #[cfg(blst_std)]
     #[test]
+    #[cfg_attr(
+        target_arch = "wasm32",
+        ignore = "requires native threads; the Wasm profile is single-threaded"
+    )]
     fn owns_temporary_dst_and_moves_safely_between_threads() {
         let pairing = {
             let temporary_dst = b"temporary pairing DST".to_vec();
