@@ -603,7 +603,8 @@ namespace blst
 		if (!out || !serialized) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			Fp12::from_bendian(out->data, serialized);
+			if (!GT::deserialize(*out, serialized))
+				return BATCHED_ERROR_BAD_ENCODING;
 			out++; serialized += 576;
 		}
 		return BATCHED_SUCCESS;
@@ -611,11 +612,12 @@ namespace blst
 
 #ifdef BLST_GT_KERNELS
 	// Kernel for GT element deserialization (GPU)
-	__global__ void deserialize_gt_vec_ker(GT* out, const unsigned char* serialized, size_t num)
+	__global__ void deserialize_gt_vec_ker(GT* out, const unsigned char* serialized, size_t num, int* invalid)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			Fp12::from_bendian(out[idx].data, &serialized[idx * 576]);
+			if (!GT::deserialize(out[idx], &serialized[idx * 576]))
+				atomicExch(invalid, 1);
 		}
 	}
 
@@ -623,9 +625,25 @@ namespace blst
 	batched_error_code deserialize_gt_vec_cu(GT* out, const unsigned char* serialized, size_t num)
 	{
 		if (!out || !serialized) return BATCHED_ERROR_NULL_POINTER;
+		if (num == 0) return BATCHED_SUCCESS;
 
-		auto future = launch_auto(deserialize_gt_vec_ker, num, out, serialized);
-		return cuda_to_batched(future.get());
+		int* invalid = nullptr;
+		cudaError_t error = cudaMalloc(&invalid, sizeof(*invalid));
+		if (error != cudaSuccess) return cuda_to_batched(error);
+		error = cudaMemset(invalid, 0, sizeof(*invalid));
+		if (error != cudaSuccess) {
+			cudaFree(invalid);
+			return cuda_to_batched(error);
+		}
+		auto future = launch_auto(deserialize_gt_vec_ker, num, out, serialized, invalid);
+		const batched_error_code launch_result = cuda_to_batched(future.get());
+		int host_invalid = 0;
+		if (launch_result == BATCHED_SUCCESS)
+			error = cudaMemcpy(&host_invalid, invalid, sizeof(host_invalid), cudaMemcpyDeviceToHost);
+		cudaFree(invalid);
+		if (launch_result != BATCHED_SUCCESS) return launch_result;
+		if (error != cudaSuccess) return cuda_to_batched(error);
+		return host_invalid ? BATCHED_ERROR_BAD_ENCODING : BATCHED_SUCCESS;
 	}
 #endif
 

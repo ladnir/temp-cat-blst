@@ -80,7 +80,8 @@ namespace blst
     // inputs must be allocated on the device if compiled with BLST_CUDA
     batched_error_code serialize_gt_vec(unsigned char* out, const GT* elements, size_t num);
 
-    // Vectorized GT element deserialization (576 bytes per element)
+    // Vectorized GT element deserialization (576 bytes per element).
+    // Rejects noncanonical coefficients and values outside GT.
     // inputs must be allocated on the device if compiled with BLST_CUDA
     batched_error_code deserialize_gt_vec(GT* out, const unsigned char* serialized, size_t num);
 

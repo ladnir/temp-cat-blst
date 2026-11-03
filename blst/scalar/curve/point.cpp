@@ -1036,6 +1036,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp::mul(ret.y[0], ret.y[0], get_BLST_RR());
 			Fp::mul(ret.y[1], ret.y[1], get_BLST_RR());
 
+			/* Infinity requires the explicit infinity flag on the wire. */
+			if (G2AffinePoint::is_inf(ret))
+				return BLST_BAD_ENCODING;
+
 			if (!G2AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
 

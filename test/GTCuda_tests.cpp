@@ -648,6 +648,15 @@ TEST(GTOpsCUDA, Serialization) {
     EXPECT_TRUE(compare_results(h_cuda_deserialized, h_elements, num_elements, gt_element_equal))
         << "Round-trip serialization should preserve elements";
 
+    memset(h_serialized, 0xff, 48);
+    CUDA_CHECK(cudaMemcpy(d_serialized, h_serialized, 48, cudaMemcpyHostToDevice));
+    EXPECT_EQ(deserialize_gt_vec(d_deserialized, d_serialized, num_elements),
+              BATCHED_ERROR_BAD_ENCODING);
+    memset(h_serialized, 0, 576); // Canonical Fp12 zero is outside GT.
+    CUDA_CHECK(cudaMemcpy(d_serialized, h_serialized, 576, cudaMemcpyHostToDevice));
+    EXPECT_EQ(deserialize_gt_vec(d_deserialized, d_serialized, num_elements),
+              BATCHED_ERROR_BAD_ENCODING);
+
     // Cleanup
     CUDA_CHECK(cudaFree(d_elements));
     CUDA_CHECK(cudaFree(d_serialized));

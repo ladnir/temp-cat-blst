@@ -89,10 +89,11 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 deserialization from big-endian
-    BLST_GLOBAL void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num) {
+    BLST_GLOBAL void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num, int* invalid) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            Fp12::from_bendian(out[idx], &in[idx * 12 * 48]);
+            if (!Fp12::from_bendian(out[idx], &in[idx * 12 * 48]))
+                atomicExch(invalid, 1);
         }
     }
 
@@ -193,7 +194,8 @@ namespace blst
         if (!out || !in) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            Fp12::from_bendian(out[i], &in[i * 12 * 48]);
+            if (!Fp12::from_bendian(out[i], &in[i * 12 * 48]))
+                return BATCHED_ERROR_BAD_ENCODING;
         }
         return BATCHED_SUCCESS;
     }
@@ -274,9 +276,25 @@ namespace blst
 
     batched_error_code fp12_from_bendian_vec_cu(Fp12* out, const unsigned char* in, size_t num) {
         if (!out || !in) return BATCHED_ERROR_NULL_POINTER;
+        if (num == 0) return BATCHED_SUCCESS;
 
-        auto fut = launch_auto(fp12_from_bendian_kernel, num, out, in);
-        return cuda_to_batched(fut.get());
+        int* invalid = nullptr;
+        cudaError_t error = cudaMalloc(&invalid, sizeof(*invalid));
+        if (error != cudaSuccess) return cuda_to_batched(error);
+        error = cudaMemset(invalid, 0, sizeof(*invalid));
+        if (error != cudaSuccess) {
+            cudaFree(invalid);
+            return cuda_to_batched(error);
+        }
+        auto fut = launch_auto(fp12_from_bendian_kernel, num, out, in, invalid);
+        const batched_error_code launch_result = cuda_to_batched(fut.get());
+        int host_invalid = 0;
+        if (launch_result == BATCHED_SUCCESS)
+            error = cudaMemcpy(&host_invalid, invalid, sizeof(host_invalid), cudaMemcpyDeviceToHost);
+        cudaFree(invalid);
+        if (launch_result != BATCHED_SUCCESS) return launch_result;
+        if (error != cudaSuccess) return cuda_to_batched(error);
+        return host_invalid ? BATCHED_ERROR_BAD_ENCODING : BATCHED_SUCCESS;
     }
 
     batched_error_code mul_by_xy00z0_fp12_vec_cu(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {

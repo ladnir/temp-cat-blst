@@ -1523,6 +1523,8 @@ inline BLST_ERROR G2AffinePoint::deserialize_BE(G2AffinePoint& out, const unsign
         !avx_curve_detail::decode_fp2_be(decoded.Y, in + 96, false)) {
         return BLST_BAD_ENCODING;
     }
+    if (is_inf(decoded))
+        return BLST_BAD_ENCODING;
     if (!on_curve(decoded))
         return BLST_POINT_NOT_ON_CURVE;
     out = decoded;

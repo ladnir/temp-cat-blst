@@ -1368,6 +1368,100 @@ TEST(CApi, PointDecodersRejectCoordinatesAtTheFieldModulus)
     }
 }
 
+TEST(CApi, MalformedPointEncodingsFailWithoutPublishingOutput)
+{
+    // These reach flag checks, canonical field checks, curve checks, and
+    // square-root recovery in both selected and scalar decoders.
+    const auto check_g1 = [](const auto& bytes, bool compressed) {
+        blst_p1_affine out;
+        std::memset(&out, 0xa5, sizeof(out));
+        const blst_p1_affine before = out;
+        const auto err = compressed
+            ? blst_p1_uncompress(&out, bytes.data())
+            : blst_p1_deserialize(&out, bytes.data());
+        EXPECT_NE(err, BLST_SUCCESS);
+        EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+
+        blst::scalar::G1AffinePoint scalar_out = {};
+        const auto scalar_err = compressed
+            ? blst::scalar::G1AffinePoint::uncompress(scalar_out, bytes.data())
+            : blst::scalar::G1AffinePoint::deserialize(scalar_out, bytes.data());
+        EXPECT_EQ(scalar_err, err);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        blst_avx_p1 avx_out;
+        std::memset(&avx_out, 0xa5, sizeof(avx_out));
+        const blst_avx_p1 avx_before = avx_out;
+        const auto avx_err = compressed
+            ? blst_avx_p1_uncompress(&avx_out, bytes.data())
+            : blst_avx_p1_deserialize(&avx_out, bytes.data());
+        EXPECT_EQ(avx_err, err);
+        EXPECT_EQ(std::memcmp(&avx_out, &avx_before, sizeof(avx_out)), 0);
+#endif
+    };
+    const auto check_g2 = [](const auto& bytes, bool compressed) {
+        SCOPED_TRACE(::testing::Message() << "G2 compressed=" << compressed
+                     << " first=" << static_cast<unsigned>(bytes[0])
+                     << " last=" << static_cast<unsigned>(bytes.back()));
+        blst_p2_affine out;
+        std::memset(&out, 0xa5, sizeof(out));
+        const blst_p2_affine before = out;
+        const auto err = compressed
+            ? blst_p2_uncompress(&out, bytes.data())
+            : blst_p2_deserialize(&out, bytes.data());
+        EXPECT_NE(err, BLST_SUCCESS);
+        EXPECT_EQ(std::memcmp(&out, &before, sizeof(out)), 0);
+
+        blst::scalar::G2AffinePoint scalar_out = {};
+        const auto scalar_err = compressed
+            ? blst::scalar::G2AffinePoint::uncompress(scalar_out, bytes.data())
+            : blst::scalar::G2AffinePoint::deserialize(scalar_out, bytes.data());
+        EXPECT_EQ(scalar_err, err);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        blst_avx_p2 avx_out;
+        std::memset(&avx_out, 0xa5, sizeof(avx_out));
+        const blst_avx_p2 avx_before = avx_out;
+        const auto avx_err = compressed
+            ? blst_avx_p2_uncompress(&avx_out, bytes.data())
+            : blst_avx_p2_deserialize(&avx_out, bytes.data());
+        EXPECT_EQ(avx_err, err);
+        EXPECT_EQ(std::memcmp(&avx_out, &avx_before, sizeof(avx_out)), 0);
+#endif
+    };
+
+    std::array<unsigned char, 48> g1_compressed = {};
+    g1_compressed[0] = 0x80; // x=0 is a known non-subgroup point.
+    check_g1(g1_compressed, true);
+    g1_compressed[0] = 0xc1; // Malformed infinity.
+    check_g1(g1_compressed, true);
+    g1_compressed.fill(0xff); // Noncanonical coordinate.
+    check_g1(g1_compressed, true);
+
+    std::array<unsigned char, 96> g1_serialized = {};
+    check_g1(g1_serialized, false); // (0,0) is off curve.
+    g1_serialized[0] = 0x40;
+    g1_serialized[95] = 1; // Malformed infinity.
+    check_g1(g1_serialized, false);
+    g1_serialized.fill(0xff);
+    check_g1(g1_serialized, false);
+
+    std::array<unsigned char, 96> g2_compressed = {};
+    g2_compressed[0] = 0x00; // Missing compression flag.
+    check_g2(g2_compressed, true);
+    g2_compressed[0] = 0xc1;
+    check_g2(g2_compressed, true);
+    g2_compressed.fill(0xff);
+    check_g2(g2_compressed, true);
+
+    std::array<unsigned char, 192> g2_serialized = {};
+    // Zero coordinates denote infinity internally, but the wire flag is absent.
+    check_g2(g2_serialized, false);
+    g2_serialized[0] = 0x40;
+    g2_serialized[191] = 1;
+    check_g2(g2_serialized, false);
+    g2_serialized.fill(0xff);
+    check_g2(g2_serialized, false);
+}
+
 TEST(CApi, G1MultipointAffineAndAddMatchSinglePointOps)
 {
     std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};

@@ -637,6 +637,13 @@ TEST_F(Fp12CudaTest, VectorSerialization) {
             expect_success(copy_device_to_host_fp12(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
             EXPECT_TRUE(compare_fp12_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "serialization round-trip"));
         }
+
+        // A noncanonical coefficient must fail the whole batch decode.
+        memset(h_serialized.get(), 0xff, 48);
+        ASSERT_EQ(cudaMemcpy(d_serialized, h_serialized.get(), 48,
+                             cudaMemcpyHostToDevice), cudaSuccess);
+        EXPECT_EQ(fp12_from_bendian_vec(d_result, d_serialized, NUM_ELEMENTS),
+                  BATCHED_ERROR_BAD_ENCODING);
     }
 
     // Cleanup

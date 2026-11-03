@@ -40,7 +40,8 @@ namespace blst
 		BATCHED_ERROR_CUDA_SYNC_FAILED,
 		BATCHED_ERROR_CUDA_DEVICE_ERROR,
 		BATCHED_ERROR_HOST_MALLOC_FAILED,
-		BATCHED_ERROR_UNKNOWN
+		BATCHED_ERROR_UNKNOWN,
+		BATCHED_ERROR_BAD_ENCODING
 	} batched_error_code;
 
 
@@ -71,6 +72,8 @@ namespace blst
 			return "CUDA device error";
 		case BATCHED_ERROR_HOST_MALLOC_FAILED:
 			return "Host memory allocation failed";
+		case BATCHED_ERROR_BAD_ENCODING:
+			return "Invalid field or group encoding";
 		case BATCHED_ERROR_UNKNOWN:
 		default:
 			return "Unknown error";
