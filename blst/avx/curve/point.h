@@ -259,9 +259,7 @@ inline bool decode_fp_be(
             (static_cast<limb_t>(0) - 1) >> 3;
     }
 
-    blst::Fp reduced = {};
-    blst::Fp::add(reduced, canonical, blst::Fp::zero());
-    if (!vec_is_equal(reduced.l, canonical.l, sizeof(canonical)))
+    if (!blst::Fp::is_redc(canonical))
         return false;
 
     blst::Fp montgomery = {};

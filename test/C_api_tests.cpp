@@ -2231,12 +2231,16 @@ TEST(CApi, ScalarPreparedG2BatchComposesAndRejectsInvalidRangesAtomically)
     EXPECT_EQ(blst_scalar_prepared_g2_batch_len(batch), npoints);
     EXPECT_GT(blst_scalar_prepared_g2_batch_storage_bytes(batch), 0u);
 
-    BoundaryGt expected = *blst_fp12_one();
+    blst::scalar::MillerResult scalar_expected =
+        blst::scalar::MillerResult::identity();
     for (size_t i = 0; i < npoints; ++i) {
-        BoundaryGt term = {};
-        blst_miller_loop(&term, &qs_affine[indices[i]], &ps_affine[i]);
-        blst_fp12_mul(&expected, &expected, &term);
+        blst::scalar::MillerResult term = {};
+        blst::scalar::GT::miller_loop(
+            term, &qs_affine[indices[i]], &ps_affine[i]);
+        blst::scalar::MillerResult::mul(
+            scalar_expected, scalar_expected, term);
     }
+    const BoundaryGt expected = scalar_expected.data;
 
     BoundaryGt complete = {};
     ASSERT_TRUE(blst_scalar_prepared_g2_batch_miller_loop_product_indices(

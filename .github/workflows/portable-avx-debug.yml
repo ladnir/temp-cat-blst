@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: >
           cmake --build out/build/ci-avx-portable-debug
-          --target blst_tests
+          --target blst_tests middle_product_workspace_allocation_test
           --parallel 2
 
       - name: Test developer emulation
