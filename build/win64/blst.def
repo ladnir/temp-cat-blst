@@ -201,6 +201,12 @@ EXPORTS
 	blst_miller_loop_n
 	blst_precompute_lines
 	blst_miller_loop_lines
+	blst_scalar_prepared_g2_batch_new
+	blst_scalar_prepared_g2_batch_len
+	blst_scalar_prepared_g2_batch_storage_bytes
+	blst_scalar_prepared_g2_batch_free
+	blst_scalar_prepared_g2_batch_miller_loop_product_indices
+	blst_scalar_prepared_g2_batch_pairing_range
 	blst_pairing_sizeof
 	blst_pairing_alignof
 	blst_pairing_init
@@ -271,6 +277,10 @@ EXPORTS
 	blst_p1_affine_from_avx
 	blst_avx_p1_add
 	blst_avx_p1_mult
+	blst_avx_p1s_mult_ct_scratch_sizeof
+	blst_avx_p1s_mult_ct
+	blst_avx_p1s_mult_fr_vartime_scratch_sizeof
+	blst_avx_p1s_mult_fr_vartime
 	blst_avx_p1_mult_pippenger_scratch_sizeof
 	blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof
 	blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof
@@ -287,6 +297,9 @@ EXPORTS
 	blst_avx_p1_is_equal
 	blst_avx_p1_cneg
 	blst_avx_p1_batch_subgroup_check
+	blst_avx_p1_batch_subgroup_challenge_sizeof
+	blst_avx_p1_batch_subgroup_challenge_init
+	blst_avx_p1_batch_subgroup_challenge_check_range
 	blst_avx_p1s_in_g1
 	blst_avx_p1_compress
 	blst_avx_p1_serialize
@@ -294,6 +307,7 @@ EXPORTS
 	blst_avx_p1_uncompress
 	blst_avx_p1s_mult_pippenger_scratch_sizeof
 	blst_avx_p1s_mult_pippenger
+	blst_avx_p1_identity
 	blst_avx_p1_generator
 	blst_avx_p2_from_scalar
 	blst_p2_from_avx
@@ -302,8 +316,12 @@ EXPORTS
 	blst_avx_p2_add
 	blst_avx_p2_cneg
 	blst_avx_p2_batch_subgroup_check
+	blst_avx_p2s_in_g2_workspace_sizeof
 	blst_avx_p2s_in_g2
 	blst_avx_p2_mult
+	blst_avx_p2_mult_fr_vartime
+	blst_avx_p2s_mult_fr_vartime_scratch_sizeof
+	blst_avx_p2s_mult_fr_vartime
 	blst_avx_p2_mult_pippenger_scratch_sizeof
 	blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof
 	blst_avx_p2_mult_pippenger
@@ -318,11 +336,16 @@ EXPORTS
 	blst_avx_p2_deserialize
 	blst_avx_p2s_mult_pippenger_scratch_sizeof
 	blst_avx_p2s_mult_pippenger
+	blst_avx_p2_identity
 	blst_avx_p2_generator
 	blst_avx_fp12_from_scalar
 	blst_fp12_from_avx
+	blst_avx_gt_serialize
+	blst_avx_gt_deserialize
+	blst_avx_gt_mult
 	blst_avx_fp12_mul
 	blst_avx_fp12_sqr
+	blst_avx_gt_inverse
 	blst_avx_gt_mult_pippenger_scratch_sizeof
 	blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof
 	blst_avx_gt_mult_pippenger
@@ -330,7 +353,51 @@ EXPORTS
 	blst_avx_fp12_is_equal
 	blst_avx_fp12_in_group
 	blst_avx_fp12_one
+	blst_avx_miller_loop
+	blst_avx_miller_loop_n
 	blst_avx_pairing
+	blst_avx_pairing_n
+	blst_avx_prepared_g2_lines_sizeof
+	blst_avx_prepared_g2_lines_alignof
+	blst_avx_prepared_g2_lines_init
+	blst_avx_pairing_prepared_g2
+	blst_avx_prepared_g2_batch_new
+	blst_avx_prepared_g2_batch_len
+	blst_avx_prepared_g2_batch_storage_bytes
+	blst_avx_prepared_g2_batch_free
+	blst_avx_prepared_g2_batch_workspace_new
+	blst_avx_prepared_g2_batch_workspace_new_with_capacity
+	blst_avx_prepared_g2_batch_workspace_free
+	blst_avx_prepared_g2_batch_pairing_prefix
+	blst_avx_prepared_g2_batch_pairing_indices
+	blst_avx_prepared_g2_batch_pairing_range
+	blst_avx_prepared_g2_batch_miller_loop_product_indices
+	blst_middle_product_scalar_range_work_count
+	blst_middle_product_scalar_input_range
+	blst_middle_product_scalar_execute_range
+	blst_middle_product_scalar_output_range
+	blst_middle_product_avx_native_range_work_count
+	blst_middle_product_avx_native_input_range
+	blst_middle_product_avx_native_execute_range
+	blst_middle_product_avx_native_output_range
+	blst_middle_product_precompute_b_scalar
+	blst_middle_product_scalar
+	blst_middle_product_workspace_scalar_new
+	blst_middle_product_scalar_with_workspace
+	blst_middle_product_workspace_scalar_free
+	blst_middle_product_update_scalar
+	blst_middle_product_precomputed_b_scalar_free
+	blst_middle_product_precompute_b_avx
+	blst_middle_product_avx
+	blst_middle_product_workspace_avx_new
+	blst_middle_product_avx_with_workspace
+	blst_middle_product_workspace_avx_free
+	blst_middle_product_update_avx
+	blst_middle_product_precomputed_b_avx_free
+	blst_middle_product_precompute_b_avx_native
+	blst_middle_product_workspace_avx_native_new
+	blst_middle_product_avx_native_with_workspace
+	blst_middle_product_workspace_avx_native_free
 	blst_middle_product_precompute_b
 	blst_middle_product
 	blst_middle_product_update
