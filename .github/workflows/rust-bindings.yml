@@ -64,7 +64,7 @@ jobs:
           trap 'rm -f -- "$generated"' EXIT
           RUSTFMT=$(rustup which --toolchain 1.65.0 rustfmt) \
             ./scripts/build/generate-rust-bindings.sh "$generated"
-          cmp bindings/rust/src/bindings.rs "$generated"
+          diff -u bindings/rust/src/bindings.rs "$generated" | sed -n '1,120p'
 
       - name: Validate binding policy and transform
         shell: bash
