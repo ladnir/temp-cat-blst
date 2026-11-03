@@ -4,7 +4,11 @@ include(FetchContent)
 # project's already-enabled MASM language under current CMake/MSVC. The
 # upstream intrinsics backend retains runtime SIMD dispatch and avoids that
 # generator-specific integration failure.
-if(MSVC AND BLST_TARGET_IS_X86_64)
+if(BLST_TARGET_IS_WASM)
+    # Emscripten identifies its scalar target as x86 for compatibility. Do not
+    # let upstream infer host SSE/AVX sources for a wasm32 object archive.
+    set(BLAKE3_SIMD_TYPE "none" CACHE STRING "" FORCE)
+elseif(MSVC AND BLST_TARGET_IS_X86_64)
     set(BLAKE3_SIMD_TYPE "x86-intrinsics" CACHE STRING "" FORCE)
 endif()
 

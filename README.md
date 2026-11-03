@@ -130,6 +130,10 @@ Windows and Linux configurations. Build artifacts currently retain the
 For Rust build features, supported targets, and examples, see the
 [Rust binding README](bindings/rust/README.md).
 
+The scalar backend also builds for Emscripten wasm32. See the
+[WebAssembly build and validation guide](docs/WASM.md) for browser tests,
+Rust linker configuration, and the current single-threaded scope.
+
 ## Security
 
 Inputs crossing a trust boundary must be deserialized and validated according

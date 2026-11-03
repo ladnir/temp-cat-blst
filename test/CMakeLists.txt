@@ -6,7 +6,10 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-find_package(GTest 1.14 QUIET)
+if(NOT BLST_TARGET_IS_WASM)
+    # A host-installed GTest archive cannot be reused in the cross build.
+    find_package(GTest 1.14 QUIET)
+endif()
 if(NOT TARGET GTest::gtest_main)
     FetchContent_Declare(
         googletest
@@ -15,6 +18,15 @@ if(NOT TARGET GTest::gtest_main)
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
+endif()
+if(BLST_TARGET_IS_WASM)
+    # GoogleTest is not a BLST consumer while it compiles, so it must use the
+    # same exception ABI explicitly rather than its default JS-based one.
+    foreach(BLST_GTEST_TARGET gtest gtest_main)
+        if(TARGET ${BLST_GTEST_TARGET})
+            target_compile_options(${BLST_GTEST_TARGET} PRIVATE -fwasm-exceptions)
+        endif()
+    endforeach()
 endif()
 
 
@@ -148,6 +160,15 @@ endif()
 
 # Create the single ordinary runtime test executable.
 add_executable(blst_tests ${TEST_SOURCES})
+add_executable(blst_portability_vectors "wasm/portability_vectors.cpp")
+target_link_libraries(blst_portability_vectors PRIVATE blst_static)
+add_test(NAME unit.portability_vectors COMMAND blst_portability_vectors)
+if(BLST_TARGET_IS_WASM)
+    # The ordinary suite includes large fixed-size arithmetic fixtures. Keep
+    # this test-only stack/memory policy out of the library's public contract.
+    target_link_options(blst_tests PRIVATE -sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=4194304 -sEXIT_RUNTIME=1)
+    configure_file(wasm/browser-smoke.html browser-smoke.html COPYONLY)
+endif()
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE GTest::gtest_main blst_static blst_avx_headers)

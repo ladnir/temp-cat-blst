@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>category-blst WebAssembly test</title>
+<pre id="status">RUNNING</pre>
+<pre id="output"></pre>
+<script>
+// Test harness, not a wallet. No keys, external RPC, or production randomness.
+var Module = {
+    arguments: ["--gtest_filter=Conformance.*:CApi.*:FftApi.*:FftCore.*:Sha256Audit.*"],
+    print: function (line) { document.getElementById("output").textContent += line + "\n"; },
+    printErr: function (line) { document.getElementById("output").textContent += line + "\n"; },
+    onExit: function (code) { document.getElementById("status").textContent = code === 0 ? "PASS" : "FAIL " + code; },
+    onAbort: function (error) { document.getElementById("status").textContent = "ABORT " + error; }
+};
+</script>
+<script src="blst_tests.js"></script>
