@@ -140,7 +140,7 @@ deterministically. AVX-512 `cc`/`vv` operations are reviewed in their own files.
 - MSVC 19.50 `/O2 /Ob3 /W4 /WX` copy probes: self=`ret`; distinct=one
   equality branch plus three vector moves.
 - Generated Win64/ELF predicates use 64-bit count operations.
-- `./build/refresh.sh verify-assembly`: 100/100 passed.
+- `./scripts/build/refresh.sh verify-assembly`: 100/100 passed.
 - Single-worker MSVC Debug target build: passed.
 
 ## Automated evidence

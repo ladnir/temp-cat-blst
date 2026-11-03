@@ -1,13 +1,13 @@
 /.gitattributes text eol=lf
 *.pl text eol=lf linguist-language=assembly
 *.sh text eol=lf
-/build/cheri/*.S text eol=lf
-/build/coff/*.S text eol=lf
-/build/coff/*.s text eol=lf
-/build/elf/*.S text eol=lf
-/build/elf/*.s text eol=lf
-/build/assembly-output-manifest.txt text eol=lf
-/build/mach-o/*.S text eol=lf
-/build/mach-o/*.s text eol=lf
-/build/win64/*.asm text eol=lf
-/fuzz/corpus/** -text
+/blst/generated/cheri/*.S text eol=lf
+/blst/generated/coff/*.S text eol=lf
+/blst/generated/coff/*.s text eol=lf
+/blst/generated/elf/*.S text eol=lf
+/blst/generated/elf/*.s text eol=lf
+/blst/generated/assembly-output-manifest.txt text eol=lf
+/blst/generated/mach-o/*.S text eol=lf
+/blst/generated/mach-o/*.s text eol=lf
+/blst/generated/win64/*.asm text eol=lf
+/test/fuzz/corpus/** -text

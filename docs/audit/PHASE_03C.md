@@ -45,7 +45,7 @@ outputs contain only the Phase 3B guard-whitespace normalization required to
 match the upstream generator spelling. After normalizing line endings, all
 20 match upstream `14cd09a` exactly.
 
-`build/verify-assembly.sh` generated two independent trees and verified all
+`scripts/build/verify-assembly.sh` generated two independent trees and verified all
 100 outputs against the checked-in allowlist after the port.
 
 ## Fork-specific defect found during integration

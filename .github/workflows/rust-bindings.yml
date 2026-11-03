@@ -9,8 +9,8 @@ on:
       - 'bindings/rust/src/bindings.rs'
       - 'bindings/rust/rustfmt.toml'
       - 'blst/common/error_codes.h'
-      - 'build/bindings_trim.pl'
-      - 'build/generate-rust-bindings.sh'
+      - 'scripts/build/bindings_trim.pl'
+      - 'scripts/build/generate-rust-bindings.sh'
       - 'scripts/audit/check_rust_bindings.ps1'
       - 'scripts/audit/test_bindings_trim.sh'
   push:
@@ -23,8 +23,8 @@ on:
       - 'bindings/rust/src/bindings.rs'
       - 'bindings/rust/rustfmt.toml'
       - 'blst/common/error_codes.h'
-      - 'build/bindings_trim.pl'
-      - 'build/generate-rust-bindings.sh'
+      - 'scripts/build/bindings_trim.pl'
+      - 'scripts/build/generate-rust-bindings.sh'
       - 'scripts/audit/check_rust_bindings.ps1'
       - 'scripts/audit/test_bindings_trim.sh'
   workflow_dispatch:
@@ -63,13 +63,13 @@ jobs:
           generated=$(mktemp)
           trap 'rm -f -- "$generated"' EXIT
           RUSTFMT=$(rustup which --toolchain 1.65.0 rustfmt) \
-            ./build/generate-rust-bindings.sh "$generated"
+            ./scripts/build/generate-rust-bindings.sh "$generated"
           cmp bindings/rust/src/bindings.rs "$generated"
 
       - name: Validate binding policy and transform
         shell: bash
         run: |
-          bash -n build/generate-rust-bindings.sh
-          perl -c build/bindings_trim.pl
+          bash -n scripts/build/generate-rust-bindings.sh
+          perl -c scripts/build/bindings_trim.pl
           bash scripts/audit/test_bindings_trim.sh
           pwsh -NoProfile -File scripts/audit/check_rust_bindings.ps1

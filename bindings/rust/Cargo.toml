@@ -23,7 +23,7 @@ include = [
     "/blst/LICENSE",
     "/blst/CMakeLists.txt",
     "/blst/blst/**",
-    "/blst/build/**",
+    "/blst/generated/**",
     "/blst/bindings/*.h",
 ]
 links = "blst"

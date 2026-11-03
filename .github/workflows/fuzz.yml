@@ -7,7 +7,7 @@ on:
       - 'CMakeLists.txt'
       - 'blst/**'
       - 'bindings/**'
-      - 'fuzz/**'
+      - 'test/fuzz/**'
       - 'scripts/fuzz/**'
   push:
     branches:
@@ -17,7 +17,7 @@ on:
       - 'CMakeLists.txt'
       - 'blst/**'
       - 'bindings/**'
-      - 'fuzz/**'
+      - 'test/fuzz/**'
       - 'scripts/fuzz/**'
   workflow_dispatch:
     inputs:

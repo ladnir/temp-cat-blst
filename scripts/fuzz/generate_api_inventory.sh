@@ -41,7 +41,7 @@ mkdir -p "$cpp_ast_dir"
 mapfile -t cpp_public_types < <(
     python3 -c \
         'import json,sys; print(*json.load(open(sys.argv[1]))["cpp_public_types"], sep="\n")' \
-        "$repo_root/fuzz/api_inventory.json"
+        "$repo_root/test/fuzz/api_inventory.json"
 )
 
 for index in "${!cpp_public_types[@]}"; do
@@ -55,7 +55,7 @@ for index in "${!cpp_public_types[@]}"; do
         -I"$repo_root" -I"$config" -I"$config/blst" \
         -Xclang -ast-dump=json \
         -Xclang -ast-dump-filter="$public_type" \
-        -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
+        -fsyntax-only "$repo_root/test/fuzz/inventory/cpp_surface.cpp" \
         > "$cpp_ast_dir/$ast_name"
 done
 
@@ -63,14 +63,14 @@ clang++ -std=c++20 \
     -I"$repo_root" -I"$scalar_config" -I"$scalar_config/blst" \
     -Xclang -ast-dump \
     -Xclang -ast-dump-filter=blst:: \
-    -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
+    -fsyntax-only "$repo_root/test/fuzz/inventory/cpp_surface.cpp" \
     > "$out_dir/cpp-free-scalar.txt"
 
 clang++ -std=c++20 \
     -I"$repo_root" -I"$portable_config" -I"$portable_config/blst" \
     -Xclang -ast-dump \
     -Xclang -ast-dump-filter=blst:: \
-    -fsyntax-only "$repo_root/fuzz/inventory/cpp_surface.cpp" \
+    -fsyntax-only "$repo_root/test/fuzz/inventory/cpp_surface.cpp" \
     > "$out_dir/cpp-free-portable-avx.txt"
 
 export CARGO_BUILD_JOBS=2

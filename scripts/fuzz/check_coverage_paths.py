@@ -16,7 +16,7 @@ REQUIRED_CATEGORIES = {"success", "rejection", "boundary", "aliasing", "roundtri
 
 
 def load_rows(root: Path) -> list[dict[str, str]]:
-    path = root / "fuzz/COVERAGE_PATHS.csv"
+    path = root / "test/fuzz/COVERAGE_PATHS.csv"
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     expected = ["target", "category", "name", "file", "marker"]

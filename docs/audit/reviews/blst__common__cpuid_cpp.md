@@ -141,7 +141,7 @@ FFT, AVX-512 vector-emulation, or Rust-unsafe implementation of its own.
 - `dumpbin /symbols` showed external `blst_platform_cap`; helpers were local.
 - `cmake --build out/build/x64-Debug --target blst_tests --config Debug
   --parallel 1`: passed with assembly enabled.
-- `./build/refresh.sh verify-assembly`: all 100 outputs passed.
+- `./scripts/build/refresh.sh verify-assembly`: all 100 outputs passed.
 
 ## Automated evidence
 

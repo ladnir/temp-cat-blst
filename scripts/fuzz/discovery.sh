@@ -67,8 +67,8 @@ for target in "${targets[@]}"; do
     working_corpus="$build_dir/discovery-corpus/$target"
     mkdir -p "$artifact_dir"
     mkdir -p "$working_corpus"
-    cp -n "fuzz/corpus/$target"/* "$working_corpus"/
-    "$build_dir/fuzz/$target" \
+    cp -n "test/fuzz/corpus/$target"/* "$working_corpus"/
+    "$build_dir/test/fuzz/$target" \
         -jobs=1 \
         -workers=1 \
         -max_total_time="$seconds" \

@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Path | `bindings/rust/src/bindings.rs`; `build/generate-rust-bindings.sh`; `build/bindings_trim.pl` |
+| Path | `bindings/rust/src/bindings.rs`; `scripts/build/generate-rust-bindings.sh`; `scripts/build/bindings_trim.pl` |
 | Roadmap phase / queue | Phase 18 generated-Rust audit |
 | Reviewed commit | `daa4eb3005fa4c2fef68fd23a84c34dd2518df7d` |
 | Reviewer | Codex audit team |
@@ -59,8 +59,8 @@ sibling temporary directory and moved only after success.
 
 - `check_rust_bindings.ps1`: 253 scalar C declarations and 253 generated Rust
   declarations, no missing/extra symbol.
-- `bash -n build/generate-rust-bindings.sh`; `perl -c
-  build/bindings_trim.pl`; `test_bindings_trim.sh`: passed.
+- `bash -n scripts/build/generate-rust-bindings.sh`; `perl -c
+  scripts/build/bindings_trim.pl`; `test_bindings_trim.sh`: passed.
 - Generated ABI/layout tests: 13/13 including the normality check; focused
   pairing/uniqueness wrappers: 13/13.
 

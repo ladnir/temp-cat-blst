@@ -69,7 +69,7 @@ function Get-Classification
         $profiles = 'cuda_experimental'
         $notes = 'Retained experimental, opt-in CUDA surface; outside scalar/AVX-512 production readiness.'
     }
-    elseif ($lower.StartsWith('build/') -or
+    elseif ($lower.StartsWith('blst/generated/') -or
             $lower -eq 'bindings/rust/src/bindings.rs' -or
             $lower -match '^blst/avx/generated.*\.(h|hpp|c|cc|cpp)$')
     {

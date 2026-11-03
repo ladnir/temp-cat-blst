@@ -400,6 +400,6 @@ if(BLST_BENCHMARK)
 endif()
 
 if(BLST_FUZZ)
-    add_subdirectory(fuzz)
+    add_subdirectory(test/fuzz)
 endif()
 

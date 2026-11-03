@@ -41,8 +41,8 @@ artifact_dir="$build_dir/artifacts/$target"
 working_corpus="$build_dir/discovery-corpus/$target"
 mkdir -p "$artifact_dir"
 mkdir -p "$working_corpus"
-cp -n "fuzz/corpus/$target"/* "$working_corpus"/
-"$build_dir/fuzz/$target" \
+cp -n "test/fuzz/corpus/$target"/* "$working_corpus"/
+"$build_dir/test/fuzz/$target" \
     -max_total_time="$seconds" \
     -max_len="$BLST_FUZZ_MAX_LEN" \
     -timeout="$BLST_FUZZ_TIMEOUT" \

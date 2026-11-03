@@ -53,7 +53,7 @@ at the end of the output table are unchanged.
 
 The Linux ASan validation exposed `AUD-018`. In portable mode,
 `blst/backend/backend_asm.h` correctly selected generic q entry points, but
-`build/assembly.S` included only the x/ADX providers. Linux therefore failed
+`blst/generated/assembly.S` included only the x/ADX providers. Linux therefore failed
 to link native C++ field template calls such as `mul_mont_sparse_256`.
 
 The wrapper now follows the upstream portable inclusion policy for ELF, COFF,
@@ -98,7 +98,7 @@ or GCC/ASan `multi_scalar` objects.
 | Linux scalar portable dispatch | GCC 13 Debug, ASan and leak detection, q+x assembly | 313 passed, nine AVX-only tests skipped, zero failed (322 registered) |
 | Windows optimized scalar | Release, direct ADX | Three focused threshold/invalid-input tests passed |
 
-`build/verify-assembly.sh` verified all 100 deterministic generated outputs.
+`scripts/build/verify-assembly.sh` verified all 100 deterministic generated outputs.
 The audit manifest, upstream manifest, and `git diff --check` passed.
 
 ## Residual validation

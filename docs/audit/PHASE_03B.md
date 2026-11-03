@@ -26,7 +26,7 @@ divergent generated MASM files. CMake did not pass either spelling to MASM.
 
 `BLST_PORTABLE` remains the public CMake option. CMake now passes
 `__BLST_PORTABLE__` explicitly to every MASM source when that option is
-enabled, matching the existing translation in `build/assembly.S`.
+enabled, matching the existing translation in `blst/generated/assembly.S`.
 
 The six affected x86 generators now guard both sides of the Win64 fallback
 linkage:
@@ -69,7 +69,7 @@ Toolchain:
 | Portable dispatch | Debug, scalar default, `BLST_PORTABLE=ON`, `BLST_ADX=OFF`, assembly on | Exact 40-entry allowlist across 13 MASM objects | 78/78 focused interface, field, Montgomery, and shift tests passed |
 | Non-portable ADX | Debug, scalar default, `BLST_PORTABLE=OFF`, `BLST_ADX=ON`, assembly on | Exact zero-entry allowlist across 13 MASM objects | 38/38 focused field, Montgomery, shift, group, and pairing tests passed |
 
-`build/verify-assembly.sh` generated two independent trees and verified all
+`scripts/build/verify-assembly.sh` generated two independent trees and verified all
 100 outputs against the checked-in allowlist. `git diff --check` passed.
 
 The portable profile deliberately disabled compile-time ADX so calls entered

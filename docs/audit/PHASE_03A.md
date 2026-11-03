@@ -25,13 +25,13 @@ The checked-in generator set contains:
 - 45 ARMv8 outputs: ELF, COFF, Mach-O, MASM, and CHERI;
 - 100 generated assembly files in total.
 
-`build/assembly-output-manifest.txt` is the exact output allowlist. Generation
+`blst/generated/assembly-output-manifest.txt` is the exact output allowlist. Generation
 refuses a nonempty output directory and never writes directly into the
 checked-in output tree.
 
 ## Reproducibility repair
 
-`build/refresh.sh` previously searched the removed `src/asm` directory and
+`scripts/build/refresh.sh` previously searched the removed `src/asm` directory and
 coupled assembly, Win64 export-definition, and Rust-bindgen refreshes. It now
 dispatches those operations independently:
 
@@ -62,7 +62,7 @@ Windows checkout before comparison so it works before a fresh checkout.
 
 ### Generator checks
 
-`build/refresh.sh verify-assembly` generated two independent temporary trees.
+`scripts/build/refresh.sh verify-assembly` generated two independent temporary trees.
 Every corresponding output was byte-identical, both trees matched the
 100-entry allowlist, and all outputs matched the checked-in tree after
 repository newline normalization.
@@ -88,7 +88,7 @@ algorithm tests. No benchmark executable was built or run.
 ## Review-discovered AUD-016
 
 The newly isolated Win64 export generator is deterministic, but its output
-does not match `build/win64/blst.def`. The checked-in file contains 233 export
+does not match `blst/generated/win64/blst.def`. The checked-in file contains 233 export
 entries, while the current supported C header generates 318. No tracked build
 currently consumes the definition file.
 

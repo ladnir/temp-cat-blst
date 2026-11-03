@@ -750,7 +750,7 @@ def row_for(api: ApiSymbol) -> dict[str, str]:
 
 
 def load_config(root: Path) -> dict[str, Any]:
-    return json.loads((root / "fuzz/api_inventory.json").read_text(encoding="utf-8"))
+    return json.loads((root / "test/fuzz/api_inventory.json").read_text(encoding="utf-8"))
 
 
 def collect_symbols(root: Path, require_generated: bool) -> list[ApiSymbol]:

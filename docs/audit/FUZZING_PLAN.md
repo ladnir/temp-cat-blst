@@ -402,7 +402,7 @@ The first promotion uses edge-preserving set-cover minimization. Feature-only
 seeds require a separate justification when they would materially enlarge the
 checked-in corpus.
 Corpus files are byte-exact inputs. `.gitattributes` disables text and
-line-ending transforms throughout `fuzz/corpus`.
+line-ending transforms throughout `test/fuzz/corpus`.
 
 ### Coverage and automation
 
@@ -411,7 +411,7 @@ comparable only for identical compiler and build profiles.
 
 LLVM source coverage is descriptive. It must show each named success,
 rejection, boundary, aliasing, and round-trip path. The initial program has no
-percentage gate. `fuzz/COVERAGE_PATHS.csv` owns those path names, and coverage
+percentage gate. `test/fuzz/COVERAGE_PATHS.csv` owns those path names, and coverage
 replay fails when any named marker has zero executions.
 
 Pull requests run structural gates and deterministic corpus replay only. Long

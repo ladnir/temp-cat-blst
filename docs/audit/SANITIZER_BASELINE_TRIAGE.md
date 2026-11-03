@@ -51,7 +51,7 @@ The focused filter omits seven intentionally expensive stress cases:
   MSM capacity/range cases, and both large Wbits scratch-threshold cases remain
   in their subsystem/milestone batches; individual ASan runtimes reached
   approximately 26-186 seconds in this environment.
-- `InterfaceTests.Div3LimbsRandomFuzz` belongs in the bounded fuzz/regression
+- `InterfaceTests.Div3LimbsRandomFuzz` belongs in the bounded test/fuzz/regression
   corpus rather than every focused sanitizer change loop.
 
 ## Baseline result
@@ -78,7 +78,7 @@ The preferred initial configuration was pure portable C/C++ with
 calls assembly-named primitives such as `from_mont_384`, `add_mod_256`, and
 `mul_mont_sparse_256`, whose declarations are unavailable without the assembly
 backend. A second attempt with assembly enabled and `BLST_ADX=OFF` fails at
-`build/assembly.S:4`, which unconditionally rejects x86-64 without
+`blst/generated/assembly.S:4`, which unconditionally rejects x86-64 without
 `BLST_ADX` even though the portable assembly selection includes generic
 providers.
 

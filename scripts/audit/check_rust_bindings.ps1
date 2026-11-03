@@ -7,8 +7,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $cHeaderPath = Join-Path $repoRoot 'bindings\blst_scalar.h'
 $rustBindingsPath = Join-Path $repoRoot 'bindings\rust\src\bindings.rs'
-$generatorPath = Join-Path $repoRoot 'build\generate-rust-bindings.sh'
-$trimPath = Join-Path $repoRoot 'build\bindings_trim.pl'
+$generatorPath = Join-Path $repoRoot 'scripts\build\generate-rust-bindings.sh'
+$trimPath = Join-Path $repoRoot 'scripts\build\bindings_trim.pl'
 $errors = [System.Collections.Generic.List[string]]::new()
 
 function Read-Text([string]$Path)
@@ -159,7 +159,7 @@ if ($generator -match '--rustified-enum')
 {
     $errors.Add('Generator still permits closed rustified C result enums.')
 }
-if ($generator -notmatch 'blst_scalar\.h -- -std=c99 "-I\$HERE/\.\."')
+if ($generator -notmatch 'blst_scalar\.h -- -std=c99 "-I\$HERE/\.\./\.\."')
 {
     $errors.Add('Generator input is not the scalar C99 header with the repository include root.')
 }

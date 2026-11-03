@@ -229,7 +229,7 @@ review uninitialized storage and worker-panic/barrier behavior.
 
 Decision: repair before porting assembly commits.
 
-`build/refresh.sh` still searches `../src/asm`, although generators now live
+`scripts/build/refresh.sh` still searches `../src/asm`, although generators now live
 under `blst/asm`. It also couples assembly generation to definition-file and
 Rust-bindgen regeneration. Checked-in Win64 outputs contain manual
 `BLST_PORTABLE` changes while their generators still emit

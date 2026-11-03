@@ -62,8 +62,8 @@ jobs:
       - name: Validate binding transform
         shell: bash
         run: |
-          bash -n build/generate-rust-bindings.sh
-          perl -c build/bindings_trim.pl
+          bash -n scripts/build/generate-rust-bindings.sh
+          perl -c scripts/build/bindings_trim.pl
           bash scripts/audit/test_bindings_trim.sh
 
       - name: Validate Windows export list
@@ -71,6 +71,6 @@ jobs:
         run: |
           generated=$(mktemp)
           trap 'rm -f -- "$generated"' EXIT
-          bash -n build/generate-win64-exports.sh
-          build/generate-win64-exports.sh "$generated"
-          cmp build/win64/blst.def "$generated"
+          bash -n scripts/build/generate-win64-exports.sh
+          scripts/build/generate-win64-exports.sh "$generated"
+          cmp blst/generated/win64/blst.def "$generated"

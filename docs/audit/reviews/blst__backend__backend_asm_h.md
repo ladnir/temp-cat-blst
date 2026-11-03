@@ -15,7 +15,7 @@
 | Profiles | x86-64 ADX, x86-64 q, combined portable x86-64, Apple/AArch64 scalar |
 | Generation/provenance | Locally composed declaration header with upstream BLST `src/vect.h` lineage |
 | Upstream references | Upstream snapshot `54e6e55674722fc2797ebb4bbb71b26d881eb4b8`; local provider repair `33914f2`; generated assembly tree |
-| Related files | `backend.h`, `common/vect.h`, `build/assembly.S`, generated x86-64/AArch64 outputs, `test/Interface_tests.cpp` |
+| Related files | `backend.h`, `common/vect.h`, `blst/generated/assembly.S`, generated x86-64/AArch64 outputs, `test/Interface_tests.cpp` |
 
 ## Purpose and trust boundary
 
@@ -105,7 +105,7 @@ copy, conversion, or intermediate call.
 
 `AUD-057` removes the persistent generic-to-ADX and AArch64 x-to-generic macro
 aliases. Header order can no longer rename subsequent code. The matrix mirrors
-`build/assembly.S` and the Win64 CMake object selection. Local MSVC combined
+`blst/generated/assembly.S` and the Win64 CMake object selection. Local MSVC combined
 and non-portable configurations compile and retain their exact fallback symbol
 allowlists. Supported run `31665323681` builds and tests the direct generic
 provider on Apple Silicon.

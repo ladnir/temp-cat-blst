@@ -50,7 +50,7 @@ milestone gate.
 
 ## Residual risk
 
-- At this phase, `build/win64/blst.def` remained globally stale under
+- At this phase, `blst/generated/win64/blst.def` remained globally stale under
   `AUD-016`; the later export-hardening packet regenerated the complete
   compatibility surface and added a deterministic CI comparison.
 - The generated Rust declaration update should be reproduced when the retained

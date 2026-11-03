@@ -25,7 +25,7 @@ layout.
   the wider stack frame.
 - Regenerated exactly the two inverse routines in the five checked-in ARM
   formats: CHERI, COFF, ELF, Mach-O, and Win64.
-- Deliberately left `build/win64/blst.def` unchanged for `AUD-016`.
+- Deliberately left `blst/generated/win64/blst.def` unchanged for `AUD-016`.
 
 The 512-byte bound is sufficient and tight for the intended scratch region.
 The 256-bit routine reserves 1,040 bytes and can place the aligned region at
@@ -58,10 +58,10 @@ generator and inverse-test surfaces.
 | --- | --- | --- |
 | Perl sources | `perl -c` on the translator, both inverse generators, and the new fixture | Passed |
 | Translator operands | `perl scripts/audit/check_arm_xlate_cheri.pl` | Passed for multi-digit CHERI operands, immediate bounds, `csp`, and non-CHERI `cadd`/`csub` |
-| Assembly generation | `./build/refresh.sh verify-assembly` | All 100 outputs reproduced twice and matched the checked-in tree |
+| Assembly generation | `./scripts/build/refresh.sh verify-assembly` | All 100 outputs reproduced twice and matched the checked-in tree |
 | Generated scope | Changed-path and upstream-blob comparison | Exactly 10 inverse artifacts changed; all 10 match upstream `fe85dc3` byte-for-byte |
 | Ordinary ARM text | GNU preprocessing and Win64 false-branch projection against pre-change files | All 10 non-CHERI projections are byte-identical |
-| Win64 exports | Direct Git comparison | `build/win64/blst.def` is unchanged |
+| Win64 exports | Direct Git comparison | `blst/generated/win64/blst.def` is unchanged |
 | Inverse oracle | `InterfaceTests.CtInverseMod256` and `InterfaceTests.CtxInverseMod384` in the existing portable-plus-assembly scalar build | 2/2 passed |
 | Formatting | `git diff --check` | Passed |
 

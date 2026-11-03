@@ -64,7 +64,7 @@ benchmark, CUDA, BTx, sanitizer, Apple job, or broad runtime sweep ran.
 Phases 12-20 are the main production-audit program defined in
 `PRODUCTION_AUDIT_ROADMAP.md`. Phase 12 establishes the shared analysis
 platform and initial baseline; automation then remains active while Phases
-13-19 perform the subsystem file audits, findings remediation, fuzz/sanitizer
+13-19 perform the subsystem file audits, findings remediation, test/fuzz/sanitizer
 expansion, and release qualification. Phase 20 performs the CatBLST rename and
 selectable ABI prefix after the audited surfaces are under control.
 
@@ -1154,7 +1154,7 @@ validates the older Apple/language `AUD-057`, `AUD-058`, `AUD-062`, `AUD-063`,
 and `AUD-066` gaps together with `AUD-352` through `AUD-357`. Related build,
 assembly, FFT, field, and test rows
 remain in review only for their still-real native AVX, generated-assembly,
-sanitizer/fuzz/oracle, combined-provider, or packaging gates. The authoritative
+sanitizer/test/fuzz/oracle, combined-provider, or packaging gates. The authoritative
 manifest now contains 176 complete, 172 in-review, and 317 pending files;
 frozen, experimental, excluded, catalogued, and benchmark scope is unchanged.
 

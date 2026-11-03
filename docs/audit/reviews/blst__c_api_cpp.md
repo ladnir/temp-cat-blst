@@ -275,7 +275,7 @@ plus `AUD-197`. In this final Wave 1 packet, `AUD-186`, `AUD-194`, and
 
 The file is complete at the recorded implementation commit with public
 declarations reviewed at the companion commit. Residual release evidence is
-the planned larger sanitizer/fuzz/coverage matrix, native AVX-512 cross-host
+the planned larger sanitizer/test/fuzz/coverage matrix, native AVX-512 cross-host
 execution, and continuing Apple CI. Experimental CUDA and frozen BTx/BTE are
 not covered. These gaps do not reopen the exact scalar C boundary because its
 contracts, exception paths, object lifetimes, resource policy, and focused

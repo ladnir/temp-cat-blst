@@ -72,10 +72,10 @@ assemble()
     shift 2
     "$CLANG" --target="$target" -E -P "$@" \
         -I"$TEMP_ROOT" -I"$ROOT/build" \
-        "$ROOT/build/assembly.S" >"$TEMP_ROOT/${output%.o}.s"
+        "$ROOT/blst/generated/assembly.S" >"$TEMP_ROOT/${output%.o}.s"
     "$CLANG" --target="$target" -Werror "$@" \
         -I"$TEMP_ROOT" -I"$ROOT/build" \
-        -c "$ROOT/build/assembly.S" -o "$TEMP_ROOT/$output"
+        -c "$ROOT/blst/generated/assembly.S" -o "$TEMP_ROOT/$output"
 }
 
 require()

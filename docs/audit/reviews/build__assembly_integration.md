@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Paths | `build/assembly.S`, `build/refresh.sh`, `build/generate-win64-exports.sh`, `build/win64/blst.def`, and supported checked-in assembly outputs |
+| Paths | `blst/generated/assembly.S`, `scripts/build/refresh.sh`, `scripts/build/generate-win64-exports.sh`, `blst/generated/win64/blst.def`, and supported checked-in assembly outputs |
 | Roadmap phase / queue | Phase 13 assembly trust-chain integration closure |
 | Reviewed commit | `5fbe3a5a732264727087f8dcc4db172d80f87f14` |
 | Reviewer | Codex audit team |
@@ -14,7 +14,7 @@
 | Profiles | x86-64 ELF/COFF/Mach-O/MASM; supported Apple ARM64 Mach-O; static packaging metadata |
 | Generation/provenance | Audited BLST-derived generators and translators with Category-blst deterministic orchestration |
 | Upstream references | Generator-specific references are recorded in `docs/audit/ASSEMBLY_AUDIT_QUEUE.md` |
-| Related files | `blst/CMakeLists.txt`, `blst/common/cpuid.cpp`, `bindings/blst.h`, `build/assembly-output-manifest.txt`, `build/verify-assembly.sh`, `scripts/audit/check_assembly_translator_objects.sh` |
+| Related files | `blst/CMakeLists.txt`, `blst/common/cpuid.cpp`, `bindings/blst.h`, `blst/generated/assembly-output-manifest.txt`, `scripts/build/verify-assembly.sh`, `scripts/audit/check_assembly_translator_objects.sh` |
 
 ## Purpose and trust boundary
 
@@ -66,7 +66,7 @@ compares their defined external symbols with source declarations. The public
 C umbrella header supplies the input to `generate-win64-exports.sh`.
 
 The deleted zero-byte `build/assembly.h` had no caller. The deleted
-`build/win64/dll.c` belonged to the removed batch-file DLL path. Its
+`blst/generated/win64/dll.c` belonged to the removed batch-file DLL path. Its
 initialization and conforming memory helpers already live in `cpuid.cpp` behind
 `BLST_DLL_MAIN` for a future audited shared-library implementation.
 

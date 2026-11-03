@@ -3,13 +3,13 @@ Copyright 2026 Category Labs, Inc.
 SPDX-License-Identifier: Apache-2.0
 
 Generated from blst/avx/generated_matrixnok_constants.hpp.
-Source SHA-256: b7ce159dba474fcd9c796a5f87e1b0d442503bc594dc05197308e98b34b2a1af
+Source SHA-256: 501ab86ac94daf84d68c0283b67fdbe3f519862bb0ddaceb0a43b61afe1d77c1
 Do not edit by hand; run scripts/audit/generate_matrixnok_lean.py.
 -/
 
 namespace CatBLST.AVX.MatrixNoK.Generated
 
-def sourceSha256 : String := "b7ce159dba474fcd9c796a5f87e1b0d442503bc594dc05197308e98b34b2a1af"
+def sourceSha256 : String := "501ab86ac94daf84d68c0283b67fdbe3f519862bb0ddaceb0a43b61afe1d77c1"
 
 def BLS12_381_RNS_DIM : Nat := 8
 def BLS12_381_PADDED_DIM : Nat := 8

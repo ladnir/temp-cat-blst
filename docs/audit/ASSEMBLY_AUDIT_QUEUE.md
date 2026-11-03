@@ -6,7 +6,7 @@ The assembly audit resumes from commit
 `aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. It began with 25 handwritten
 Perl owners under `blst/asm`, the generation/verification control files under
 `build`, and every checked-in generated output named by
-`build/assembly-output-manifest.txt`.
+`blst/generated/assembly-output-manifest.txt`.
 
 Batch E removed one unreachable scalar x86 SHA owner. The retained tree has 24
 handwritten Perl owners.

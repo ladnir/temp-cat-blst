@@ -95,14 +95,14 @@ for i in "${!targets[@]}"; do
     target_run_dir="$run_root/$target"
     log="$artifact_dir/parallel-$campaign.log"
     mkdir -p "$artifact_dir" "$working_corpus" "$target_run_dir"
-    cp --update=none "$repo_root/fuzz/corpus/$target"/* "$working_corpus"/
+    cp --update=none "$repo_root/test/fuzz/corpus/$target"/* "$working_corpus"/
 
     echo "START $target workers=$worker_count log=$log"
     (
         cd "$target_run_dir"
         if (( worker_count == 1 )); then
             exec timeout --signal=TERM --kill-after=15s "$hard_seconds" \
-                "$build_dir/fuzz/$target" \
+                "$build_dir/test/fuzz/$target" \
                 -max_total_time="$seconds" \
                 -max_len="$BLST_FUZZ_MAX_LEN" \
                 -timeout="$BLST_FUZZ_TIMEOUT" \
@@ -111,7 +111,7 @@ for i in "${!targets[@]}"; do
                 "$working_corpus"
         fi
         exec timeout --signal=TERM --kill-after=15s "$hard_seconds" \
-            "$build_dir/fuzz/$target" \
+            "$build_dir/test/fuzz/$target" \
             -jobs="$worker_count" \
             -workers="$worker_count" \
             -max_total_time="$seconds" \

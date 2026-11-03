@@ -326,7 +326,7 @@ also passes 2/2 without rebuilding product sources.
 The promotion audit found that Git's default text detection normalized five
 content-addressed seeds during staging. The corpus is binary input, even when
 a seed happens to resemble text. A narrow `.gitattributes` rule now disables
-text transforms under `fuzz/corpus`; all 70 committed blobs match their SHA-1
+text transforms under `test/fuzz/corpus`; all 70 committed blobs match their SHA-1
 filenames after restaging. This was a corpus-packaging defect, not a CatBLST
 finding.
 

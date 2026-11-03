@@ -42,9 +42,9 @@ if(MSVC)
     set(BLST_RELEASE_OPT)
     set(BLST_RELWITHDEBINFO_OPT)
     if(BLST_TARGET_IS_X86_64)
-        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-x86_64.asm")
+        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/generated/win64/*-x86_64.asm")
     elseif(BLST_TARGET_IS_ARM64)
-        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-armv8.asm")
+        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/generated/win64/*-armv8.asm")
     else()
         message(FATAL_ERROR "Unsupported MSVC assembly target")
     endif()
@@ -54,7 +54,7 @@ else()
     set(BLST_RELEASE_OPT -fwrapv -Wall -Wextra)
     set(BLST_RELWITHDEBINFO_OPT -fwrapv -Wall -Wextra)
 
-    set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/../build/assembly.S)
+    set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/generated/assembly.S)
 endif()
 
 
@@ -82,7 +82,7 @@ if(BLST_ASM)
         enable_language(ASM_MASM)
         set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM_MASM)
         if(BLST_PORTABLE)
-            # Match build/assembly.S: BLST_PORTABLE is the public build option,
+            # Match blst/generated/assembly.S: BLST_PORTABLE is the public build option,
             # while __BLST_PORTABLE__ is the assembly-internal dispatch guard.
             set_source_files_properties(${ASM_SRC} PROPERTIES
                 COMPILE_DEFINITIONS "__BLST_PORTABLE__")

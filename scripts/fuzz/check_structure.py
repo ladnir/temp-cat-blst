@@ -16,37 +16,37 @@ from pathlib import Path
 
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp"}
 BLST_ALLOWED_INTERNAL = {
-    "fuzz/internal/adapter.cpp",
-    "fuzz/internal/adapter_avx.cpp",
-    "fuzz/internal/adapter.h",
-    "fuzz/internal/adapter_access.h",
-    "fuzz/internal/adapter_common.h",
-    "fuzz/internal/adapter_fields.cpp",
-    "fuzz/internal/adapter_fft_middle.cpp",
-    "fuzz/internal/adapter_groups.cpp",
-    "fuzz/internal/adapter_protocol.cpp",
-    "fuzz/internal/adapter_pairing.cpp",
-    "fuzz/internal/adapter_msm.cpp",
-    "fuzz/internal/adapter_uniq.cpp",
+    "test/fuzz/internal/adapter.cpp",
+    "test/fuzz/internal/adapter_avx.cpp",
+    "test/fuzz/internal/adapter.h",
+    "test/fuzz/internal/adapter_access.h",
+    "test/fuzz/internal/adapter_common.h",
+    "test/fuzz/internal/adapter_fields.cpp",
+    "test/fuzz/internal/adapter_fft_middle.cpp",
+    "test/fuzz/internal/adapter_groups.cpp",
+    "test/fuzz/internal/adapter_protocol.cpp",
+    "test/fuzz/internal/adapter_pairing.cpp",
+    "test/fuzz/internal/adapter_msm.cpp",
+    "test/fuzz/internal/adapter_uniq.cpp",
 }
 INTERNAL_INCLUDE_ALLOWED = BLST_ALLOWED_INTERNAL | {
-    "fuzz/internal/factory_access.h",
-    "fuzz/internal/scalar_factory.h",
-    "fuzz/tests/scalar_factory_tests.cpp",
-    "fuzz/tests/adapter_factory_tests.cpp",
-    "fuzz/tests/seed_encoding_tests.cpp",
-    "fuzz/targets/decode.cpp",
-    "fuzz/targets/avx.cpp",
-    "fuzz/targets/bytes.cpp",
-    "fuzz/targets/groups.cpp",
-    "fuzz/targets/fields.cpp",
-    "fuzz/targets/fft_middle.cpp",
-    "fuzz/targets/protocol.cpp",
-    "fuzz/targets/pairing_state.cpp",
-    "fuzz/targets/msm.cpp",
-    "fuzz/targets/uniq.cpp",
+    "test/fuzz/internal/factory_access.h",
+    "test/fuzz/internal/scalar_factory.h",
+    "test/fuzz/tests/scalar_factory_tests.cpp",
+    "test/fuzz/tests/adapter_factory_tests.cpp",
+    "test/fuzz/tests/seed_encoding_tests.cpp",
+    "test/fuzz/targets/decode.cpp",
+    "test/fuzz/targets/avx.cpp",
+    "test/fuzz/targets/bytes.cpp",
+    "test/fuzz/targets/groups.cpp",
+    "test/fuzz/targets/fields.cpp",
+    "test/fuzz/targets/fft_middle.cpp",
+    "test/fuzz/targets/protocol.cpp",
+    "test/fuzz/targets/pairing_state.cpp",
+    "test/fuzz/targets/msm.cpp",
+    "test/fuzz/targets/uniq.cpp",
 }
-IGNORED_PREFIXES = ("fuzz/inventory/",)
+IGNORED_PREFIXES = ("test/fuzz/inventory/",)
 ALLOWED_FACTORY_ADAPTER_CALLS = {
     "as_candidate",
     "as_on_curve",
@@ -109,7 +109,7 @@ def inspect_source(
     if relative not in INTERNAL_INCLUDE_ALLOWED:
         rules.append(
             (
-                re.compile(r'^\s*#\s*include\s*[<"]fuzz/internal/', re.MULTILINE),
+                re.compile(r'^\s*#\s*include\s*[<"]test/fuzz/internal/', re.MULTILINE),
                 "internal fuzz headers are allowed only in reviewed adapter and factory tests",
             )
         )
@@ -124,7 +124,7 @@ def inspect_source(
             "direct C API calls are allowed only in the internal adapter",
         ),
         ))
-        if relative not in {"fuzz/support/domain.h", "fuzz/support/storage.h"}:
+        if relative not in {"test/fuzz/support/domain.h", "test/fuzz/support/storage.h"}:
             rules.append(
                 (
                     re.compile(r"\bLiveMiddleProductHandle\s*[<{(]"),
@@ -149,7 +149,7 @@ def inspect_source(
 
 
 def repository_sources(root: Path) -> list[tuple[str, str]]:
-    fuzz_root = root / "fuzz"
+    fuzz_root = root / "test/fuzz"
     result: list[tuple[str, str]] = []
     for path in sorted(fuzz_root.rglob("*")):
         if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
@@ -196,24 +196,24 @@ def self_test() -> list[str]:
         "forbidden include": ('#include "bindings/blst_scalar.h"\n', True),
         "direct call": ("void f(){ blst_p1_double(nullptr, nullptr); }\n", True),
         "reinterpret cast": ("auto p = reinterpret_cast<int*>(x);\n", True),
-        "ordinary driver": ('#include "fuzz/support/domain.h"\n', False),
+        "ordinary driver": ('#include "test/fuzz/support/domain.h"\n', False),
     }
     for name, (source, should_fail) in cases.items():
-        failed = bool(inspect_source("fuzz/example.cpp", source))
+        failed = bool(inspect_source("test/fuzz/example.cpp", source))
         if failed != should_fail:
             failures.append(f"self-test '{name}' produced failed={failed}")
-    if inspect_source("fuzz/internal/adapter.cpp", "blst_p1_double(0, 0);"):
+    if inspect_source("test/fuzz/internal/adapter.cpp", "blst_p1_double(0, 0);"):
         failures.append("self-test rejected an internal adapter call")
     if not inspect_source(
-        "fuzz/example.cpp", "adapter::blst_unknown();", {"blst_p1_double"}
+        "test/fuzz/example.cpp", "adapter::blst_unknown();", {"blst_p1_double"}
     ):
         failures.append("self-test accepted an unclassified adapter call")
     if inspect_source(
-        "fuzz/example.cpp", "adapter::blst_p1_double();", {"blst_p1_double"}
+        "test/fuzz/example.cpp", "adapter::blst_p1_double();", {"blst_p1_double"}
     ):
         failures.append("self-test rejected a classified adapter call")
     if inspect_source(
-        "fuzz/example.cpp", "adapter::refine_nonzero();", {"refine_nonzero"}
+        "test/fuzz/example.cpp", "adapter::refine_nonzero();", {"refine_nonzero"}
     ):
         failures.append("self-test rejected a classified factory call")
     if not inspect_rust_source("fuzz_targets/example.rs", "unsafe { raw(); }"):
@@ -289,7 +289,7 @@ def coverage_findings(root: Path) -> list[Finding]:
     for symbol in sorted(claimed_cpp - required_cpp):
         findings.append(
             Finding(
-                "fuzz/internal",
+                "test/fuzz/internal",
                 1,
                 f"native C++ coverage marker is absent from the ledger: {symbol}",
             )
@@ -385,8 +385,12 @@ def main() -> int:
         None if args.boundary_only
         else ledger_c_symbols(root) | ALLOWED_FACTORY_ADAPTER_CALLS
     )
+    sources = repository_sources(root)
+    if not sources:
+        print("fuzz source tree is missing or empty: test/fuzz", file=sys.stderr)
+        return 1
     findings: list[Finding] = []
-    for relative, text in repository_sources(root):
+    for relative, text in sources:
         findings.extend(inspect_source(relative, text, known_adapter_calls))
     findings.extend(inspect_rust_fuzz_targets(root))
     if not args.boundary_only:
@@ -399,7 +403,7 @@ def main() -> int:
     if errors or findings:
         return 1
     mode = "adapter boundary" if args.boundary_only else "API inventory"
-    print(f"fuzz {mode} gate passed: {len(repository_sources(root))} source files")
+    print(f"fuzz {mode} gate passed: {len(sources)} source files")
     return 0
 
 

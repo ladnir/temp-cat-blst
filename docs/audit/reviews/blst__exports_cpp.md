@@ -233,7 +233,7 @@ part of validated `AUD-070`; the neighboring stale-header cleanup is
 
 The file is complete at the recorded implementation commit with its public
 contracts reviewed at the companion commit. Remaining release work is the
-broader sanitizer/fuzz/coverage matrix and cross-toolchain milestone evidence.
+broader sanitizer/test/fuzz/coverage matrix and cross-toolchain milestone evidence.
 The accepted Fp2 square-root failed-output candidate remains intentionally
 documented under `AUD-084`. Experimental CUDA's use of the empty compatibility
 header is outside production readiness; no supported host declaration depends

@@ -3,7 +3,7 @@
 set -eu
 
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-TRIM="$HERE/../../build/bindings_trim.pl"
+TRIM="$HERE/../build/bindings_trim.pl"
 TEMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/catblst-trim-test.XXXXXX")
 INPUT="$TEMP_ROOT/input.rs"
 OUTPUT="$TEMP_ROOT/output.rs"
