@@ -93,8 +93,7 @@ support `wasm32-unknown-unknown`, wasm-bindgen, or WASI directly.
 
 The local validation used Emscripten 6.0.13, Rust 1.94.1, Node 24, and headless
 Chrome on Windows. Native regression tests used MSVC with x86-64 assembly.
-The CI workflow additionally specifies an Ubuntu run; that hosted run is not
-claimed until it executes.
+The CI workflow runs the native scalar oracle and Emscripten tests on Ubuntu.
 
 The tests cover field/group arithmetic, hash-to-curve, signatures, pairings,
 prepared FFTs, MSMs, decoding, invalid sizes, overflow rejection, and allocation

@@ -4,6 +4,7 @@
 #include "bindings/blst.h"
 #include "bindings/blst_fft.h"
 #include <array>
+#include <cstdint>
 #include <cstdio>
 #include <vector>
 
