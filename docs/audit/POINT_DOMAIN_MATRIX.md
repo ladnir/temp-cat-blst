@@ -30,8 +30,8 @@ In the tables, `pN` expands independently to `p1` and `p2`, `gN` to `g1` and
 `G1AffinePoint` and `G2AffinePoint`. Generated raw Rust declarations inherit
 the matching C contract exactly.
 
-`GROUP_API_CONTRACTS.csv` is the machine-checked exact C inventory: all 243
-relevant scalar and AVX symbols match exactly one of its 53 disjoint families.
+`GROUP_API_CONTRACTS.csv` is the machine-checked exact C inventory: all 262
+relevant scalar and AVX symbols match exactly one of its 67 disjoint families.
 This matrix supplies the selected C++ and Rust mapping and the approved policy
 used to migrate declarations.
 

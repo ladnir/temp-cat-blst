@@ -23,18 +23,12 @@ endif()
 set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
     "BindingHeader_tests.cpp"
-    "Btx_c_api_tests.cpp"
-    "Btx_conformance_vector_tests.cpp"
-    "Btx_tests.cpp"
     "C_api_tests.cpp"
     "CompressedInfinity_tests.cpp"
     "Conformance_tests.cpp"
     "Fft_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
-    "Pfe_tests.cpp"
-    "Trx_c_api_tests.cpp"
-    "Trx_tests.cpp"
 )
 
 # Scalar backend tests are allowed to use scalar-only internals and helper APIs.
@@ -123,7 +117,7 @@ if(BLST_CUDA)
 endif()
 
 # Sanitizer presets use the same test executable with a deliberately narrow
-# source set. This avoids compiling frozen BTx/BTE and unrelated broad suites
+# source set. This avoids compiling unrelated broad suites
 # in the sanitizer change loop without creating a second runtime test binary.
 if(BLST_ASAN OR BLST_UBSAN)
     set(TEST_SOURCES
@@ -151,9 +145,6 @@ add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE GTest::gtest_main blst_static blst_avx_headers)
-if(NOT BLST_ASAN AND NOT BLST_UBSAN)
-    target_link_libraries(blst_tests PRIVATE bte)
-endif()
 
 # A standalone allocation-failure probe keeps global operator-new replacement
 # out of the main GTest executable. Construction may allocate; native scalar

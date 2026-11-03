@@ -318,8 +318,7 @@ size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t n
  * reduced modulo r before GLV decomposition. Release does not validate point
  * membership.
  *
- * Current BTX-DKG measurements did not justify using this from production; the
- * auto-window GLV API remains the production path.
+ * The auto-window GLV API remains the production path.
  * The disjoint live-range, failure-atomicity, allocation, and exception
  * contract is the same as `blst_avx_p1_mult_pippenger_glv_with_scratch`.
  */

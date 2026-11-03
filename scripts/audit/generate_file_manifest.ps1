@@ -34,12 +34,6 @@ function Get-Classification
 
     $isBenchmark = $lower.StartsWith('benchmark/')
 
-    $frozenBtx =
-        $lower.StartsWith('bte/') -or
-        $lower -eq 'bindings/blst_btx.h' -or
-        $lower -eq 'bindings/blst_trx.h' -or
-        $lower -like 'test/btx*'
-
     $experimentalCuda =
         $lower.StartsWith('blst/cuda/') -or
         $lower.StartsWith('blst/backend/cuda/') -or
@@ -59,11 +53,7 @@ function Get-Classification
         $disposition = 'out_of_scope_no_audit'
         $subsystem = 'benchmarks'
         $profiles = 'non_shipping'
-        if ($lower -like 'benchmark/btx*')
-        {
-            $notes = 'Excluded benchmark in the BTx/BTE subsystem, which is frozen pending a required merge; do not run.'
-        }
-        elseif ($lower -match 'cuda')
+        if ($lower -match 'cuda')
         {
             $notes = 'Excluded benchmark for the retained experimental CUDA subsystem; do not run without an explicit request.'
         }
@@ -71,13 +61,6 @@ function Get-Classification
         {
             $notes = 'Benchmarks are inventoried but explicitly excluded from file-by-file audit.'
         }
-    }
-    elseif ($frozenBtx)
-    {
-        $disposition = 'out_of_scope_frozen'
-        $subsystem = 'btx_bte'
-        $profiles = 'frozen_pending_merge'
-        $notes = 'Frozen pending a required BTx/BTE merge; do not modify, audit, extract, or remove.'
     }
     elseif ($experimentalCuda)
     {
@@ -260,6 +243,14 @@ foreach ($path in @(& git -C $repoRoot ls-files --cached --others --exclude-stan
     if (-not [string]::IsNullOrWhiteSpace($path))
     {
         [void]$paths.Add($path.Replace('\', '/'))
+    }
+}
+
+foreach ($path in @(& git -C $repoRoot ls-files --deleted))
+{
+    if (-not [string]::IsNullOrWhiteSpace($path))
+    {
+        [void]$paths.Remove($path.Replace('\', '/'))
     }
 }
 

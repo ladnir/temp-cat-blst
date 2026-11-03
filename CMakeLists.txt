@@ -387,7 +387,6 @@ endif()
 
 #add_subdirectory(check)
 add_subdirectory(blst)
-add_subdirectory(BTE)
 
 enable_testing()
 

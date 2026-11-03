@@ -32,7 +32,7 @@ decoder.
 ## Inventory control
 
 `GROUP_API_CONTRACTS.csv` classifies the public C symbols from
-`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 53 disjoint contract
+`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 67 disjoint contract
 families. Each row records:
 
 - mathematical input and output domains;

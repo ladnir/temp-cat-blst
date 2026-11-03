@@ -23,7 +23,6 @@ include = [
     "/blst/LICENSE",
     "/blst/CMakeLists.txt",
     "/blst/blst/**",
-    "/blst/BTE/**",
     "/blst/build/**",
     "/blst/bindings/*.h",
 ]
@@ -66,25 +65,6 @@ criterion = "0.3"
 
 [[bench]]
 name = "blst_benches"
-harness = false
-
-[[bench]]
-name = "btx_native_middle_product"
-harness = false
-required-features = ["avx"]
-
-[[bench]]
-name = "btx_prepared_g2_construction"
-harness = false
-required-features = ["avx"]
-
-[[bench]]
-name = "btx_prepared_pairing_product"
-harness = false
-required-features = ["avx"]
-
-[[bench]]
-name = "btx_scalar_prepared_pairing_product"
 harness = false
 
 [[bench]]

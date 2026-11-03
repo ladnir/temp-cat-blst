@@ -50,13 +50,6 @@ else()
     )
 endif()
 
-list(APPEND BENCHMARK_SOURCES
-    "Trx_bench.cpp"
-    "Btx_bench.cpp"
-    "BtxBeat_head_to_head_bench.cpp"
-    "Pfe_bench.cpp"
-    "PfeBtx_head_to_head_bench.cpp")
-
 if(BLST_PARALLEL_MSM)
     list(APPEND BENCHMARK_SOURCES "MSM_bench.cpp")
 endif()
@@ -85,11 +78,10 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
+target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
 
 # Keep the FFT and middle-product performance gate independent of unrelated
-# benchmark translation units. This is the stable target used by BTX baseline
-# and regression comparisons.
+# benchmark translation units.
 add_executable(fft_middle_product_benchmarks
     "main.cpp"
     "FFT_bench.cpp"
@@ -171,32 +163,6 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     target_link_libraries(avx_g1_batch_subgroup_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
 endif()
 
-add_executable(bte_trx_benchmarks
-    "main.cpp"
-    "Trx_bench.cpp"
-)
-target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(bte_trx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
-
-add_executable(bte_btx_benchmarks
-    "main.cpp"
-    "Btx_bench.cpp"
-    "BtxBeat_head_to_head_bench.cpp"
-)
-target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(bte_btx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
-
-add_executable(bte_pfe_benchmarks
-    "main.cpp"
-    "Pfe_bench.cpp"
-    "PfeBtx_head_to_head_bench.cpp"
-)
-target_include_directories(bte_pfe_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_include_directories(bte_pfe_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(bte_pfe_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
-
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
@@ -212,25 +178,4 @@ add_custom_target(run_benchmarks
     DEPENDS blst_benchmarks
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running benchmarks..."
-)
-
-add_custom_target(run_bte_trx_benchmarks
-    COMMAND bte_trx_benchmarks
-    DEPENDS bte_trx_benchmarks
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running BTE TrX benchmarks..."
-)
-
-add_custom_target(run_bte_btx_benchmarks
-    COMMAND bte_btx_benchmarks
-    DEPENDS bte_btx_benchmarks
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running BTE BTX benchmarks..."
-)
-
-add_custom_target(run_bte_pfe_benchmarks
-    COMMAND bte_pfe_benchmarks
-    DEPENDS bte_pfe_benchmarks
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running BTE PFE benchmarks..."
 )
