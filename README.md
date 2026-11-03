@@ -27,13 +27,14 @@ has been restored.
 | --- | --- | --- |
 | Scalar and assembly | Supported | General-purpose x86_64 and Apple Silicon deployments |
 | Native AVX-512/IFMA | Supported | High-throughput x86_64 deployments with the required ISA |
+| WebAssembly scalar | Supported | Single-threaded Emscripten wasm32 in browsers and Node.js |
 | CUDA | Experimental | GPU experimentation; excluded from the production support gate |
 
-The supported production platforms are little-endian 64-bit x86_64 and Apple
-Silicon macOS. Other ARM64 and Morello/CHERI sources are retained but are not
-currently supported platforms. Native AVX-512 binaries require AVX-512IFMA and
-the other instruction-set features selected by the build; they must not be
-deployed to incompatible CPUs.
+The supported production platforms are little-endian 64-bit x86_64, Apple
+Silicon macOS, and Emscripten wasm32 with the scalar backend. Other ARM64 and
+Morello/CHERI sources are retained but are not currently supported platforms.
+Native AVX-512 binaries require AVX-512IFMA and the other instruction-set
+features selected by the build; they must not be deployed to incompatible CPUs.
 
 The library does not create a global thread pool. Applications control
 parallelism, scheduling, resource limits, and randomness.

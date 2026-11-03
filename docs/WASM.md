@@ -27,7 +27,6 @@ ctest --test-dir out/build/wasm --output-on-failure --parallel 2 -E '^audit\.'
 CMake selects the portable scalar backend automatically. It rejects assembly,
 ADX, AVX, CUDA, parallel MSM, and wasm64 configurations for this target.
 Other unsupported 32-bit native targets remain rejected.
-BTE's BLAKE3 dependency also selects portable C rather than inferred x86 SIMD.
 
 The static library is `out/build/wasm/blst/libblst.a`. Applications link it with
 `em++ -fwasm-exceptions`. Native WebAssembly exception handling preserves the
@@ -114,15 +113,12 @@ a90e527c7cab3aeb6cfbac4aca9da38a3ba88f54b3c04f1903db7cd5d1d1a9c9
 ```
 
 AVX-only tests report skips. The single-threaded profile explicitly skips the
-C++ concurrency test and the Rust concurrency tests. Four optional BTx tests
-also skip unless their external shared-vector fixture is configured, as on
-native builds. Ignored benchmark tests are not executed.
+C++ concurrency test and the Rust concurrency tests. Ignored benchmark tests
+are not executed.
 
 The complete CTest invocation also runs source-bound formal audit checks.
-At the base revision, `audit.avx_proof_correspondence` reports a stale hash for
-the unchanged `blst/avx/curve/scalar_mult.h`. This port does not refresh or weaken
-that ledger. The new runtime CI job excludes `audit.*`; existing audit jobs
-retain their own checks.
+The WebAssembly runtime CI job excludes `audit.*`; existing audit jobs retain
+their own checks.
 
 These tests establish cross-target functional evidence, not a constant-time
 claim about browser JITs or a new cryptographic security audit. No benchmark

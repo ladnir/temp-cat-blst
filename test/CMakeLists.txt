@@ -156,6 +156,7 @@ endif()
 add_executable(blst_tests ${TEST_SOURCES})
 add_executable(blst_portability_vectors "wasm/portability_vectors.cpp")
 target_link_libraries(blst_portability_vectors PRIVATE blst_static)
+add_dependencies(blst_tests blst_portability_vectors)
 add_test(NAME unit.portability_vectors COMMAND blst_portability_vectors)
 if(BLST_TARGET_IS_WASM)
     # The ordinary suite includes large fixed-size arithmetic fixtures. Keep
