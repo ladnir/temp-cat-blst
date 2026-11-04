@@ -55,13 +55,13 @@ zeroize = { version = "^1.1", features = ["zeroize_derive"] }
 serde = { version = "1.0.152", optional = true, default-features = false, features = ["alloc", "derive"] }
 
 [dev-dependencies]
-rand_core = { version = "0.6", features = ["std"] }
-rand_chacha = "0.3"
+rand_core = { version = "0.9", features = ["std"] }
+rand_chacha = "0.10"
 rayon = "1.12"
 rmp-serde = "1.1.1"
 
 [target.'cfg(any(unix, windows))'.dev-dependencies]
-criterion = "0.3"
+criterion = "0.8"
 
 [[bench]]
 name = "blst_benches"
