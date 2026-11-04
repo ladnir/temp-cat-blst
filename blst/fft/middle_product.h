@@ -357,53 +357,6 @@ namespace blst {
             }
         };
 
-        template<class Group>
-        struct GroupFftCoeffCtx {
-            static auto plus(const Group& a, const Group& b)
-            {
-                Group r;
-                Group::dadd(r, a, b);
-                return r;
-            }
-
-            static auto minus(const Group& a, const Group& b)
-            {
-                Group neg_b;
-                Group::neg(neg_b, b);
-                Group r;
-                Group::dadd(r, a, neg_b);
-                return r;
-            }
-
-            static auto mult(const Group& a, const Fr& b)
-            {
-                Group r;
-                Fr b_non_mont = {};
-                Fr::from_mont(b_non_mont, b);
-                Group::mult_vartime(
-                    r,
-                    a,
-                    reinterpret_cast<const byte*>(&b_non_mont),
-                    256);
-                return r;
-            }
-
-            static auto inverse(const Fr& a)
-            {
-                Fr r = {};
-                Fr::reciprocal(r, a);
-                return r;
-            }
-
-            template<typename F>
-            static auto from_u64(uint64_t a)
-            {
-                Fr r = {};
-                Fr::from_uint64(r, a);
-                return r;
-            }
-        };
-
         struct ScalarMiddleProductContext {
             using G1Point = scalar::G1Point;
             using G2Point = scalar::G2Point;

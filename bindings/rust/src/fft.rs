@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Small safe Rust wrapper for the owned BLST Fr FFT.
+//! Wrappers for the owned BLST Fr and group FFTs.
 
 use crate::*;
 
@@ -21,6 +21,34 @@ extern "C" {
         domain: *const blst_fr,
         domain_len: usize,
         inverse: bool,
+    ) -> bool;
+    fn blst_p1_fft(values: *mut blst_p1, n: usize, inverse: bool) -> bool;
+    fn blst_p2_fft(values: *mut blst_p2, n: usize, inverse: bool) -> bool;
+    fn blst_p1_fft_with_domain(
+        values: *mut blst_p1,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
+        inverse: bool,
+    ) -> bool;
+    fn blst_p2_fft_with_domain(
+        values: *mut blst_p2,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
+        inverse: bool,
+    ) -> bool;
+    fn blst_p1_ifft_unscaled_with_domain(
+        values: *mut blst_p1,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
+    ) -> bool;
+    fn blst_p2_ifft_unscaled_with_domain(
+        values: *mut blst_p2,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
     ) -> bool;
     fn blst_fr_interpolate(
         out_coefficients: *mut blst_fr,
@@ -142,6 +170,154 @@ pub fn fr_fft_with_domain(
         )
     };
     if ok {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs the in-place radix-two FFT on projective G1 points. Root preparation
+/// may allocate. Group multiplication is variable-time.
+///
+/// # Safety
+/// Every input must be a valid G1 subgroup point (infinity is allowed). Points
+/// must be public; this operation is not constant-time in their values.
+pub unsafe fn p1_fft(
+    values: &mut [blst_p1],
+    inverse: bool,
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if unsafe { blst_p1_fft(values.as_mut_ptr(), values.len(), inverse) } {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs the in-place radix-two FFT on projective G2 points. Root preparation
+/// may allocate. Group multiplication is variable-time.
+///
+/// # Safety
+/// Every input must be a valid G2 subgroup point (infinity is allowed). Points
+/// must be public; this operation is not constant-time in their values.
+pub unsafe fn p2_fft(
+    values: &mut [blst_p2],
+    inverse: bool,
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if unsafe { blst_p2_fft(values.as_mut_ptr(), values.len(), inverse) } {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs an allocation-free in-place G1 FFT with a prepared Fr domain.
+///
+/// # Safety
+/// Every input must be a valid public G1 subgroup point. `domain` must have
+/// been initialized for this size by `fr_fft_domain_init` and kept unchanged.
+pub unsafe fn p1_fft_with_domain(
+    values: &mut [blst_p1],
+    domain: &[blst_fr],
+    inverse: bool,
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if domain.len() != fr_fft_domain_len(values.len())? {
+        return Err(FftError::InvalidSize);
+    }
+    if unsafe {
+        blst_p1_fft_with_domain(
+            values.as_mut_ptr(),
+            values.len(),
+            domain.as_ptr(),
+            domain.len(),
+            inverse,
+        )
+    } {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs an allocation-free in-place G2 FFT with a prepared Fr domain.
+///
+/// # Safety
+/// Every input must be a valid public G2 subgroup point. `domain` must have
+/// been initialized for this size by `fr_fft_domain_init` and kept unchanged.
+pub unsafe fn p2_fft_with_domain(
+    values: &mut [blst_p2],
+    domain: &[blst_fr],
+    inverse: bool,
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if domain.len() != fr_fft_domain_len(values.len())? {
+        return Err(FftError::InvalidSize);
+    }
+    if unsafe {
+        blst_p2_fft_with_domain(
+            values.as_mut_ptr(),
+            values.len(),
+            domain.as_ptr(),
+            domain.len(),
+            inverse,
+        )
+    } {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs an allocation-free G1 inverse FFT without its `1/n` scale.
+///
+/// # Safety
+/// Every input must be a valid public G1 subgroup point. `domain` must have
+/// been initialized for this size by `fr_fft_domain_init` and kept unchanged.
+pub unsafe fn p1_ifft_unscaled_with_domain(
+    values: &mut [blst_p1],
+    domain: &[blst_fr],
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if domain.len() != fr_fft_domain_len(values.len())? {
+        return Err(FftError::InvalidSize);
+    }
+    if unsafe {
+        blst_p1_ifft_unscaled_with_domain(
+            values.as_mut_ptr(),
+            values.len(),
+            domain.as_ptr(),
+            domain.len(),
+        )
+    } {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs an allocation-free G2 inverse FFT without its `1/n` scale.
+///
+/// # Safety
+/// Every input must be a valid public G2 subgroup point. `domain` must have
+/// been initialized for this size by `fr_fft_domain_init` and kept unchanged.
+pub unsafe fn p2_ifft_unscaled_with_domain(
+    values: &mut [blst_p2],
+    domain: &[blst_fr],
+) -> Result<(), FftError> {
+    check_fft_size(values.len())?;
+    if domain.len() != fr_fft_domain_len(values.len())? {
+        return Err(FftError::InvalidSize);
+    }
+    if unsafe {
+        blst_p2_ifft_unscaled_with_domain(
+            values.as_mut_ptr(),
+            values.len(),
+            domain.as_ptr(),
+            domain.len(),
+        )
+    } {
         Ok(())
     } else {
         Err(FftError::BackendFailure)
@@ -413,6 +589,76 @@ mod tests {
         let mut actual = input;
         fr_fft_with_domain(&mut actual, &domain, false).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn group_ffts_round_trip_with_prepared_domain() {
+        const N: usize = 4;
+        let mut domain = [blst_fr::default(); N + 2];
+        fr_fft_domain_init(&mut domain, N).unwrap();
+
+        let mut g1 = [unsafe { *blst_p1_generator() }; N];
+        let mut g2 = [unsafe { *blst_p2_generator() }; N];
+        for i in 1..N {
+            let previous_g1 = g1[i - 1];
+            let previous_g2 = g2[i - 1];
+            unsafe {
+                blst_p1_add_or_double(
+                    &mut g1[i],
+                    &previous_g1,
+                    blst_p1_generator(),
+                );
+                blst_p2_add_or_double(
+                    &mut g2[i],
+                    &previous_g2,
+                    blst_p2_generator(),
+                );
+            }
+        }
+        let input_g1 = g1;
+        let input_g2 = g2;
+        unsafe {
+            p1_fft_with_domain(&mut g1, &domain, false).unwrap();
+            p2_fft_with_domain(&mut g2, &domain, false).unwrap();
+            let mut unscaled_g1 = g1;
+            let mut unscaled_g2 = g2;
+            p1_ifft_unscaled_with_domain(&mut unscaled_g1, &domain).unwrap();
+            p2_ifft_unscaled_with_domain(&mut unscaled_g2, &domain).unwrap();
+            for i in 0..N {
+                let mut doubled_g1 = blst_p1::default();
+                let mut quadrupled_g1 = blst_p1::default();
+                blst_p1_add_or_double(
+                    &mut doubled_g1,
+                    &input_g1[i],
+                    &input_g1[i],
+                );
+                blst_p1_add_or_double(
+                    &mut quadrupled_g1,
+                    &doubled_g1,
+                    &doubled_g1,
+                );
+                assert!(blst_p1_is_equal(&unscaled_g1[i], &quadrupled_g1));
+                let mut doubled_g2 = blst_p2::default();
+                let mut quadrupled_g2 = blst_p2::default();
+                blst_p2_add_or_double(
+                    &mut doubled_g2,
+                    &input_g2[i],
+                    &input_g2[i],
+                );
+                blst_p2_add_or_double(
+                    &mut quadrupled_g2,
+                    &doubled_g2,
+                    &doubled_g2,
+                );
+                assert!(blst_p2_is_equal(&unscaled_g2[i], &quadrupled_g2));
+            }
+            p1_fft_with_domain(&mut g1, &domain, true).unwrap();
+            p2_fft_with_domain(&mut g2, &domain, true).unwrap();
+            for i in 0..N {
+                assert!(blst_p1_is_equal(&g1[i], &input_g1[i]));
+                assert!(blst_p2_is_equal(&g2[i], &input_g2[i]));
+            }
+        }
     }
 
     #[test]

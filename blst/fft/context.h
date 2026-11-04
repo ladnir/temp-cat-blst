@@ -173,4 +173,53 @@ namespace blst
     using G1CoeffCtx = CoeffCtx;
     using G2CoeffCtx = CoeffCtx;
     using GTCoeffCtx = CoeffCtx;
+
+    namespace detail
+    {
+        // Unlike CoeffCtx, this works with the fixed scalar point types used
+        // by the C ABI even when the selected C++ backend is AVX.
+        template<class Group>
+        struct GroupFftCoeffCtx
+        {
+            static Group plus(const Group& a, const Group& b)
+            {
+                Group result;
+                Group::dadd(result, a, b);
+                return result;
+            }
+
+            static Group minus(const Group& a, const Group& b)
+            {
+                Group negated;
+                Group::neg(negated, b);
+                Group result;
+                Group::dadd(result, a, negated);
+                return result;
+            }
+
+            static Group mult(const Group& a, const Fr& b)
+            {
+                Fr canonical;
+                Fr::from_mont(canonical, b);
+                Group result;
+                Group::mult_vartime(
+                    result, a, reinterpret_cast<const byte*>(&canonical), 256);
+                return result;
+            }
+
+            static Fr inverse(const Fr& a)
+            {
+                Fr result;
+                Fr::reciprocal(result, a);
+                return result;
+            }
+
+            template<typename F>
+            static Fr from_u64(const std::uint64_t a)
+            {
+                static_assert(std::is_same_v<F, Fr>);
+                return Fr::from_uint64(a);
+            }
+        };
+    }
 }

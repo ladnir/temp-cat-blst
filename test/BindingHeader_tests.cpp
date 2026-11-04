@@ -446,6 +446,133 @@ TEST(BindingHeader, FrFftRoundTripsAndRejectsInvalidSizeWithoutWriting)
         invalid.data(), invalid_input.data(), sizeof(invalid)), 0);
 }
 
+namespace {
+template<class Group>
+void test_group_fft_matches_scalar_fft()
+{
+    constexpr size_t n = 8;
+    std::array<blst_fr, n + 2> domain = {};
+    ASSERT_TRUE(blst_fr_fft_domain_init(domain.data(), domain.size(), n));
+
+    std::array<blst_fr, n> coefficients = {};
+    std::array<Group, n> input = {};
+    for (size_t i = 0; i < n; ++i) {
+        coefficients[i] = test_fr_from_u64(i == 3 ? 0 : i * 31 + 7);
+        blst_scalar scalar = {};
+        blst_scalar_from_fr(&scalar, &coefficients[i]);
+        if constexpr (std::is_same_v<Group, blst_p1>) {
+            blst_p1_mult_vartime(&input[i], blst_p1_generator(), scalar.b, 255);
+        } else {
+            blst_p2_mult_vartime(&input[i], blst_p2_generator(), scalar.b, 255);
+        }
+    }
+
+    auto transformed_scalars = coefficients;
+    ASSERT_TRUE(blst_fr_fft_with_domain(
+        transformed_scalars.data(), n, domain.data(), domain.size(), false));
+
+    auto prepared = input;
+    auto one_shot = input;
+    if constexpr (std::is_same_v<Group, blst_p1>) {
+        EXPECT_FALSE(blst_p1_fft(nullptr, n, false));
+        EXPECT_FALSE(blst_p1_fft(prepared.data(), 3, false));
+        EXPECT_FALSE(blst_p1_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size() - 1, false));
+        auto bad_domain = domain;
+        bad_domain[n + 1] = {};
+        EXPECT_FALSE(blst_p1_fft_with_domain(
+            prepared.data(), n, bad_domain.data(), bad_domain.size(), false));
+    } else {
+        EXPECT_FALSE(blst_p2_fft(nullptr, n, false));
+        EXPECT_FALSE(blst_p2_fft(prepared.data(), 3, false));
+        EXPECT_FALSE(blst_p2_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size() - 1, false));
+        auto bad_domain = domain;
+        bad_domain[n + 1] = {};
+        EXPECT_FALSE(blst_p2_fft_with_domain(
+            prepared.data(), n, bad_domain.data(), bad_domain.size(), false));
+    }
+    EXPECT_EQ(std::memcmp(prepared.data(), input.data(), sizeof(input)), 0);
+
+    if constexpr (std::is_same_v<Group, blst_p1>) {
+        ASSERT_TRUE(blst_p1_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size(), false));
+        ASSERT_TRUE(blst_p1_fft(one_shot.data(), n, false));
+    } else {
+        ASSERT_TRUE(blst_p2_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size(), false));
+        ASSERT_TRUE(blst_p2_fft(one_shot.data(), n, false));
+    }
+    for (size_t i = 0; i < n; ++i) {
+        blst_scalar scalar = {};
+        blst_scalar_from_fr(&scalar, &transformed_scalars[i]);
+        Group expected = {};
+        if constexpr (std::is_same_v<Group, blst_p1>) {
+            blst_p1_mult_vartime(&expected, blst_p1_generator(), scalar.b, 255);
+            EXPECT_TRUE(blst_p1_is_equal(&prepared[i], &expected)) << i;
+            EXPECT_TRUE(blst_p1_is_equal(&one_shot[i], &expected)) << i;
+        } else {
+            blst_p2_mult_vartime(&expected, blst_p2_generator(), scalar.b, 255);
+            EXPECT_TRUE(blst_p2_is_equal(&prepared[i], &expected)) << i;
+            EXPECT_TRUE(blst_p2_is_equal(&one_shot[i], &expected)) << i;
+        }
+    }
+    auto unscaled = prepared;
+    if constexpr (std::is_same_v<Group, blst_p1>) {
+        EXPECT_FALSE(blst_p1_ifft_unscaled_with_domain(
+            unscaled.data(), n, domain.data(), domain.size() - 1));
+        ASSERT_TRUE(blst_p1_ifft_unscaled_with_domain(
+            unscaled.data(), n, domain.data(), domain.size()));
+    } else {
+        EXPECT_FALSE(blst_p2_ifft_unscaled_with_domain(
+            unscaled.data(), n, domain.data(), domain.size() - 1));
+        ASSERT_TRUE(blst_p2_ifft_unscaled_with_domain(
+            unscaled.data(), n, domain.data(), domain.size()));
+    }
+    blst_scalar inverse_n = {};
+    blst_scalar_from_fr(&inverse_n, &domain[n]);
+    for (size_t i = 0; i < n; ++i) {
+        Group normalized = {};
+        if constexpr (std::is_same_v<Group, blst_p1>) {
+            blst_p1_mult_vartime(
+                &normalized, &unscaled[i], inverse_n.b, 255);
+            EXPECT_TRUE(blst_p1_is_equal(&normalized, &input[i])) << i;
+        } else {
+            blst_p2_mult_vartime(
+                &normalized, &unscaled[i], inverse_n.b, 255);
+            EXPECT_TRUE(blst_p2_is_equal(&normalized, &input[i])) << i;
+        }
+    }
+    if constexpr (std::is_same_v<Group, blst_p1>) {
+        ASSERT_TRUE(blst_p1_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size(), true));
+        ASSERT_TRUE(blst_p1_fft(one_shot.data(), n, true));
+        for (size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(blst_p1_is_equal(&prepared[i], &input[i])) << i;
+            EXPECT_TRUE(blst_p1_is_equal(&one_shot[i], &input[i])) << i;
+        }
+    } else {
+        ASSERT_TRUE(blst_p2_fft_with_domain(
+            prepared.data(), n, domain.data(), domain.size(), true));
+        ASSERT_TRUE(blst_p2_fft(one_shot.data(), n, true));
+        for (size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(blst_p2_is_equal(&prepared[i], &input[i])) << i;
+            EXPECT_TRUE(blst_p2_is_equal(&one_shot[i], &input[i])) << i;
+        }
+    }
+}
+}
+
+TEST(BindingHeader, G1FftMatchesScalarFftAndRoundTrips)
+{
+    test_group_fft_matches_scalar_fft<blst_p1>();
+}
+
+TEST(BindingHeader, G2FftMatchesScalarFftAndRoundTrips)
+{
+    test_group_fft_matches_scalar_fft<blst_p2>();
+}
+
 TEST(BindingHeader, FrFftInterpolationRejectsOversubscribedDomain)
 {
     constexpr size_t fft_len = 8;

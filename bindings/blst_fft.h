@@ -92,6 +92,48 @@ BLST_NODISCARD bool blst_fr_fft_with_domain(
     bool inverse);
 
 /**
+ * In-place radix-two FFT over projective G1 or G2 points. Inputs must already
+ * be valid subgroup points, including the point at infinity. The transform is
+ * linear over the group and uses the same roots and natural output order as
+ * `blst_fr_fft`. Sizes must be nonzero powers of two through `2^30`.
+ *
+ * The one-shot calls allocate a root table. The prepared calls allocate
+ * nothing and require an immutable domain initialized with
+ * `blst_fr_fft_domain_init` for exactly `n`; domain and values must not
+ * overlap. These functions use variable-time group multiplication and are
+ * intended for public group points and roots, not secret points. Invalid
+ * pointers, sizes, domain lengths, or domain tags return false before writing
+ * values. A native failure after transformation begins may leave values
+ * partially transformed. Concurrent calls need disjoint mutable values.
+ */
+BLST_NODISCARD bool blst_p1_fft(blst_p1* values, size_t n, bool inverse);
+BLST_NODISCARD bool blst_p2_fft(blst_p2* values, size_t n, bool inverse);
+BLST_NODISCARD bool blst_p1_fft_with_domain(
+    blst_p1* values,
+    size_t n,
+    const blst_fr* domain,
+    size_t domain_len,
+    bool inverse);
+BLST_NODISCARD bool blst_p2_fft_with_domain(
+    blst_p2* values,
+    size_t n,
+    const blst_fr* domain,
+    size_t domain_len,
+    bool inverse);
+
+/**
+ * Inverse group FFT without the usual `1/n` normalization. The output is
+ * `sum_j values[j] * root^(-j*k)` at each index `k`. This is useful when a
+ * later linear transform applies one combined scale. Domain, subgroup,
+ * aliasing, failure, and concurrency requirements match the prepared group
+ * FFTs above. Neither call allocates.
+ */
+BLST_NODISCARD bool blst_p1_ifft_unscaled_with_domain(
+    blst_p1* values, size_t n, const blst_fr* domain, size_t domain_len);
+BLST_NODISCARD bool blst_p2_ifft_unscaled_with_domain(
+    blst_p2* values, size_t n, const blst_fr* domain, size_t domain_len);
+
+/**
  * Interpolates the unique degree-<n Fr polynomial through n distinct points.
  *
  * Parameter interpretation:

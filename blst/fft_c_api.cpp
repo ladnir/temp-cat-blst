@@ -19,10 +19,14 @@ namespace
 {
     using NativeFr = blst::Fr;
     using InterpolationStatus = blst::fr_interpolation::Status;
+    using NativeP1 = blst::scalar::G1Point;
+    using NativeP2 = blst::scalar::G2Point;
 
     static_assert(std::is_same_v<blst_fr, NativeFr>);
     static_assert(std::is_standard_layout_v<NativeFr>);
     static_assert(std::is_trivially_copyable_v<NativeFr>);
+    static_assert(std::is_same_v<blst_p1, NativeP1>);
+    static_assert(std::is_same_v<blst_p2, NativeP2>);
 
     [[nodiscard]] bool succeeded(const InterpolationStatus status) noexcept
     {
@@ -41,6 +45,59 @@ namespace
         const std::size_t size) noexcept
     {
         return { values, size };
+    }
+
+    template<class Group>
+    bool group_fft(Group* values, const std::size_t n, const bool inverse)
+    {
+        if (values == nullptr || !blst::fft_detail::valid_size(n)) {
+            return false;
+        }
+        try {
+            const auto roots = blst::fft_detail::make_roots<
+                NativeFr, blst::FrCoeffCtx>(n, inverse);
+            fft<Group, NativeFr, blst::detail::GroupFftCoeffCtx<Group>>(
+                { values, n }, roots, inverse);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    template<class Group, bool UnscaledInverse = false>
+    bool group_fft_with_domain(
+        Group* values,
+        const std::size_t n,
+        const blst_fr* domain,
+        const std::size_t domain_len,
+        const bool inverse)
+    {
+        const std::size_t required = blst::fft_detail::domain_storage_len(n);
+        if (values == nullptr || domain == nullptr || required == 0 ||
+            domain_len != required) {
+            return false;
+        }
+        try {
+            const auto native_domain = native_span(domain, domain_len);
+            if (!NativeFr::equal(
+                    native_domain[n + 1], NativeFr::from_uint64(n))) {
+                return false;
+            }
+            if constexpr (UnscaledInverse) {
+                (void)inverse;
+                fft_butterflies<
+                    true, Group, NativeFr,
+                    blst::detail::GroupFftCoeffCtx<Group>>(
+                    { values, n }, native_domain.first(n));
+            } else {
+                blst::fft_detail::transform_with_domain<
+                    Group, NativeFr, blst::detail::GroupFftCoeffCtx<Group>>(
+                    { values, n }, native_domain, inverse);
+            }
+            return true;
+        } catch (...) {
+            return false;
+        }
     }
 }
 
@@ -122,6 +179,44 @@ bool blst_fr_fft_with_domain(
     } catch (...) {
         return false;
     }
+}
+
+bool blst_p1_fft(blst_p1* values, size_t n, bool inverse)
+{
+    return group_fft(values, n, inverse);
+}
+
+bool blst_p2_fft(blst_p2* values, size_t n, bool inverse)
+{
+    return group_fft(values, n, inverse);
+}
+
+bool blst_p1_fft_with_domain(
+    blst_p1* values, size_t n, const blst_fr* domain,
+    size_t domain_len, bool inverse)
+{
+    return group_fft_with_domain(values, n, domain, domain_len, inverse);
+}
+
+bool blst_p2_fft_with_domain(
+    blst_p2* values, size_t n, const blst_fr* domain,
+    size_t domain_len, bool inverse)
+{
+    return group_fft_with_domain(values, n, domain, domain_len, inverse);
+}
+
+bool blst_p1_ifft_unscaled_with_domain(
+    blst_p1* values, size_t n, const blst_fr* domain, size_t domain_len)
+{
+    return group_fft_with_domain<NativeP1, true>(
+        values, n, domain, domain_len, true);
+}
+
+bool blst_p2_ifft_unscaled_with_domain(
+    blst_p2* values, size_t n, const blst_fr* domain, size_t domain_len)
+{
+    return group_fft_with_domain<NativeP2, true>(
+        values, n, domain, domain_len, true);
 }
 
 bool blst_fr_interpolate(
