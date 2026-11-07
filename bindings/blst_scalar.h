@@ -556,6 +556,23 @@ size_t blst_p1s_mult_ct_fr_scratch_sizeof(size_t max_points);
  * scratch. Other failures leave `ret` unchanged. Canonical scalar scratch is
  * cleared before return. */
 bool blst_p1s_mult_ct_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
+/** Byte count for a limb-aligned, caller-owned, immutable-after-setup table of
+ * `npoints` G1 bases. Returns zero for empty or unrepresentable input. The
+ * table stores a six-bit fixed-window expansion and an identity-base mask. */
+size_t blst_p1s_mult_ct_precomputed_fr_table_sizeof(size_t npoints);
+/** Precomputes a table from public, prevalidated subgroup bases. `table` must
+ * be limb-aligned and contain at least the queried byte count; it must not
+ * overlap points. No allocation occurs. Empty input succeeds. */
+bool blst_p1s_mult_ct_precompute_fr(blst_limb_t table[], size_t table_size, const blst_p1_affine points[], size_t npoints);
+/** Canonical scalar scratch bytes for the precomputed G1 MSM. */
+size_t blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(size_t npoints);
+/** Uses a prefix of the immutable table produced from `table_points` bases.
+ * For fixed public `npoints`, runtime and memory access do not depend on
+ * scalar contents. Inputs, result, table, and limb-aligned scratch are
+ * disjoint. Nonempty scratch holds at least the queried byte count and is
+ * cleared before return; empty input writes infinity. Other failures leave
+ * the result unchanged. No allocation occurs. */
+bool blst_p1s_mult_ct_precomputed_fr(blst_p1* ret, const blst_limb_t table[], size_t table_size, size_t table_points, const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points);
 /** Evaluates the same public-scalar G1 MSM using the selected scalar-backend

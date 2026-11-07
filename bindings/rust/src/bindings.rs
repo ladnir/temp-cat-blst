@@ -1206,6 +1206,26 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
+    pub fn blst_p1s_mult_ct_precomputed_fr_table_sizeof(npoints: usize) -> usize;
+    pub fn blst_p1s_mult_ct_precompute_fr(
+        table: *mut blst_limb_t,
+        table_size: usize,
+        points: *const blst_p1_affine,
+        npoints: usize,
+    ) -> bool;
+    pub fn blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_p1s_mult_ct_precomputed_fr(
+        ret: *mut blst_p1,
+        table: *const blst_limb_t,
+        table_size: usize,
+        table_points: usize,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut blst_limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity."]
     pub fn blst_p1s_mult_fr_scratch_sizeof(max_points: usize) -> usize;
 }
