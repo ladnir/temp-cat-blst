@@ -806,6 +806,25 @@ TEST(BindingHeader, NativeFrConstantTimeMsmUsesCallerOwnedScratch)
     blst_p1 expected_single = {};
     blst_p1_mult(&expected_single, blst_p1_generator(), three.data(), 255);
     EXPECT_TRUE(blst_p1_is_equal(&single_g1, &expected_single));
+
+    // Identity bases must contribute zero even when their scalar is nonzero.
+    const std::array<blst_p1_affine, 2> identity_g1 = {
+        blst_p1_affine{}, *blst_p1_affine_generator()};
+    const std::array<blst_p2_affine, 2> identity_g2 = {
+        blst_p2_affine{}, *blst_p2_affine_generator()};
+    const std::array<blst_fr, 2> identity_scalars = {scalars[1], scalars[1]};
+    const size_t identity_g1_bytes = blst_p1s_mult_ct_fr_scratch_sizeof(2);
+    const size_t identity_g2_bytes = blst_p2s_mult_ct_fr_scratch_sizeof(2);
+    std::vector<blst_limb_t> identity_g1_scratch(identity_g1_bytes / sizeof(blst_limb_t));
+    std::vector<blst_limb_t> identity_g2_scratch(identity_g2_bytes / sizeof(blst_limb_t));
+    ASSERT_TRUE(blst_p1s_mult_ct_fr(&actual_g1, identity_g1.data(),
+                                    identity_scalars.data(), 2,
+                                    identity_g1_scratch.data(), identity_g1_bytes));
+    ASSERT_TRUE(blst_p2s_mult_ct_fr(&actual_g2, identity_g2.data(),
+                                    identity_scalars.data(), 2,
+                                    identity_g2_scratch.data(), identity_g2_bytes));
+    EXPECT_TRUE(blst_p1_is_equal(&actual_g1, blst_p1_generator()));
+    EXPECT_TRUE(blst_p2_is_equal(&actual_g2, blst_p2_generator()));
 }
 
 TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)

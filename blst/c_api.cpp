@@ -374,10 +374,10 @@ inline bool c_api_ct_fr(
     }
 
     auto* canonical = reinterpret_cast<blst::byte*>(scratch);
-    if (!c_api_scalars_from_fr(canonical, scalars, npoints)) {
-        return false;
-    }
     const size_t canonical_bytes = npoints * sizeof(blst::pow256);
+    for (size_t i = 0; i < npoints; ++i) {
+        blst::Fr::to_scaler(canonical + i * sizeof(blst::pow256), scalars[i]);
+    }
     Group result = {};
     bool success = true;
     if (npoints == 1) {
@@ -387,10 +387,20 @@ inline bool c_api_ct_fr(
     } else {
         auto* tables = reinterpret_cast<Group (*)[8]>(canonical + canonical_bytes);
         for (size_t i = 0; i < npoints; ++i) {
-            // Start each row's object lifetime in caller-owned aligned scratch.
-            new (static_cast<void*>(tables + i)) Group[8];
             Group point = {};
             Group::from_affine(point, points[i]);
+            const auto identity = AffineGroup::is_inf(points[i]);
+            // The fixed-window kernel expects finite bases. Replace an
+            // identity base with the generator and mask its scalar to zero,
+            // without branching on either the base or scalar contents.
+            Group::ccopy(point, Group::generator(), identity);
+            const auto keep = static_cast<blst::byte>(identity - 1);
+            auto* scalar = canonical + i * sizeof(blst::pow256);
+            for (size_t j = 0; j < sizeof(blst::pow256); ++j) {
+                scalar[j] &= keep;
+            }
+            // Start each row's object lifetime in caller-owned aligned scratch.
+            new (static_cast<void*>(tables + i)) Group[8];
             blst::scalar::precompute_w<Group, 4>(tables[i], point);
         }
         const blst::byte* scalar_descriptors[2] = {canonical, nullptr};
