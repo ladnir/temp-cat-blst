@@ -330,6 +330,85 @@ inline bool c_api_scalars_from_fr(
     return true;
 }
 
+template<typename Group>
+inline size_t c_api_ct_fr_scratch_sizeof(size_t npoints)
+{
+    static_assert(alignof(Group) <= alignof(blst::limb_t));
+    static_assert(sizeof(blst::pow256) % alignof(Group) == 0);
+    static_assert(std::is_trivially_default_constructible_v<Group>);
+    static_assert(std::is_trivially_destructible_v<Group>);
+    if (npoints == 0) {
+        return 0;
+    }
+    constexpr size_t scalar_bytes = sizeof(blst::pow256);
+    if (npoints == 1) {
+        return scalar_bytes;
+    }
+    constexpr size_t bytes_per_point = scalar_bytes + 8 * sizeof(Group);
+    if (npoints > std::numeric_limits<size_t>::max() / bytes_per_point) {
+        return 0;
+    }
+    return npoints * bytes_per_point;
+}
+
+template<typename Group, typename AffineGroup>
+inline bool c_api_ct_fr(
+    Group* ret,
+    const AffineGroup points[],
+    const blst::Fr scalars[],
+    size_t npoints,
+    blst::limb_t* scratch,
+    size_t scratch_size)
+{
+    if (ret == nullptr) {
+        return false;
+    }
+    if (npoints == 0) {
+        *ret = {};
+        return true;
+    }
+    const size_t required = c_api_ct_fr_scratch_sizeof<Group>(npoints);
+    if (required == 0 || points == nullptr || scalars == nullptr ||
+        scratch == nullptr || scratch_size < required) {
+        return false;
+    }
+
+    auto* canonical = reinterpret_cast<blst::byte*>(scratch);
+    if (!c_api_scalars_from_fr(canonical, scalars, npoints)) {
+        return false;
+    }
+    const size_t canonical_bytes = npoints * sizeof(blst::pow256);
+    Group result = {};
+    bool success = true;
+    if (npoints == 1) {
+        Group point = {};
+        Group::from_affine(point, points[0]);
+        Group::mult(result, point, canonical, 255);
+    } else {
+        auto* tables = reinterpret_cast<Group (*)[8]>(canonical + canonical_bytes);
+        for (size_t i = 0; i < npoints; ++i) {
+            // Start each row's object lifetime in caller-owned aligned scratch.
+            new (static_cast<void*>(tables + i)) Group[8];
+            Group point = {};
+            Group::from_affine(point, points[i]);
+            blst::scalar::precompute_w<Group, 4>(tables[i], point);
+        }
+        const blst::byte* scalar_descriptors[2] = {canonical, nullptr};
+        success = blst::scalar::mult_window_n<Group, 4>(
+            result, nullptr, npoints, scalar_descriptors, 255, tables);
+    }
+    // The tables contain public point multiples; only the canonical scalar
+    // prefix requires erasure before the scratch returns to the caller.
+    auto* volatile_bytes = reinterpret_cast<volatile blst::byte*>(canonical);
+    for (size_t i = 0; i < canonical_bytes; ++i) {
+        volatile_bytes[i] = 0;
+    }
+    if (success) {
+        *ret = result;
+    }
+    return success;
+}
+
 template<typename Group, typename AffineGroup, typename GroupZZ>
 inline bool c_api_pippenger_fr(
     Group* ret,
@@ -1219,6 +1298,22 @@ bool blst_p1s_mult_pippenger_fr(
         ret, points, scalars, npoints, scratch, scratch_size);
 }
 
+size_t blst_p1s_mult_ct_fr_scratch_sizeof(size_t max_points)
+{
+    return c_api_ct_fr_scratch_sizeof<BoundaryG1>(max_points);
+}
+
+bool blst_p1s_mult_ct_fr(
+    BoundaryG1* ret,
+    const BoundaryG1Affine points[],
+    const blst::Fr scalars[],
+    size_t npoints,
+    blst::limb_t* scratch,
+    size_t scratch_size)
+{
+    return c_api_ct_fr(ret, points, scalars, npoints, scratch, scratch_size);
+}
+
 size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points)
 {
     return c_api_msm_fr_scratch_sizeof<
@@ -1708,6 +1803,22 @@ bool blst_p2s_mult_pippenger_fr(
 {
     return c_api_pippenger_fr<BoundaryG2, BoundaryG2Affine, blst::scalar::G2PointZZ>(
         ret, points, scalars, npoints, scratch, scratch_size);
+}
+
+size_t blst_p2s_mult_ct_fr_scratch_sizeof(size_t max_points)
+{
+    return c_api_ct_fr_scratch_sizeof<BoundaryG2>(max_points);
+}
+
+bool blst_p2s_mult_ct_fr(
+    BoundaryG2* ret,
+    const BoundaryG2Affine points[],
+    const blst::Fr scalars[],
+    size_t npoints,
+    blst::limb_t* scratch,
+    size_t scratch_size)
+{
+    return c_api_ct_fr(ret, points, scalars, npoints, scratch, scratch_size);
 }
 
 size_t blst_p2s_mult_fr_scratch_sizeof(size_t max_points)

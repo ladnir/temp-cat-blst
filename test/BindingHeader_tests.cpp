@@ -736,6 +736,78 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
     EXPECT_TRUE(blst_p2_is_equal(&actual_g2, &canonical_g2));
 }
 
+TEST(BindingHeader, NativeFrConstantTimeMsmUsesCallerOwnedScratch)
+{
+    constexpr size_t n = 4;
+    std::array<blst_fr, n> scalars = {};
+    for (size_t i = 0; i < n; ++i) {
+        const std::array<uint64_t, 4> words = {i, 0, 0, 0};
+        blst_fr_from_uint64(&scalars[i], words.data());
+    }
+    std::array<blst_p1_affine, n> g1_points = {};
+    std::array<blst_p2_affine, n> g2_points = {};
+    g1_points.fill(*blst_p1_affine_generator());
+    g2_points.fill(*blst_p2_affine_generator());
+
+    EXPECT_EQ(blst_p1s_mult_ct_fr_scratch_sizeof(0), 0);
+    EXPECT_EQ(blst_p2s_mult_ct_fr_scratch_sizeof(0), 0);
+    EXPECT_EQ(blst_p1s_mult_ct_fr_scratch_sizeof(1), 32);
+    EXPECT_EQ(blst_p2s_mult_ct_fr_scratch_sizeof(1), 32);
+    EXPECT_EQ(blst_p1s_mult_ct_fr_scratch_sizeof(
+        std::numeric_limits<size_t>::max()), 0);
+    EXPECT_EQ(blst_p2s_mult_ct_fr_scratch_sizeof(
+        std::numeric_limits<size_t>::max()), 0);
+
+    blst_p1 empty_g1 = *blst_p1_generator();
+    blst_p2 empty_g2 = *blst_p2_generator();
+    ASSERT_TRUE(blst_p1s_mult_ct_fr(&empty_g1, nullptr, nullptr, 0, nullptr, 0));
+    ASSERT_TRUE(blst_p2s_mult_ct_fr(&empty_g2, nullptr, nullptr, 0, nullptr, 0));
+    EXPECT_TRUE(blst_p1_is_inf(&empty_g1));
+    EXPECT_TRUE(blst_p2_is_inf(&empty_g2));
+
+    const std::array<blst_byte, 32> six = {6};
+    blst_p1 expected_g1 = {};
+    blst_p2 expected_g2 = {};
+    blst_p1_mult(&expected_g1, blst_p1_generator(), six.data(), 255);
+    blst_p2_mult(&expected_g2, blst_p2_generator(), six.data(), 255);
+
+    const size_t g1_bytes = blst_p1s_mult_ct_fr_scratch_sizeof(n);
+    const size_t g2_bytes = blst_p2s_mult_ct_fr_scratch_sizeof(n);
+    ASSERT_EQ(g1_bytes % sizeof(blst_limb_t), 0);
+    ASSERT_EQ(g2_bytes % sizeof(blst_limb_t), 0);
+    std::vector<blst_limb_t> g1_scratch(g1_bytes / sizeof(blst_limb_t));
+    std::vector<blst_limb_t> g2_scratch(g2_bytes / sizeof(blst_limb_t));
+    blst_p1 actual_g1 = *blst_p1_generator();
+    blst_p2 actual_g2 = *blst_p2_generator();
+    EXPECT_FALSE(blst_p1s_mult_ct_fr(&actual_g1, g1_points.data(), scalars.data(), n,
+                                     g1_scratch.data(), g1_bytes - 1));
+    EXPECT_FALSE(blst_p2s_mult_ct_fr(&actual_g2, g2_points.data(), scalars.data(), n,
+                                     g2_scratch.data(), g2_bytes - 1));
+    EXPECT_TRUE(blst_p1_is_equal(&actual_g1, blst_p1_generator()));
+    EXPECT_TRUE(blst_p2_is_equal(&actual_g2, blst_p2_generator()));
+    ASSERT_TRUE(blst_p1s_mult_ct_fr(&actual_g1, g1_points.data(), scalars.data(), n,
+                                    g1_scratch.data(), g1_bytes));
+    ASSERT_TRUE(blst_p2s_mult_ct_fr(&actual_g2, g2_points.data(), scalars.data(), n,
+                                    g2_scratch.data(), g2_bytes));
+    EXPECT_TRUE(blst_p1_is_equal(&actual_g1, &expected_g1));
+    EXPECT_TRUE(blst_p2_is_equal(&actual_g2, &expected_g2));
+    const auto g1_prefix = reinterpret_cast<const blst_byte*>(g1_scratch.data());
+    const auto g2_prefix = reinterpret_cast<const blst_byte*>(g2_scratch.data());
+    EXPECT_TRUE(std::all_of(g1_prefix, g1_prefix + 32 * n,
+                            [](blst_byte value) { return value == 0; }));
+    EXPECT_TRUE(std::all_of(g2_prefix, g2_prefix + 32 * n,
+                            [](blst_byte value) { return value == 0; }));
+
+    blst_p1 single_g1 = {};
+    std::vector<blst_limb_t> single_scratch(4);
+    ASSERT_TRUE(blst_p1s_mult_ct_fr(&single_g1, g1_points.data(), scalars.data() + 3,
+                                    1, single_scratch.data(), 32));
+    const std::array<blst_byte, 32> three = {3};
+    blst_p1 expected_single = {};
+    blst_p1_mult(&expected_single, blst_p1_generator(), three.data(), 255);
+    EXPECT_TRUE(blst_p1_is_equal(&single_g1, &expected_single));
+}
+
 TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
 {
     constexpr size_t n = 513;

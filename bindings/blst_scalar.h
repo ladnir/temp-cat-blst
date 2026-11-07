@@ -543,6 +543,19 @@ size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
  * `false` result leaves `ret` unchanged. No Release membership/range check or
  * allocation is performed. */
 bool blst_p1s_mult_pippenger_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
+/** Returns caller-owned limb-aligned scratch bytes for constant-time G1 MSM.
+ * Storage sized for `max_points` supports every input length through that
+ * capacity. Zero means empty input or an unrepresentable size. */
+size_t blst_p1s_mult_ct_fr_scratch_sizeof(size_t max_points);
+/** Computes a G1 MSM of prevalidated subgroup points and reduced Montgomery-
+ * form `blst_fr` scalars. Runtime and memory access are independent of scalar
+ * contents for fixed public `npoints`. The fixed-window table is built in
+ * caller-owned scratch; no allocation occurs. Nonempty inputs require mutually
+ * disjoint `ret`, point and scalar arrays, and limb-aligned scratch of at least
+ * the queried size. Empty input writes infinity without reading inputs or
+ * scratch. Other failures leave `ret` unchanged. Canonical scalar scratch is
+ * cleared before return. */
+bool blst_p1s_mult_ct_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points);
 /** Evaluates the same public-scalar G1 MSM using the selected scalar-backend
@@ -703,6 +716,11 @@ size_t blst_p2s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
  * `false` result leaves `ret` unchanged. No Release membership/range check or
  * allocation is performed. */
 bool blst_p2s_mult_pippenger_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
+/** G2 counterpart of `blst_p1s_mult_ct_fr_scratch_sizeof`. */
+size_t blst_p2s_mult_ct_fr_scratch_sizeof(size_t max_points);
+/** G2 counterpart of `blst_p1s_mult_ct_fr`, with the same constant-time,
+ * alignment, disjointness, scratch-erasure, and failure-atomicity contract. */
+bool blst_p2s_mult_ct_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G2 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p2s_mult_fr_scratch_sizeof(size_t max_points);
 /** Evaluates the same public-scalar G2 MSM using the selected scalar-backend

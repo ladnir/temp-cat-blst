@@ -1191,6 +1191,21 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
+    #[doc = " Returns caller-owned limb-aligned scratch bytes for constant-time G1 MSM.\n Storage sized for `max_points` supports every input length through that\n capacity. Zero means empty input or an unrepresentable size."]
+    pub fn blst_p1s_mult_ct_fr_scratch_sizeof(max_points: usize) -> usize;
+}
+extern "C" {
+    #[doc = " Computes a G1 MSM of prevalidated subgroup points and reduced Montgomery-\n form `blst_fr` scalars. Runtime and memory access are independent of scalar\n contents for fixed public `npoints`. The fixed-window table is built in\n caller-owned scratch; no allocation occurs. Nonempty inputs require mutually\n disjoint `ret`, point and scalar arrays, and limb-aligned scratch of at least\n the queried size. Empty input writes infinity without reading inputs or\n scratch. Other failures leave `ret` unchanged. Canonical scalar scratch is\n cleared before return."]
+    pub fn blst_p1s_mult_ct_fr(
+        ret: *mut blst_p1,
+        points: *const blst_p1_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut blst_limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity."]
     pub fn blst_p1s_mult_fr_scratch_sizeof(max_points: usize) -> usize;
 }
@@ -1509,6 +1524,21 @@ extern "C" {
 extern "C" {
     #[doc = " Evaluates a variable-time contiguous G2 MSM from public, reduced\n Montgomery-form `blst_fr` scalars and prevalidated subgroup points. For\n nonempty input, `ret`, both input arrays, and limb-aligned scratch must be\n mutually disjoint; scratch must contain at least the queried byte count.\n Empty input writes infinity without reading input or scratch. Any other\n `false` result leaves `ret` unchanged. No Release membership/range check or\n allocation is performed."]
     pub fn blst_p2s_mult_pippenger_fr(
+        ret: *mut blst_p2,
+        points: *const blst_p2_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut blst_limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
+    #[doc = " G2 counterpart of `blst_p1s_mult_ct_fr_scratch_sizeof`."]
+    pub fn blst_p2s_mult_ct_fr_scratch_sizeof(max_points: usize) -> usize;
+}
+extern "C" {
+    #[doc = " G2 counterpart of `blst_p1s_mult_ct_fr`, with the same constant-time,\n alignment, disjointness, scratch-erasure, and failure-atomicity contract."]
+    pub fn blst_p2s_mult_ct_fr(
         ret: *mut blst_p2,
         points: *const blst_p2_affine,
         scalars: *const blst_fr,

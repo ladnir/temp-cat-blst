@@ -137,6 +137,8 @@ EXPORTS
 	blst_p1s_mult_pippenger
 	blst_p1s_mult_pippenger_fr_scratch_sizeof
 	blst_p1s_mult_pippenger_fr
+	blst_p1s_mult_ct_fr_scratch_sizeof
+	blst_p1s_mult_ct_fr
 	blst_p1s_mult_fr_scratch_sizeof
 	blst_p1s_mult_fr
 	blst_p1s_mult_batch_affine_fr_scratch_sizeof
@@ -186,6 +188,8 @@ EXPORTS
 	blst_p2s_mult_pippenger_window
 	blst_p2s_mult_pippenger_fr_scratch_sizeof
 	blst_p2s_mult_pippenger_fr
+	blst_p2s_mult_ct_fr_scratch_sizeof
+	blst_p2s_mult_ct_fr
 	blst_p2s_mult_fr_scratch_sizeof
 	blst_p2s_mult_fr
 	blst_p2s_mult_batch_affine_fr_scratch_sizeof
@@ -407,6 +411,12 @@ EXPORTS
 	blst_fr_fft_domain_len
 	blst_fr_fft_domain_init
 	blst_fr_fft_with_domain
+	blst_p1_fft
+	blst_p2_fft
+	blst_p1_fft_with_domain
+	blst_p2_fft_with_domain
+	blst_p1_ifft_unscaled_with_domain
+	blst_p2_ifft_unscaled_with_domain
 	blst_fr_interpolate
 	blst_fr_interpolate_fft_domain_suffix_scratch_len
 	blst_fr_interpolate_fft_domain_suffix_with_scratch
