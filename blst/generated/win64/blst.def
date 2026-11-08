@@ -113,6 +113,7 @@ EXPORTS
 	blst_p1_cneg
 	blst_p1_affine_cneg
 	blst_p1_to_affine
+	blst_p1_to_affine_ct
 	blst_p1_from_affine
 	blst_p1_from_jacobian
 	blst_p1_on_curve
@@ -127,6 +128,7 @@ EXPORTS
 	blst_p1_affine_is_inf
 	blst_p1_affine_generator
 	blst_p1s_to_affine
+	blst_p1s_to_affine_ct
 	blst_p1s_add
 	blst_p1s_mult_wbits_precompute_sizeof
 	blst_p1s_mult_wbits_precompute
@@ -139,6 +141,13 @@ EXPORTS
 	blst_p1s_mult_pippenger_fr
 	blst_p1s_mult_ct_fr_scratch_sizeof
 	blst_p1s_mult_ct_fr
+	blst_p1s_mult_ct_precomputed_fr_table_sizeof
+	blst_p1s_mult_ct_precompute_fr
+	blst_p1s_mult_ct_precomputed_fr_scratch_sizeof
+	blst_p1s_mult_ct_precomputed_fr
+	blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof
+	blst_p1s_mult_ct_affine_precompute_fr
+	blst_p1s_mult_ct_affine_precomputed_fr
 	blst_p1s_mult_fr_scratch_sizeof
 	blst_p1s_mult_fr
 	blst_p1s_mult_batch_affine_fr_scratch_sizeof
