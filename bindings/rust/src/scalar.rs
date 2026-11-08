@@ -612,7 +612,9 @@ macro_rules! impl_scalar_curve_group {
         $in_group:ident,
         $affine_in_group:ident,
         $add_or_double:ident,
+        $add_or_double_affine:ident,
         $sub:ident,
+        $sub_affine:ident,
         $double:ident,
         $cneg:ident,
         $mult:ident,
@@ -864,6 +866,29 @@ macro_rules! impl_scalar_curve_group {
                 unsafe {
                     let mut out = MaybeUninit::<$raw_projective>::uninit();
                     $sub(out.as_mut_ptr(), &lhs.0, &rhs.0);
+                    Self(out.assume_init())
+                }
+            }
+
+            /// Adds a subgroup point in affine representation without converting
+            /// it to projective form. This uses the complete mixed-add formula
+            /// and allocates nothing.
+            #[inline]
+            pub fn add_affine(&self, rhs: &$affine) -> Self {
+                unsafe {
+                    let mut out = MaybeUninit::<$raw_projective>::uninit();
+                    $add_or_double_affine(out.as_mut_ptr(), &self.0, &rhs.0);
+                    Self(out.assume_init())
+                }
+            }
+
+            /// Subtracts a subgroup point in affine representation without
+            /// converting it to projective form. This allocates nothing.
+            #[inline]
+            pub fn sub_affine(&self, rhs: &$affine) -> Self {
+                unsafe {
+                    let mut out = MaybeUninit::<$raw_projective>::uninit();
+                    $sub_affine(out.as_mut_ptr(), &self.0, &rhs.0);
                     Self(out.assume_init())
                 }
             }
@@ -1294,7 +1319,9 @@ impl_scalar_curve_group!(
     blst_p1_in_g1,
     blst_p1_affine_in_g1,
     blst_p1_add_or_double,
+    blst_p1_add_or_double_affine,
     blst_p1_sub,
+    blst_p1_sub_affine,
     blst_p1_double,
     blst_p1_cneg,
     blst_p1_mult,
@@ -1327,7 +1354,9 @@ impl_scalar_curve_group!(
     blst_p2_in_g2,
     blst_p2_affine_in_g2,
     blst_p2_add_or_double,
+    blst_p2_add_or_double_affine,
     blst_p2_sub,
+    blst_p2_sub_affine,
     blst_p2_double,
     blst_p2_cneg,
     blst_p2_mult,
@@ -2299,6 +2328,22 @@ mod tests {
         assert_eq!(g2 - g2, G2Projective::identity());
         assert_eq!(g1 + (-g1), G1Projective::identity());
         assert_eq!(g2 + (-g2), G2Projective::identity());
+    }
+
+    #[test]
+    fn mixed_group_arithmetic_matches_projective_arithmetic() {
+        let g1 = G1Projective::generator() * Scalar::from(7);
+        let g2 = G2Projective::generator() * Scalar::from(7);
+        for scalar in [0, 7, 19] {
+            let g1_rhs = G1Projective::generator() * Scalar::from(scalar);
+            let g2_rhs = G2Projective::generator() * Scalar::from(scalar);
+            assert_eq!(g1.add_affine(&g1_rhs.to_affine()), g1 + g1_rhs);
+            assert_eq!(g1.sub_affine(&g1_rhs.to_affine()), g1 - g1_rhs);
+            assert_eq!(g2.add_affine(&g2_rhs.to_affine()), g2 + g2_rhs);
+            assert_eq!(g2.sub_affine(&g2_rhs.to_affine()), g2 - g2_rhs);
+        }
+        assert_eq!(G1Projective::identity().add_affine(&g1.to_affine()), g1);
+        assert_eq!(G2Projective::identity().sub_affine(&g2.to_affine()), -g2);
     }
 
     #[test]
