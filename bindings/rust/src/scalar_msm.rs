@@ -41,9 +41,7 @@ struct AlignedWords {
 
 impl AlignedWords {
     fn new(capacity: usize, bytes: usize) -> Result<Self, CtMsmError> {
-        if (capacity != 0 && bytes == 0)
-            || bytes % size_of::<u64>() != 0
-        {
+        if (capacity != 0 && bytes == 0) || bytes % size_of::<u64>() != 0 {
             return Err(CtMsmError::InvalidCapacity);
         }
         let mut words = Vec::new();
@@ -92,9 +90,7 @@ pub struct G1CtMsmWorkspace(AlignedWords);
 impl G1CtMsmWorkspace {
     pub fn required_bytes(max_points: usize) -> Result<usize, CtMsmError> {
         let bytes = unsafe { blst_p1s_mult_ct_fr_scratch_sizeof(max_points) };
-        if (max_points != 0 && bytes == 0)
-            || bytes % size_of::<u64>() != 0
-        {
+        if (max_points != 0 && bytes == 0) || bytes % size_of::<u64>() != 0 {
             Err(CtMsmError::InvalidCapacity)
         } else {
             Ok(bytes)
@@ -158,9 +154,7 @@ pub struct G2CtMsmWorkspace(AlignedWords);
 impl G2CtMsmWorkspace {
     pub fn required_bytes(max_points: usize) -> Result<usize, CtMsmError> {
         let bytes = unsafe { blst_p2s_mult_ct_fr_scratch_sizeof(max_points) };
-        if (max_points != 0 && bytes == 0)
-            || bytes % size_of::<u64>() != 0
-        {
+        if (max_points != 0 && bytes == 0) || bytes % size_of::<u64>() != 0 {
             Err(CtMsmError::InvalidCapacity)
         } else {
             Ok(bytes)

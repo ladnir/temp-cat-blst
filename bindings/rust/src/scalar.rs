@@ -297,6 +297,26 @@ impl Scalar {
         }
     }
 
+    /// Computes the field square without allocating or canonical conversion.
+    #[inline]
+    pub fn square(&self) -> Self {
+        unsafe {
+            let mut out = MaybeUninit::<blst_fr>::uninit();
+            blst_fr_sqr(out.as_mut_ptr(), &self.0);
+            Self(out.assume_init())
+        }
+    }
+
+    /// Computes `self + self` without allocating or canonical conversion.
+    #[inline]
+    pub fn double(&self) -> Self {
+        unsafe {
+            let mut out = MaybeUninit::<blst_fr>::uninit();
+            blst_fr_add(out.as_mut_ptr(), &self.0, &self.0);
+            Self(out.assume_init())
+        }
+    }
+
     #[inline]
     fn add_inner(lhs: &Self, rhs: &Self) -> Self {
         unsafe {
@@ -343,6 +363,19 @@ impl From<u64> for Scalar {
     fn from(value: u64) -> Self {
         unsafe {
             let words = [value, 0, 0, 0];
+            let mut out = MaybeUninit::<blst_fr>::uninit();
+            blst_fr_from_uint64(out.as_mut_ptr(), words.as_ptr());
+            Self(out.assume_init())
+        }
+    }
+}
+
+impl Scalar {
+    /// Converts an unsigned 128-bit integer to its field representative.
+    #[inline]
+    pub fn from_u128(value: u128) -> Self {
+        unsafe {
+            let words = [value as u64, (value >> 64) as u64, 0, 0];
             let mut out = MaybeUninit::<blst_fr>::uninit();
             blst_fr_from_uint64(out.as_mut_ptr(), words.as_ptr());
             Self(out.assume_init())
@@ -500,6 +533,26 @@ pub struct AffineBatchLengthError {
 }
 
 impl G1Projective {
+    /// Hashes a message to the prime-order G1 subgroup with the BLS12-381
+    /// XMD:SHA-256 SSWU random-oracle mapping and caller-supplied DST.
+    /// The augmentation string is empty. This operation allocates nothing.
+    #[inline]
+    pub fn hash_to_curve(message: &[u8], dst: &[u8]) -> Self {
+        unsafe {
+            let mut out = MaybeUninit::<blst_p1>::uninit();
+            blst_hash_to_g1(
+                out.as_mut_ptr(),
+                message.as_ptr(),
+                message.len(),
+                dst.as_ptr(),
+                dst.len(),
+                core::ptr::null(),
+                0,
+            );
+            Self(out.assume_init())
+        }
+    }
+
     /// Converts a secret-derived G1 point without a coordinate-dependent branch.
     /// The identity is supported. This operation allocates nothing.
     #[inline]
@@ -2161,6 +2214,10 @@ mod tests {
         let noncanonical = [0xff; 32];
         assert_eq!(Scalar::from_bytes_be(&noncanonical), None);
         assert_eq!(Scalar::from_bytes_le(&noncanonical), None);
+        assert_eq!(
+            Scalar::from_u128(u128::MAX).to_bytes_le()[..16],
+            u128::MAX.to_le_bytes()
+        );
     }
 
     #[test]
@@ -2180,6 +2237,33 @@ mod tests {
         assert_eq!(seven * seven.invert().unwrap(), Scalar::ONE);
         assert_eq!(Scalar::ZERO.invert(), None);
         assert_eq!(seven + (-seven), Scalar::ZERO);
+        assert_eq!(seven.square(), seven * seven);
+        assert_eq!(seven.double(), seven + seven);
+    }
+
+    #[test]
+    fn typed_g1_hash_to_curve_matches_native_kernel() {
+        let message = b"category-blst typed G1 hash";
+        let dst = b"CAT-BLST-G1-XMD:SHA-256-SSWU-TEST";
+        let typed = G1Projective::hash_to_curve(message, dst);
+        let mut raw = MaybeUninit::<blst_p1>::uninit();
+        unsafe {
+            blst_hash_to_g1(
+                raw.as_mut_ptr(),
+                message.as_ptr(),
+                message.len(),
+                dst.as_ptr(),
+                dst.len(),
+                core::ptr::null(),
+                0,
+            );
+            assert_eq!(
+                typed,
+                G1Projective::from_raw_unchecked(raw.assume_init())
+            );
+        }
+        assert!(typed.is_in_subgroup());
+        assert!(!typed.is_identity());
     }
 
     #[test]
