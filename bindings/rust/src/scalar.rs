@@ -67,6 +67,12 @@ use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use core::ptr::NonNull;
 
+#[path = "scalar_msm.rs"]
+mod scalar_msm;
+pub use scalar_msm::{
+    CtMsmError, G1CtMsmWorkspace, G1FixedCtMsmTable, G2CtMsmWorkspace,
+};
+
 /// A reduced scalar-field element in category-blst's native Montgomery form.
 ///
 /// Let `r` denote the BLS12-381 scalar-field order. The represented value lies
@@ -485,6 +491,54 @@ pub struct G2Projective(blst_p2);
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct G2Affine(blst_p2_affine);
+
+/// An affine batch was given an output slice of the wrong length.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AffineBatchLengthError {
+    pub expected: usize,
+    pub actual: usize,
+}
+
+impl G1Projective {
+    /// Converts a secret-derived G1 point without a coordinate-dependent branch.
+    /// The identity is supported. This operation allocates nothing.
+    #[inline]
+    pub fn to_affine_ct(&self) -> G1Affine {
+        unsafe {
+            let mut out = MaybeUninit::<blst_p1_affine>::uninit();
+            blst_p1_to_affine_ct(out.as_mut_ptr(), &self.0);
+            G1Affine(out.assume_init())
+        }
+    }
+
+    /// Batch-converts secret-derived G1 points using one fixed-chain inverse.
+    /// Input and output lengths must match. Empty input is valid. This operation
+    /// allocates nothing, and execution does not depend on point coordinates.
+    #[inline]
+    pub fn batch_to_affine_ct(
+        input: &[Self],
+        output: &mut [G1Affine],
+    ) -> Result<(), AffineBatchLengthError> {
+        if input.len() != output.len() {
+            return Err(AffineBatchLengthError {
+                expected: input.len(),
+                actual: output.len(),
+            });
+        }
+        if input.is_empty() {
+            return Ok(());
+        }
+        let descriptors = [input.as_ptr().cast::<blst_p1>(), core::ptr::null()];
+        unsafe {
+            blst_p1s_to_affine_ct(
+                output.as_mut_ptr().cast::<blst_p1_affine>(),
+                descriptors.as_ptr(),
+                input.len(),
+            );
+        }
+        Ok(())
+    }
+}
 
 macro_rules! impl_scalar_curve_group {
     (
@@ -2058,6 +2112,31 @@ mod tests {
         assert_eq!(g1.as_raw() as *const _, &g1 as *const _ as *const _);
         let gt = Gt::generator();
         assert_eq!(gt.as_raw() as *const _, &gt as *const _ as *const _);
+    }
+
+    #[test]
+    fn constant_time_g1_normalization_matches_public_conversion() {
+        let points = [
+            G1Projective::identity(),
+            G1Projective::generator(),
+            G1Projective::generator() * Scalar::from(7),
+            G1Projective::generator() * Scalar::from(65537),
+        ];
+        let expected = points.map(|point| point.to_affine());
+        for (point, affine) in points.iter().zip(expected.iter()) {
+            assert_eq!(point.to_affine_ct(), *affine);
+        }
+        let mut output = [G1Affine::identity(); 4];
+        G1Projective::batch_to_affine_ct(&points, &mut output).unwrap();
+        assert_eq!(output, expected);
+        assert_eq!(G1Projective::batch_to_affine_ct(&[], &mut []), Ok(()));
+        assert_eq!(
+            G1Projective::batch_to_affine_ct(&points, &mut output[..3]),
+            Err(AffineBatchLengthError {
+                expected: 4,
+                actual: 3,
+            })
+        );
     }
 
     #[test]
