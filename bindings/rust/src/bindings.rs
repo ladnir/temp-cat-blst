@@ -1047,6 +1047,7 @@ extern "C" {
     pub fn blst_p1_to_affine(out: *mut blst_p1_affine, in_: *const blst_p1);
 }
 extern "C" {
+    #[doc = " Fixed-chain conversion for secret-derived G1 points; infinity maps to zero."]
     pub fn blst_p1_to_affine_ct(out: *mut blst_p1_affine, in_: *const blst_p1);
 }
 extern "C" {
@@ -1118,6 +1119,7 @@ extern "C" {
     );
 }
 extern "C" {
+    #[doc = " Batch-normalize secret-derived G1 points with one fixed-chain inversion per block."]
     pub fn blst_p1s_to_affine_ct(
         dst: *mut blst_p1_affine,
         points: *const *const blst_p1,
@@ -1216,14 +1218,28 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
-    pub fn blst_p1s_mult_ct_precomputed_fr_table_sizeof(npoints: usize) -> usize;
+    #[doc = " Byte count for a limb-aligned, caller-owned, immutable-after-setup table of\n `npoints` G1 bases. Returns zero for empty or unrepresentable input. The\n table stores a six-bit fixed-window expansion and an identity-base mask."]
+    pub fn blst_p1s_mult_ct_precomputed_fr_table_sizeof(
+        npoints: usize,
+    ) -> usize;
+}
+extern "C" {
+    #[doc = " Precomputes a table from public, prevalidated subgroup bases. `table` must\n be limb-aligned and contain at least the queried byte count; it must not\n overlap points. No allocation occurs. Empty input succeeds."]
     pub fn blst_p1s_mult_ct_precompute_fr(
         table: *mut blst_limb_t,
         table_size: usize,
         points: *const blst_p1_affine,
         npoints: usize,
     ) -> bool;
-    pub fn blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(npoints: usize) -> usize;
+}
+extern "C" {
+    #[doc = " Canonical scalar scratch bytes for the precomputed G1 MSM."]
+    pub fn blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
+}
+extern "C" {
+    #[doc = " Uses a prefix of the immutable table produced from `table_points` bases.\n For fixed public `npoints`, runtime and memory access do not depend on\n scalar contents. Inputs, result, table, and limb-aligned scratch are\n disjoint. Nonempty scratch holds at least the queried byte count and is\n cleared before return; empty input writes infinity. Other failures leave\n the result unchanged. No allocation occurs."]
     pub fn blst_p1s_mult_ct_precomputed_fr(
         ret: *mut blst_p1,
         table: *const blst_limb_t,
@@ -1236,13 +1252,21 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
-    pub fn blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(npoints: usize) -> usize;
+    #[doc = " Smaller affine-row alternative to the projective precomputed table above.\n The six-bit table contains public affine multiples and an identity mask.\n Table construction may use variable-time conversion of public bases; proof\n evaluation uses constant-time row selection and unified mixed addition.\n The scalar scratch query is the same as the projective-table variant."]
+    pub fn blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(
+        npoints: usize,
+    ) -> usize;
+}
+extern "C" {
     pub fn blst_p1s_mult_ct_affine_precompute_fr(
         table: *mut blst_limb_t,
         table_size: usize,
         points: *const blst_p1_affine,
         npoints: usize,
     ) -> bool;
+}
+extern "C" {
+    #[doc = " Evaluates a prefix of the immutable `table_points`-base affine table with\n reduced Montgomery-form scalars. The disjointness, empty-input, scratch\n erasure, and failure-atomicity contract matches the projective-table call."]
     pub fn blst_p1s_mult_ct_affine_precomputed_fr(
         ret: *mut blst_p1,
         table: *const blst_limb_t,
