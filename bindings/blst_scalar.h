@@ -573,6 +573,17 @@ size_t blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(size_t npoints);
  * cleared before return; empty input writes infinity. Other failures leave
  * the result unchanged. No allocation occurs. */
 bool blst_p1s_mult_ct_precomputed_fr(blst_p1* ret, const blst_limb_t table[], size_t table_size, size_t table_points, const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
+/** Smaller affine-row alternative to the projective precomputed table above.
+ * The six-bit table contains public affine multiples and an identity mask.
+ * Table construction may use variable-time conversion of public bases; proof
+ * evaluation uses constant-time row selection and unified mixed addition.
+ * The scalar scratch query is the same as the projective-table variant. */
+size_t blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(size_t npoints);
+bool blst_p1s_mult_ct_affine_precompute_fr(blst_limb_t table[], size_t table_size, const blst_p1_affine points[], size_t npoints);
+/** Evaluates a prefix of the immutable `table_points`-base affine table with
+ * reduced Montgomery-form scalars. The disjointness, empty-input, scratch
+ * erasure, and failure-atomicity contract matches the projective-table call. */
+bool blst_p1s_mult_ct_affine_precomputed_fr(blst_p1* ret, const blst_limb_t table[], size_t table_size, size_t table_points, const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points);
 /** Evaluates the same public-scalar G1 MSM using the selected scalar-backend

@@ -879,6 +879,66 @@ TEST(BindingHeader, PrecomputedConstantTimeG1MatchesOrdinary)
                   std::numeric_limits<size_t>::max()), 0);
 }
 
+TEST(BindingHeader, AffinePrecomputedConstantTimeG1MatchesProjective)
+{
+    constexpr size_t n = 129;
+    std::array<blst_p1_affine, n> points = {};
+    std::array<blst_fr, n> scalars = {};
+    for (size_t i = 0; i < n; ++i) {
+        const std::array<blst_byte, 32> multiplier = {
+            static_cast<blst_byte>(i + 1)};
+        blst_p1 projective = {};
+        blst_p1_mult(&projective, blst_p1_generator(), multiplier.data(), 255);
+        blst_p1_to_affine(&points[i], &projective);
+        if (i % 17 == 0) points[i] = {};
+        const std::array<uint64_t, 4> words = {
+            0x9e3779b97f4a7c15ULL * (i + 1), i * 13, 0, 0};
+        blst_fr_from_uint64(&scalars[i], words.data());
+        if (i & 1) blst_fr_cneg(&scalars[i], &scalars[i], true);
+        if (i % 19 == 0) scalars[i] = {};
+    }
+    const size_t affine_bytes =
+        blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(n);
+    const size_t projective_bytes =
+        blst_p1s_mult_ct_precomputed_fr_table_sizeof(n);
+    const size_t scratch_bytes =
+        blst_p1s_mult_ct_precomputed_fr_scratch_sizeof(n);
+    ASSERT_NE(affine_bytes, 0);
+    ASSERT_LT(affine_bytes, projective_bytes);
+    std::vector<blst_limb_t> affine_table(affine_bytes / sizeof(blst_limb_t));
+    std::vector<blst_limb_t> projective_table(projective_bytes / sizeof(blst_limb_t));
+    std::vector<blst_limb_t> scratch(scratch_bytes / sizeof(blst_limb_t));
+    ASSERT_TRUE(blst_p1s_mult_ct_affine_precompute_fr(
+        affine_table.data(), affine_bytes, points.data(), n));
+    ASSERT_TRUE(blst_p1s_mult_ct_precompute_fr(
+        projective_table.data(), projective_bytes, points.data(), n));
+    blst_p1 expected = {}, actual = {};
+    for (size_t length : {size_t{1}, size_t{2}, size_t{3}, size_t{17}, n}) {
+        ASSERT_TRUE(blst_p1s_mult_ct_precomputed_fr(
+            &expected, projective_table.data(), projective_bytes, n,
+            scalars.data(), length, scratch.data(), scratch_bytes));
+        ASSERT_TRUE(blst_p1s_mult_ct_affine_precomputed_fr(
+            &actual, affine_table.data(), affine_bytes, n,
+            scalars.data(), length, scratch.data(), scratch_bytes));
+        EXPECT_TRUE(blst_p1_is_equal(&expected, &actual)) << "length=" << length;
+    }
+    EXPECT_FALSE(blst_p1s_mult_ct_affine_precomputed_fr(
+        &actual, affine_table.data(), affine_bytes - 1, n,
+        scalars.data(), n, scratch.data(), scratch_bytes));
+    EXPECT_FALSE(blst_p1s_mult_ct_affine_precomputed_fr(
+        &actual, affine_table.data(), affine_bytes, n,
+        scalars.data(), n, scratch.data(), scratch_bytes - 1));
+    EXPECT_TRUE(std::all_of(reinterpret_cast<const blst_byte*>(scratch.data()),
+                            reinterpret_cast<const blst_byte*>(scratch.data()) + scratch_bytes,
+                            [](blst_byte value) { return value == 0; }));
+    blst_p1 empty = *blst_p1_generator();
+    EXPECT_TRUE(blst_p1s_mult_ct_affine_precomputed_fr(
+        &empty, nullptr, 0, 0, nullptr, 0, nullptr, 0));
+    EXPECT_TRUE(blst_p1_is_inf(&empty));
+    EXPECT_EQ(blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(
+                  std::numeric_limits<size_t>::max()), 0);
+}
+
 TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
 {
     constexpr size_t n = 513;

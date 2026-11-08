@@ -487,6 +487,61 @@ namespace blst::scalar
 		return 1;
 	}
 
+	// A fixed-base MSM with affine lookup rows. The caller prepares all rows
+	// from public bases; scalar digits only select through a full linear scan.
+	// Mixed dadd handles zero digits, equality, opposites, and infinity without
+	// secret-dependent control flow. Scalars are contiguous little-endian bytes.
+	template<typename ptype, typename affine_type, int window_size>
+	[[nodiscard]] BLST_HD BLST_FORCEINLINE bool_t mult_window_n_affine(
+		ptype& ret, const byte* scalars, size_t npoints, size_t bits,
+		const affine_type table[][detail::fixed_window_traits<window_size>::table_size])
+	{
+		constexpr size_t table_size =
+			detail::fixed_window_traits<window_size>::table_size;
+		static_assert(window_size >= 2 && window_size <= 7);
+		static_assert(std::is_trivially_default_constructible_v<affine_type>);
+		static_assert(std::is_trivially_destructible_v<affine_type>);
+		if (npoints == 0 || bits == 0 || bits > (size_t)-1 - 7 ||
+			scalars == NULL || table == NULL)
+			return 0;
+		const size_t nbytes = (bits + 7) / 8;
+		if (npoints > (size_t)-1 / nbytes)
+			return 0;
+
+		ret = ptype{};
+		size_t window = bits % window_size;
+		limb_t wmask = ((limb_t)1 << (window + 1)) - 1;
+		bits -= window;
+		for (;;) {
+			for (size_t i = 0; i < npoints; ++i) {
+				const byte* scalar = scalars + i * nbytes;
+				const limb_t extracted = bits > 0
+					? get_wval(scalar, bits - 1, window + 1) & wmask
+					: ((limb_t)scalar[0] << 1) & wmask;
+				const limb_t encoded = booth_encode(extracted, window_size);
+				const limb_t index = encoded & (((limb_t)1 << window_size) - 1);
+				affine_type selected;
+				vec_copy(&selected, table[i], sizeof(selected));
+				for (size_t j = 2; j <= table_size; ++j)
+					vec_select(&selected, &table[i][j - 1], &selected,
+						sizeof(selected), byte_is_zero((byte)(j ^ index)));
+				affine_type::cneg(selected, (encoded >> window_size) & 1);
+				vec_czero(&selected, sizeof(selected),
+					byte_is_zero((byte)index));
+				ptype sum;
+				ptype::dadd(sum, ret, selected);
+				ret = sum;
+			}
+			if (bits == 0) break;
+			for (size_t j = 0; j < window_size; ++j)
+				ptype::doubling(ret, ret);
+			window = window_size;
+			wmask = ((limb_t)1 << (window + 1)) - 1;
+			bits -= window;
+		}
+		return 1;
+	}
+
 	/* Variable-time wNAF recoding for public little-endian scalar data. Bits in
 	 * the final source byte above ScalarBits are ignored. The output contains
 	 * ScalarBits+1 entries to retain a possible final positive carry. */

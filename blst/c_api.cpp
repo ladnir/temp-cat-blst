@@ -455,7 +455,33 @@ inline bool c_api_ct_precompute_fr(
     return true;
 }
 
-template<typename Group>
+template<typename Group, typename AffineGroup>
+inline bool c_api_ct_affine_precompute_fr(
+    blst::limb_t table[], size_t table_size,
+    const AffineGroup points[], size_t npoints)
+{
+    if (npoints == 0) return true;
+    const size_t required = c_api_ct_precomputed_fr_table_sizeof<AffineGroup>(npoints);
+    if (required == 0 || table == nullptr || table_size < required || points == nullptr)
+        return false;
+    auto* rows = reinterpret_cast<AffineGroup (*)[32]>(table);
+    auto* masks = reinterpret_cast<blst::byte*>(rows + npoints);
+    for (size_t i = 0; i < npoints; ++i) {
+        Group point = {};
+        Group::from_affine(point, points[i]);
+        const auto identity = AffineGroup::is_inf(points[i]);
+        Group::ccopy(point, Group::generator(), identity);
+        masks[i] = static_cast<blst::byte>(identity - 1);
+        Group projective[32];
+        blst::scalar::precompute_w<Group, 6>(projective, point);
+        new (static_cast<void*>(rows + i)) AffineGroup[32];
+        for (size_t j = 0; j < 32; ++j)
+            Group::to_affine(rows[i][j], projective[j]);
+    }
+    return true;
+}
+
+template<typename Group, typename TablePoint>
 inline bool c_api_ct_precomputed_fr(
     Group* ret, const blst::limb_t table[], size_t table_size, size_t table_points,
     const blst::Fr scalars[], size_t npoints,
@@ -466,13 +492,13 @@ inline bool c_api_ct_precomputed_fr(
         *ret = {};
         return true;
     }
-    const size_t required = c_api_ct_precomputed_fr_table_sizeof<Group>(table_points);
+    const size_t required = c_api_ct_precomputed_fr_table_sizeof<TablePoint>(table_points);
     if (required == 0 || npoints > table_points || table == nullptr || table_size < required ||
         scalars == nullptr || scratch == nullptr ||
         npoints > std::numeric_limits<size_t>::max() / sizeof(blst::pow256) ||
         scratch_size < npoints * sizeof(blst::pow256))
         return false;
-    const auto* rows = reinterpret_cast<const Group (*)[32]>(table);
+    const auto* rows = reinterpret_cast<const TablePoint (*)[32]>(table);
     const auto* masks = reinterpret_cast<const blst::byte*>(rows + table_points);
     auto* canonical = reinterpret_cast<blst::byte*>(scratch);
     for (size_t i = 0; i < npoints; ++i) {
@@ -482,11 +508,17 @@ inline bool c_api_ct_precomputed_fr(
             scalar[j] &= masks[i];
     }
     Group result = {};
-    const blst::byte* scalar_descriptors[2] = {canonical, nullptr};
-    // With points == nullptr, mult_window_n only reads the cached rows.
-    const bool success = blst::scalar::mult_window_n<Group, 6>(
-        result, nullptr, npoints, scalar_descriptors, 255,
-        const_cast<Group (*)[32]>(rows));
+    bool success;
+    if constexpr (std::is_same_v<Group, TablePoint>) {
+        // With points == nullptr, mult_window_n only reads the cached rows.
+        const blst::byte* scalar_descriptors[2] = {canonical, nullptr};
+        success = blst::scalar::mult_window_n<Group, 6>(
+            result, nullptr, npoints, scalar_descriptors, 255,
+            const_cast<Group (*)[32]>(rows));
+    } else {
+        success = blst::scalar::mult_window_n_affine<Group, TablePoint, 6>(
+            result, canonical, npoints, 255, rows);
+    }
     auto* volatile_bytes = reinterpret_cast<volatile blst::byte*>(canonical);
     for (size_t i = 0; i < npoints * sizeof(blst::pow256); ++i)
         volatile_bytes[i] = 0;
@@ -1422,7 +1454,29 @@ bool blst_p1s_mult_ct_precomputed_fr(
     const blst::Fr scalars[], size_t npoints,
     blst::limb_t* scratch, size_t scratch_size)
 {
-    return c_api_ct_precomputed_fr(
+    return c_api_ct_precomputed_fr<BoundaryG1, BoundaryG1>(
+        ret, table, table_size, table_points, scalars, npoints, scratch, scratch_size);
+}
+
+size_t blst_p1s_mult_ct_affine_precomputed_fr_table_sizeof(size_t npoints)
+{
+    return c_api_ct_precomputed_fr_table_sizeof<BoundaryG1Affine>(npoints);
+}
+
+bool blst_p1s_mult_ct_affine_precompute_fr(
+    blst::limb_t table[], size_t table_size,
+    const BoundaryG1Affine points[], size_t npoints)
+{
+    return c_api_ct_affine_precompute_fr<BoundaryG1>(
+        table, table_size, points, npoints);
+}
+
+bool blst_p1s_mult_ct_affine_precomputed_fr(
+    BoundaryG1* ret, const blst::limb_t table[], size_t table_size, size_t table_points,
+    const blst::Fr scalars[], size_t npoints,
+    blst::limb_t* scratch, size_t scratch_size)
+{
+    return c_api_ct_precomputed_fr<BoundaryG1, BoundaryG1Affine>(
         ret, table, table_size, table_points, scalars, npoints, scratch, scratch_size);
 }
 
