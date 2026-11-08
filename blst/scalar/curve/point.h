@@ -173,6 +173,17 @@ namespace blst::scalar
 		/// @note Subgroup membership is preserved but neither required nor established.
 		/// @note Variable-time with respect to the point representation.
 		BLST_HD static void to_affine(AffinePoint<Field>& out, const Point& in);
+		/// @brief Convert a secret-derived Jacobian point to affine with a fixed
+		/// inversion chain; infinity maps to zero. No point-coordinate branch.
+		BLST_HD static void to_affine_ct(AffinePoint<Field>& out, const Point& in)
+		{
+			Field inverse, inverse_squared, inverse_cubed;
+			Field::flt_reciprocal(inverse, in.z);
+			Field::sqr(inverse_squared, inverse);
+			Field::mul(inverse_cubed, inverse_squared, inverse);
+			Field::mul(out.x, in.x, inverse_squared);
+			Field::mul(out.y, in.y, inverse_cubed);
+		}
 		/// @brief Convert an on-curve affine point to Jacobian; finite points get `Z = 1`.
 		/// @note Subgroup membership is preserved but neither required nor established.
 		BLST_HD static void from_affine(Point& out, const AffinePoint<Field>& a);

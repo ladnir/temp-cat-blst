@@ -60,6 +60,8 @@ void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK, unsigned int c
 namespace blst::scalar {
 template<typename Field>
 void points_to_affine(AffinePoint<Field> dst[], const Point<Field>* const points[], size_t npoints);
+template<typename Field>
+void points_to_affine_ct(AffinePoint<Field> dst[], const Point<Field>* const points[], size_t npoints);
 }
 
 namespace {
@@ -1196,6 +1198,13 @@ void blst_p1_to_affine(BoundaryG1Affine* out, const BoundaryG1* in)
     *out = public_to_boundary_g1_affine(affine);
 }
 
+void blst_p1_to_affine_ct(BoundaryG1Affine* out, const BoundaryG1* in)
+{
+    PublicG1Affine affine = {};
+    PublicG1::to_affine_ct(affine, boundary_to_public_g1(*in));
+    *out = public_to_boundary_g1_affine(affine);
+}
+
 void blst_p1_from_affine(BoundaryG1* out, const BoundaryG1Affine* in)
 {
     PublicG1 point = {};
@@ -1277,6 +1286,16 @@ void blst_p1s_to_affine(BoundaryG1Affine* dst, const BoundaryG1* const points[],
         return;
     }
     blst::scalar::points_to_affine<blst::Fp>(dst, points, npoints);
+}
+
+void blst_p1s_to_affine_ct(BoundaryG1Affine* dst, const BoundaryG1* const points[], size_t npoints)
+{
+    if (npoints == 0) return;
+    if (!c_api_has_valid_array_head(points, npoints)) {
+        for (size_t i = 0; i < npoints; ++i) dst[i] = {};
+        return;
+    }
+    blst::scalar::points_to_affine_ct<blst::Fp>(dst, points, npoints);
 }
 
 void blst_p1s_add(BoundaryG1* ret, const BoundaryG1Affine* const points[], size_t npoints)

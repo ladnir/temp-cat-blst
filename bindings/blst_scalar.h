@@ -479,6 +479,8 @@ void blst_p1_affine_cneg(blst_p1_affine* p, bool cbit);
 /** Converts an on-curve projective point into affine form. Subgroup membership
  * is preserved but neither required nor established. */
 void blst_p1_to_affine(blst_p1_affine* out, const blst_p1* in);
+/** Fixed-chain conversion for secret-derived G1 points; infinity maps to zero. */
+void blst_p1_to_affine_ct(blst_p1_affine* out, const blst_p1* in);
 /** Converts an on-curve affine point into projective form. Subgroup membership
  * is preserved but neither required nor established. */
 void blst_p1_from_affine(blst_p1* out, const blst_p1_affine* in);
@@ -517,6 +519,8 @@ const blst_p1_affine* blst_p1_affine_generator(void);
  * mean contiguous continuation from the preceding point. Input and output
  * storage must not overlap. Empty input performs no access. */
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
+/** Batch-normalize secret-derived G1 points with one fixed-chain inversion per block. */
+void blst_p1s_to_affine_ct(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
 /** Variable-time addition of public affine G1 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
 /** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */

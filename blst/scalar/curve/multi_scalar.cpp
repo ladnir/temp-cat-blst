@@ -156,8 +156,8 @@ namespace blst::scalar
 	// Converts an array of (possibly sparse) Jacobian points 
 	// to affine using batched inversion of Z over sized blocks; 
 	// preserves infinities.
-	template<typename Field>
-	BLST_HD BLST_CPP_INLINE void points_to_affine(AffinePoint<Field> dst[],
+	template<typename Field, bool constant_time>
+	BLST_HD BLST_CPP_INLINE void points_to_affine_impl(AffinePoint<Field> dst[],
 		const Point<Field>* const points[],
 		size_t npoints)
 	{
@@ -187,7 +187,10 @@ namespace blst::scalar
 				Field::mul(block_dst[i].x, block_dst[i].x, block_dst[i - 1].x);
 			}
 
-			Field::reciprocal(block_dst[delta - 1].x, block_dst[delta - 1].x);
+			if constexpr (constant_time)
+				Field::flt_reciprocal(block_dst[delta - 1].x, block_dst[delta - 1].x);
+			else
+				Field::reciprocal(block_dst[delta - 1].x, block_dst[delta - 1].x);
 
 			const PointT* p = point;
 			const PointT* const* walkback = point_iter - 1;
@@ -221,12 +224,32 @@ namespace blst::scalar
 		}
 
 	}
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void points_to_affine(AffinePoint<Field> dst[],
+		const Point<Field>* const points[], size_t npoints)
+	{
+		points_to_affine_impl<Field, false>(dst, points, npoints);
+	}
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void points_to_affine_ct(AffinePoint<Field> dst[],
+		const Point<Field>* const points[], size_t npoints)
+	{
+		points_to_affine_impl<Field, true>(dst, points, npoints);
+	}
 	template
 		BLST_HD BLST_CPP_INLINE void points_to_affine(AffinePoint<Fp> dst[],
 			const Point<Fp>* const points[],
 			size_t npoints);
 	template
 		BLST_HD BLST_CPP_INLINE void points_to_affine(AffinePoint<Fp2> dst[],
+			const Point<Fp2>* const points[],
+			size_t npoints);
+	template
+		BLST_HD BLST_CPP_INLINE void points_to_affine_ct(AffinePoint<Fp> dst[],
+			const Point<Fp>* const points[],
+			size_t npoints);
+	template
+		BLST_HD BLST_CPP_INLINE void points_to_affine_ct(AffinePoint<Fp2> dst[],
 			const Point<Fp2>* const points[],
 			size_t npoints);
 

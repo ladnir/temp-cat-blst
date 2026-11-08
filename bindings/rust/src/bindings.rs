@@ -1047,6 +1047,9 @@ extern "C" {
     pub fn blst_p1_to_affine(out: *mut blst_p1_affine, in_: *const blst_p1);
 }
 extern "C" {
+    pub fn blst_p1_to_affine_ct(out: *mut blst_p1_affine, in_: *const blst_p1);
+}
+extern "C" {
     #[doc = " Converts an on-curve affine point into projective form. Subgroup membership\n is preserved but neither required nor established."]
     pub fn blst_p1_from_affine(out: *mut blst_p1, in_: *const blst_p1_affine);
 }
@@ -1109,6 +1112,13 @@ extern "C" {
 extern "C" {
     #[doc = " Batch-converts `npoints` subgroup G1 projective inputs into affine outputs.\n This advanced helper does not promise non-subgroup behavior. When `npoints >\n 0`, `dst` and `points[0]` must be non-null; later null descriptor entries\n mean contiguous continuation from the preceding point. Input and output\n storage must not overlap. Empty input performs no access."]
     pub fn blst_p1s_to_affine(
+        dst: *mut blst_p1_affine,
+        points: *const *const blst_p1,
+        npoints: usize,
+    );
+}
+extern "C" {
+    pub fn blst_p1s_to_affine_ct(
         dst: *mut blst_p1_affine,
         points: *const *const blst_p1,
         npoints: usize,

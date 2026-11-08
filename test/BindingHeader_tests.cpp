@@ -939,6 +939,25 @@ TEST(BindingHeader, AffinePrecomputedConstantTimeG1MatchesProjective)
                   std::numeric_limits<size_t>::max()), 0);
 }
 
+TEST(BindingHeader, ConstantTimeG1NormalizationMatchesOrdinary)
+{
+    std::array<blst_p1, 5> projective = {};
+    projective[1] = *blst_p1_generator();
+    for (size_t i = 2; i < projective.size(); ++i)
+        blst_p1_add_or_double(&projective[i], &projective[i - 1], &projective[1]);
+    std::array<blst_p1_affine, 5> expected = {}, actual = {};
+    const blst_p1* descriptors[] = {projective.data(), nullptr};
+    blst_p1s_to_affine(expected.data(), descriptors, projective.size());
+    blst_p1s_to_affine_ct(actual.data(), descriptors, projective.size());
+    for (size_t i = 0; i < projective.size(); ++i) {
+        blst_p1_affine single = {};
+        blst_p1_to_affine_ct(&single, &projective[i]);
+        EXPECT_TRUE(blst_p1_affine_is_equal(&single, &expected[i])) << i;
+        EXPECT_TRUE(blst_p1_affine_is_equal(&actual[i], &expected[i])) << i;
+    }
+    EXPECT_TRUE(blst_p1_affine_is_inf(&actual[0]));
+}
+
 TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
 {
     constexpr size_t n = 513;

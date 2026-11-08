@@ -23,6 +23,12 @@
 #endif
 namespace blst::scalar
 {
+	/** Batch-normalize secret-derived points with a fixed inversion chain.
+	 * Null descriptors after the first entry denote contiguous input. */
+	template<typename Field>
+	void points_to_affine_ct(AffinePoint<Field> dst[],
+		const Point<Field>* const points[], size_t npoints);
+
 #ifndef BLST_SCALAR_MSM_SCRATCH_LIMIT
 # ifdef __wasm__
 #  define BLST_SCALAR_MSM_SCRATCH_LIMIT (45 * 1024)
