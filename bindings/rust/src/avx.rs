@@ -2468,6 +2468,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scalar_boundary_mixed_add_preserves_nonzero_point_with_affine_infinity()
+    {
+        if !is_available() {
+            return;
+        }
+        let g1 = crate::scalar::G1Projective::generator()
+            * crate::scalar::Scalar::from(17u64);
+        let g2 = crate::scalar::G2Projective::generator()
+            * crate::scalar::Scalar::from(19u64);
+        let mut g1_out = blst_p1::default();
+        let mut g2_out = blst_p2::default();
+        unsafe {
+            blst_p1_add_or_double_affine(
+                &mut g1_out,
+                g1.as_raw(),
+                crate::scalar::G1Affine::identity().as_raw(),
+            );
+            blst_p2_add_or_double_affine(
+                &mut g2_out,
+                g2.as_raw(),
+                crate::scalar::G2Affine::identity().as_raw(),
+            );
+        }
+        assert_eq!(
+            unsafe { crate::scalar::G1Projective::from_raw_unchecked(g1_out) },
+            g1
+        );
+        assert_eq!(
+            unsafe { crate::scalar::G2Projective::from_raw_unchecked(g2_out) },
+            g2
+        );
+    }
+
+    #[test]
     fn avx_fp12_storage_len_handles_boundaries_without_overflow() {
         let element_size = size_of::<blst_avx_fp12>();
         assert!(element_size > 1);
