@@ -470,6 +470,47 @@ const _: () = {
 };
 
 impl G1Projective {
+    /// Converts a validated scalar-backend affine point into native AVX
+    /// arithmetic storage without encoding or subgroup revalidation.
+    ///
+    /// Use this at a backend boundary, not within a resident arithmetic loop.
+    /// The two representations must never be reinterpreted by pointer cast.
+    pub fn from_scalar_affine(
+        point: &crate::scalar::G1Affine,
+    ) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut affine = MaybeUninit::<blst_avx_p1_affine>::uninit();
+        if !unsafe {
+            blst_avx_p1_affine_from_scalar(affine.as_mut_ptr(), point.as_raw())
+        } {
+            return Err(Error::BackendFailure);
+        }
+        let mut projective = MaybeUninit::<blst_avx_p1>::uninit();
+        if !unsafe {
+            blst_avx_p1_from_affine(projective.as_mut_ptr(), affine.as_ptr())
+        } {
+            return Err(Error::BackendFailure);
+        }
+        Ok(Self(unsafe { projective.assume_init() }))
+    }
+
+    /// Converts a native AVX point to validated scalar-backend projective
+    /// storage without a canonical encode/decode round trip.
+    pub fn to_scalar_projective(
+        &self,
+    ) -> Result<crate::scalar::G1Projective, Error> {
+        let mut scalar = MaybeUninit::<blst_p1>::uninit();
+        if !unsafe { blst_p1_from_avx(scalar.as_mut_ptr(), &self.0) } {
+            return Err(Error::BackendFailure);
+        }
+        // SAFETY: conversion preserves the validated prime-order subgroup.
+        Ok(unsafe {
+            crate::scalar::G1Projective::from_raw_unchecked(
+                scalar.assume_init(),
+            )
+        })
+    }
+
     /// Returns the G1 identity without allocating.
     pub fn identity() -> Result<Self, Error> {
         ensure_available()?;
@@ -627,6 +668,27 @@ const _: () = {
 };
 
 impl G2Projective {
+    /// Converts a validated scalar-backend affine point into native AVX
+    /// arithmetic storage without encoding or subgroup revalidation.
+    pub fn from_scalar_affine(
+        point: &crate::scalar::G2Affine,
+    ) -> Result<Self, Error> {
+        ensure_available()?;
+        let mut affine = MaybeUninit::<blst_avx_p2_affine>::uninit();
+        if !unsafe {
+            blst_avx_p2_affine_from_scalar(affine.as_mut_ptr(), point.as_raw())
+        } {
+            return Err(Error::BackendFailure);
+        }
+        let mut projective = MaybeUninit::<blst_avx_p2>::uninit();
+        if !unsafe {
+            blst_avx_p2_from_affine(projective.as_mut_ptr(), affine.as_ptr())
+        } {
+            return Err(Error::BackendFailure);
+        }
+        Ok(Self(unsafe { projective.assume_init() }))
+    }
+
     /// Returns the G2 identity without allocating.
     pub fn identity() -> Result<Self, Error> {
         ensure_available()?;
@@ -2908,6 +2970,29 @@ mod tests {
             g2_bytes,
             crate::scalar::G2Affine::generator().to_compressed()
         );
+        for scalar in [0, 1, 7, 65537] {
+            let factor = crate::Scalar::from(scalar);
+            let scalar_g1 =
+                (crate::scalar::G1Projective::generator() * factor).to_affine();
+            let scalar_g2 =
+                (crate::scalar::G2Projective::generator() * factor).to_affine();
+            let native_g1 =
+                G1Projective::from_scalar_affine(&scalar_g1).unwrap();
+            let native_g2 =
+                G2Projective::from_scalar_affine(&scalar_g2).unwrap();
+            assert_eq!(
+                native_g1.to_compressed().unwrap(),
+                scalar_g1.to_compressed()
+            );
+            assert_eq!(
+                native_g2.to_compressed().unwrap(),
+                scalar_g2.to_compressed()
+            );
+            assert_eq!(
+                native_g1.to_scalar_projective().unwrap().to_affine(),
+                scalar_g1
+            );
+        }
 
         let gt = Gt::pairing(&g1, &g2).unwrap();
         let gt_bytes = gt.to_bytes_be().unwrap();

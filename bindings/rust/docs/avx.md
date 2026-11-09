@@ -57,10 +57,13 @@ GT uses twelve canonical 48-byte big-endian Fp coefficients, ordered by Fp2
 index, then Fp6 half, then Fp component. The scalar and AVX encoders produce
 identical bytes, and either backend may decode bytes produced by the other.
 
-Canonical encoding is the supported boundary for serialization, hashing,
-cross-backend conformance tests, and backend selection. It is not an internal
-arithmetic strategy. Typed AVX operations never convert through scalar point
-or Fp12 storage.
+Canonical encoding is the supported boundary for serialization, hashing, and
+cross-backend conformance tests. For one-time in-process backend selection,
+`G1Projective::from_scalar_affine`, `G2Projective::from_scalar_affine`, and
+`G1Projective::to_scalar_projective` use native conversion without a wire
+round trip. They accept already validated typed points and preserve their
+subgroup invariant. They are not an internal arithmetic strategy; resident
+AVX kernels never convert through scalar point or Fp12 storage.
 
 ## Timing
 
