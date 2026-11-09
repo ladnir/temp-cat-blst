@@ -1470,6 +1470,16 @@ impl MillerLoopResult {
         }
     }
 
+    /// Tests whether final exponentiation of this Miller product is the target
+    /// identity, without materializing a target-group value.
+    ///
+    /// This is the final pairing-product check. It allocates nothing and makes
+    /// no constant-time guarantee.
+    #[inline]
+    pub fn final_verify_is_identity(&self) -> bool {
+        unsafe { blst_fp12_finalverify(&self.0, blst_fp12_one()) }
+    }
+
     /// Borrows the native Fp12 Miller-loop storage without conversion.
     ///
     /// The returned Fp12 value is not necessarily in [`Gt`] before final
@@ -1477,6 +1487,13 @@ impl MillerLoopResult {
     #[inline]
     pub const fn as_raw(&self) -> &blst_fp12 {
         &self.0
+    }
+
+    /// Consumes the wrapper and returns the unfinalized native Miller product.
+    /// The result must not be treated as a target-group element.
+    #[inline]
+    pub const fn into_raw(self) -> blst_fp12 {
+        self.0
     }
 
     /// Wraps a trusted native Miller-loop result without conversion.
@@ -2378,6 +2395,19 @@ mod tests {
         assert_eq!(
             batch,
             pairing(&g1s[0], &g2s[0]) + pairing(&g1s[1], &g2s[1])
+        );
+        let nontrivial = MillerLoopResult::from_pairs(&g1s, &g2s).unwrap();
+        assert!(!nontrivial.final_verify_is_identity());
+        assert!(MillerLoopResult::identity().final_verify_is_identity());
+        let canceling = MillerLoopResult::from_pairs(
+            &[g1, G1Affine::from(-G1Projective::from(g1))],
+            &[g2, g2],
+        )
+        .unwrap();
+        assert!(canceling.final_verify_is_identity());
+        assert_eq!(
+            canceling.final_verify_is_identity(),
+            canceling.final_exponentiation().is_identity()
         );
         assert_eq!(
             MillerLoopResult::from_pairs(&g1s, &g2s[..1]),

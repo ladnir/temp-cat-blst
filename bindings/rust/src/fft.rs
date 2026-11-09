@@ -5,7 +5,9 @@
 
 //! Wrappers for the owned BLST Fr and group FFTs.
 
+use crate::scalar::Scalar;
 use crate::*;
+use alloc::vec::Vec;
 
 extern "C" {
     fn blst_fr_fft(values: *mut blst_fr, n: usize, inverse: bool) -> bool;
@@ -76,7 +78,81 @@ extern "C" {
 pub enum FftError {
     EmptyInput,
     InvalidSize,
+    AllocationFailed,
     BackendFailure,
+}
+
+/// Reusable, exact-size FFT roots over the typed scalar field.
+///
+/// Construction allocates once. Each transform works in place without
+/// allocation or conversion and may share this domain across disjoint inputs.
+#[derive(Debug)]
+pub struct ScalarFftDomain {
+    size: usize,
+    roots: Vec<Scalar>,
+}
+
+impl ScalarFftDomain {
+    /// Prepares a radix-two domain for exactly `size` scalar values.
+    pub fn new(size: usize) -> Result<Self, FftError> {
+        let len = fr_fft_domain_len(size)?;
+        let mut roots = Vec::new();
+        roots
+            .try_reserve_exact(len)
+            .map_err(|_| FftError::AllocationFailed)?;
+        roots.resize(len, Scalar::ZERO);
+        // SAFETY: Scalar is transparent over a reduced Montgomery blst_fr,
+        // and this exclusive slice is fully initialized and correctly sized.
+        let raw = unsafe {
+            core::slice::from_raw_parts_mut(
+                roots.as_mut_ptr().cast::<blst_fr>(),
+                len,
+            )
+        };
+        fr_fft_domain_init(raw, size)?;
+        Ok(Self { size, roots })
+    }
+
+    /// The exact input length accepted by this domain.
+    #[inline]
+    pub const fn size(&self) -> usize {
+        self.size
+    }
+
+    /// The primitive root for this domain (one for the singleton domain).
+    #[inline]
+    pub fn generator(&self) -> Scalar {
+        self.roots[usize::from(self.size > 1)]
+    }
+
+    /// Runs a forward or inverse in-place FFT without allocation.
+    ///
+    /// A wrong input length leaves the input unchanged. The native backend's
+    /// unexpected-failure contract is the same as [`fr_fft_with_domain`].
+    pub fn transform(
+        &self,
+        values: &mut [Scalar],
+        inverse: bool,
+    ) -> Result<(), FftError> {
+        if values.len() != self.size {
+            return Err(FftError::InvalidSize);
+        }
+        // SAFETY: Scalar and blst_fr have the same transparent layout. The
+        // mutable values and immutable roots are disjoint owned allocations.
+        let raw_values = unsafe {
+            core::slice::from_raw_parts_mut(
+                values.as_mut_ptr().cast::<blst_fr>(),
+                values.len(),
+            )
+        };
+        let raw_roots = unsafe {
+            core::slice::from_raw_parts(
+                self.roots.as_ptr().cast::<blst_fr>(),
+                self.roots.len(),
+            )
+        };
+        fr_fft_with_domain(raw_values, raw_roots, inverse)
+    }
 }
 
 /// Runs the BLST reference FFT in-place over Montgomery-form Fr values.
@@ -538,6 +614,42 @@ mod tests {
             fr_fft_with_domain(&mut values, &short_domain, false),
             Err(FftError::InvalidSize)
         );
+    }
+
+    #[test]
+    fn typed_prepared_domain_matches_raw_fft() {
+        assert_eq!(ScalarFftDomain::new(0).unwrap_err(), FftError::EmptyInput);
+        assert_eq!(ScalarFftDomain::new(3).unwrap_err(), FftError::InvalidSize);
+        for size in [1usize, 2, 8, 32] {
+            let domain = ScalarFftDomain::new(size).unwrap();
+            assert_eq!(domain.size(), size);
+            let input: Vec<_> = (0..size)
+                .map(|i| Scalar::from((i as u64 + 1) * 17))
+                .collect();
+            let mut typed = input.clone();
+            let mut raw: Vec<_> =
+                input.iter().map(|value| *value.as_raw()).collect();
+            domain.transform(&mut typed, false).unwrap();
+            fr_fft(&mut raw, false).unwrap();
+            assert!(typed
+                .iter()
+                .zip(&raw)
+                .all(|(left, right)| left.as_raw() == right));
+            domain.transform(&mut typed, true).unwrap();
+            assert_eq!(typed, input);
+            let mut roots =
+                vec![blst_fr::default(); fr_fft_domain_len(size).unwrap()];
+            fr_fft_domain_init(&mut roots, size).unwrap();
+            assert_eq!(
+                domain.generator().as_raw(),
+                &roots[usize::from(size > 1)]
+            );
+            assert_eq!(
+                domain.transform(&mut typed[..size - 1], false),
+                Err(FftError::InvalidSize)
+            );
+            assert_eq!(typed, input);
+        }
     }
 
     #[test]
