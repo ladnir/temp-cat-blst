@@ -716,6 +716,7 @@ struct G1Point
     /// Convert an on-curve public point to affine. This is variable-time;
     /// infinity maps to the all-zero affine value and subgroup state is preserved.
     static void to_affine(G1AffinePoint& out, const G1Point& in);
+    static void to_affine_ct(G1AffinePoint& out, const G1Point& in);
     /// Batch-normalize public points with one field inversion. Output and input
     /// lengths must match; prefix_products supplies at least one field element
     /// per point and may be retained by a caller-owned hot-path workspace.
@@ -1285,6 +1286,13 @@ inline void G1Point::to_affine(G1AffinePoint& out, const G1Point& in)
 {
     const auto affine = avx_curve_detail::projective_to_affine({in.X, in.Y, in.Z});
     out = {affine.x, affine.y};
+}
+
+inline void G1Point::to_affine_ct(G1AffinePoint& out, const G1Point& in)
+{
+    const auto normalized = avx_curve_detail::normalize_secret_projective(
+        {in.X, in.Y, in.Z});
+    out = {normalized.x, normalized.y};
 }
 
 inline void G1Point::to_affine_batch(
