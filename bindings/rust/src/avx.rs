@@ -1675,6 +1675,19 @@ impl G2MsmWorkspace {
 }
 
 impl G1MsmWorkspace {
+    /// Erases secret-scalar MSM scratch before reuse or disposal.
+    pub fn clear_secret(&mut self) {
+        for block in &mut self.scratch {
+            // SAFETY: `MaybeUninit` storage is allocated and writable even when
+            // the native kernel has not initialized every byte.
+            let bytes = block.as_mut_ptr().cast::<u8>();
+            for offset in 0..SCRATCH_ALIGNMENT {
+                unsafe { ptr::write_volatile(bytes.add(offset), 0) };
+            }
+        }
+        compiler_fence(Ordering::SeqCst);
+    }
+
     /// Allocates enough aligned scratch for at most `max_points` points.
     pub fn for_points(max_points: usize) -> Result<Self, Error> {
         ensure_available()?;
@@ -1855,6 +1868,12 @@ impl G1MsmWorkspace {
         } else {
             Err(Error::BackendFailure)
         }
+    }
+}
+
+impl Drop for G1MsmWorkspace {
+    fn drop(&mut self) {
+        self.clear_secret();
     }
 }
 
