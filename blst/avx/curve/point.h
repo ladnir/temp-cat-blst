@@ -1191,7 +1191,12 @@ inline void G1Point::add(G1Point& out, const G1Point& a, const G1Point& b)
 inline void G1Point::add(G1Point& out, const G1Point& a, const G1AffinePoint& b)
 {
     const auto raw = avx_curve_detail::curve_g1().add_mixed_point({a.X, a.Y, a.Z}, {b.X, b.Y}, avx_curve_detail::curve_ring());
-    out = {raw.x, raw.y, raw.z};
+    // Scalar-boundary affine infinity can be zero modulo p without having
+    // the exact RNS zero representation expected by add_mixed_point.
+    const bool_t infinity = avx_curve_detail::is_zero_mod_field(b.X) &
+        avx_curve_detail::is_zero_mod_field(b.Y);
+    const auto selected = raw.ctime_replace_if(infinity, {a.X, a.Y, a.Z});
+    out = {selected.x, selected.y, selected.z};
 }
 
 inline void G1Point::doubling(G1Point& out, const G1Point& a)
@@ -1626,7 +1631,10 @@ inline void G2Point::add(G2Point& out, const G2Point& a, const G2Point& b)
 inline void G2Point::add(G2Point& out, const G2Point& a, const G2AffinePoint& b)
 {
     const auto raw = avx_curve_detail::curve_g2().add_mixed_point({a.X, a.Y, a.Z}, {b.X, b.Y}, avx_curve_detail::curve_fp2_ring());
-    out = {raw.x, raw.y, raw.z};
+    const bool_t infinity = avx_curve_detail::is_zero_mod_field(b.X) &
+        avx_curve_detail::is_zero_mod_field(b.Y);
+    const auto selected = raw.ctime_replace_if(infinity, {a.X, a.Y, a.Z});
+    out = {selected.x, selected.y, selected.z};
 }
 
 inline void G2Point::doubling(G2Point& out, const G2Point& a)
